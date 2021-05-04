@@ -10,6 +10,7 @@
 
 // Wrapper for a fpnew
 // Contributor: Davide Schiavone <davide@openhwgroup.org>
+//              Moritz Imfeld <moimfeld@student.ethz.ch>
 
 module cv32e40p_fp_wrapper
   import cv32e40p_apu_core_pkg::*;
