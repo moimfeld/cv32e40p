@@ -32,9 +32,7 @@ module cv32e40p_cs_registers
 #(
     parameter N_HWLP           = 2,
     parameter N_HWLP_BITS      = $clog2(N_HWLP),
-    parameter APU              = 0,
     parameter A_EXTENSION      = 0,
-    parameter FPU              = 0,
     parameter PULP_SECURE      = 0,
     parameter USE_PMP          = 0,
     parameter N_PMP_ENTRIES    = 16,
@@ -63,10 +61,6 @@ module cv32e40p_cs_registers
     input  logic        [31:0] csr_wdata_i,
     input  csr_opcode_e        csr_op_i,
     output logic        [31:0] csr_rdata_o,
-
-    output logic [        2:0] frm_o,
-    input  logic [C_FFLAG-1:0] fflags_i,
-    input  logic               fflags_we_i,
 
     // Interrupts
     output logic [31:0] mie_bypass_o,
@@ -134,11 +128,7 @@ module cv32e40p_cs_registers
     input logic mhpmevent_jr_stall_i,
     input logic mhpmevent_imiss_i,
     input logic mhpmevent_ld_stall_i,
-    input logic mhpmevent_pipe_stall_i,
-    input logic apu_typeconflict_i,
-    input logic apu_contention_i,
-    input logic apu_dep_i,
-    input logic apu_wb_i
+    input logic mhpmevent_pipe_stall_i
 );
 
   localparam NUM_HPM_EVENTS = 16;
@@ -166,7 +156,6 @@ module cv32e40p_cs_registers
   | (1 << 2)  // C - Compressed extension
   | (0 << 3)  // D - Double precision floating-point extension
   | (0 << 4)  // E - RV32E base ISA
-  | (32'(FPU) << 5)  // F - Single precision floating-point extension
   | (1 << 8)  // I - RV32I/64I/128I base ISA
   | (1 << 12)  // M - Integer Multiply/Divide extension
   | (0 << 13)  // N - User level interrupts supported
@@ -321,11 +310,6 @@ module cv32e40p_cs_registers
     // read logic
     always_comb begin
       case (csr_addr_i)
-        // fcsr: Floating-Point Control and Status Register (frm + fflags).
-        CSR_FFLAGS: csr_rdata_int = (FPU == 1) ? {27'b0, fflags_q} : '0;
-        CSR_FRM:    csr_rdata_int = (FPU == 1) ? {29'b0, frm_q} : '0;
-        CSR_FCSR:   csr_rdata_int = (FPU == 1) ? {24'b0, frm_q, fflags_q} : '0;
-
         // mstatus
         CSR_MSTATUS:
         csr_rdata_int = {
@@ -488,10 +472,6 @@ module cv32e40p_cs_registers
     always_comb begin
 
       case (csr_addr_i)
-        // fcsr: Floating-Point Control and Status Register (frm + fflags).
-        CSR_FFLAGS: csr_rdata_int = (FPU == 1) ? {27'b0, fflags_q} : '0;
-        CSR_FRM: csr_rdata_int = (FPU == 1) ? {29'b0, frm_q} : '0;
-        CSR_FCSR: csr_rdata_int = (FPU == 1) ? {24'b0, frm_q, fflags_q} : '0;
         // mstatus: always M-mode, contains IE bit
         CSR_MSTATUS:
         csr_rdata_int = {
@@ -654,17 +634,7 @@ module cv32e40p_cs_registers
 
       mie_n                   = mie_q;
 
-      if (FPU == 1) if (fflags_we_i) fflags_n = fflags_i | fflags_q;
-
       case (csr_addr_i)
-        // fcsr: Floating-Point Control and Status Register (frm, fflags, fprec).
-        CSR_FFLAGS: if (csr_we_int) fflags_n = (FPU == 1) ? csr_wdata_int[C_FFLAG-1:0] : '0;
-        CSR_FRM:    if (csr_we_int) frm_n = (FPU == 1) ? csr_wdata_int[C_RM-1:0] : '0;
-        CSR_FCSR:
-        if (csr_we_int) begin
-          fflags_n = (FPU == 1) ? csr_wdata_int[C_FFLAG-1:0] : '0;
-          frm_n    = (FPU == 1) ? csr_wdata_int[C_RM+C_FFLAG-1:C_FFLAG] : '0;
-        end
 
         // mstatus: IE bit
         CSR_MSTATUS:
@@ -967,18 +937,7 @@ module cv32e40p_cs_registers
       mtvec_mode_n = mtvec_mode_q;
       utvec_mode_n = '0;  // Not used if PULP_SECURE == 0
 
-      if (FPU == 1) if (fflags_we_i) fflags_n = fflags_i | fflags_q;
-
       case (csr_addr_i)
-        // fcsr: Floating-Point Control and Status Register (frm, fflags, fprec).
-        CSR_FFLAGS: if (csr_we_int) fflags_n = (FPU == 1) ? csr_wdata_int[C_FFLAG-1:0] : '0;
-        CSR_FRM:    if (csr_we_int) frm_n = (FPU == 1) ? csr_wdata_int[C_RM-1:0] : '0;
-        CSR_FCSR:
-        if (csr_we_int) begin
-          fflags_n = (FPU == 1) ? csr_wdata_int[C_FFLAG-1:0] : '0;
-          frm_n    = (FPU == 1) ? csr_wdata_int[C_RM+C_FFLAG-1:C_FFLAG] : '0;
-        end
-
         // mstatus: IE bit
         CSR_MSTATUS:
         if (csr_we_int) begin
@@ -1152,7 +1111,6 @@ module cv32e40p_cs_registers
   assign u_irq_enable_o      = mstatus_q.uie && !(dcsr_q.step && !dcsr_q.stepie);
   assign priv_lvl_o          = priv_lvl_q;
   assign sec_lvl_o           = priv_lvl_q[0];
-  assign frm_o               = (FPU == 1) ? frm_q : '0;
 
   assign mtvec_o             = mtvec_q;
   assign utvec_o             = utvec_q;
@@ -1248,14 +1206,6 @@ module cv32e40p_cs_registers
       mtvec_q <= '0;
       mtvec_mode_q <= MTVEC_MODE;
     end else begin
-      // update CSRs
-      if (FPU == 1) begin
-        frm_q    <= frm_n;
-        fflags_q <= fflags_n;
-      end else begin
-        frm_q    <= 'b0;
-        fflags_q <= 'b0;
-      end
       if (PULP_SECURE == 1) begin
         mstatus_q <= mstatus_n;
       end else begin
@@ -1375,10 +1325,10 @@ module cv32e40p_cs_registers
   assign hpm_events[9] = mhpmevent_branch_taken_i;  // nr of taken branches (conditional)
   assign hpm_events[10] = mhpmevent_compressed_i;  // compressed instruction counter
   assign hpm_events[11] = PULP_CLUSTER ? mhpmevent_pipe_stall_i : 1'b0;  // extra cycles from ELW
-  assign hpm_events[12] = !APU ? 1'b0 : apu_typeconflict_i && !apu_dep_i;
-  assign hpm_events[13] = !APU ? 1'b0 : apu_contention_i;
-  assign hpm_events[14] = !APU ? 1'b0 : apu_dep_i && !apu_contention_i;
-  assign hpm_events[15] = !APU ? 1'b0 : apu_wb_i;
+  assign hpm_events[12] = 1'b0;  // Moritz: set event by default to 0
+  assign hpm_events[13] = 1'b0;
+  assign hpm_events[14] = 1'b0;
+  assign hpm_events[15] = 1'b0;
 
   // ------------------------
   // address decoder for performance counter registers

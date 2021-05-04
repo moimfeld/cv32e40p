@@ -28,8 +28,7 @@
 module cv32e40p_if_stage #(
     parameter PULP_XPULP      = 0,                        // PULP ISA Extension (including PULP specific CSRs and hardware loop, excluding p.elw)
     parameter PULP_OBI = 0,  // Legacy PULP OBI behavior
-    parameter PULP_SECURE = 0,
-    parameter FPU = 0
+    parameter PULP_SECURE = 0
 ) (
     input logic clk,
     input logic rst_n,
@@ -269,9 +268,7 @@ module cv32e40p_if_stage #(
       .pc_o            (pc_if_o)
   );
 
-  cv32e40p_compressed_decoder #(
-      .FPU(FPU)
-  ) compressed_decoder_i (
+  cv32e40p_compressed_decoder compressed_decoder_i (
       .instr_i        (instr_aligned),
       .instr_o        (instr_decompressed),
       .is_compressed_o(instr_compressed_int),
