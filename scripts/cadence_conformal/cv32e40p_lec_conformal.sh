@@ -27,6 +27,13 @@ add ignored outputs apu_operands_o* -Both
 add ignored outputs apu_op_o* -Both
 add ignored outputs apu_flags_o* -Both
 
+add ignored outputs x_valid_o -Both
+add ignored outputs x_rs_o* -Both
+add ignored outputs x_rs_valid_o* -Both
+add ignored outputs x_rd_clean_o -Both
+add ignored outputs x_rready_o -Both
+
+
 write hier_compare dofile hier_compare_r2r.do -constraint -replace
 
 run hier_compare hier_compare_r2r.do -ROOT_module cv32e40p_core cv32e40p_core
