@@ -253,11 +253,6 @@ package cv32e40p_pkg;
     // User trap setup
     CSR_USTATUS = 12'h000,  // Not included (PULP_SECURE = 0)
 
-    // Floating Point
-    CSR_FFLAGS = 12'h001,  // Included if FPU = 1
-    CSR_FRM    = 12'h002,  // Included if FPU = 1
-    CSR_FCSR   = 12'h003,  // Included if FPU = 1
-
     // User trap setup
     CSR_UTVEC = 12'h005,  // Not included (PULP_SECURE = 0)
 
@@ -742,16 +737,6 @@ package cv32e40p_pkg;
   parameter int unsigned C_LAT_DIVSQRT = 'd1;  // divsqrt post-processing pipe
   parameter int unsigned C_LAT_CONV = 'd0;
   parameter int unsigned C_LAT_NONCOMP = 'd0;
-
-  // General FPU-specific defines
-
-  // Length of widest floating-point format = width of fp regfile
-  parameter C_FLEN = C_RVD ? 64 :  // D ext.
-  C_RVF ? 32 :  // F ext.
-  C_XF16 ? 16 :  // Xf16 ext.
-  C_XF16ALT ? 16 :  // Xf16alt ext.
-  C_XF8 ? 8 :  // Xf8 ext.
-  0;  // Unused in case of no FP
 
   parameter C_FFLAG = 5;
   parameter C_RM = 3;

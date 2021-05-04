@@ -28,9 +28,7 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-module cv32e40p_core
-  import cv32e40p_apu_core_pkg::*;
-#(
+module cv32e40p_core #(
     parameter PULP_XPULP          =  0,                   // PULP ISA Extension (incl. custom CSRs and hardware loop, excl. p.elw)
     parameter PULP_CLUSTER = 0,  // PULP Cluster interface (incl. p.elw)
     parameter FPU = 0,  // Floating Point Unit (interfaced via APU interface)
@@ -68,18 +66,27 @@ module cv32e40p_core
     output logic [31:0] data_wdata_o,
     input  logic [31:0] data_rdata_i,
 
-    // apu-interconnect
-    // handshake signals
-    output logic                              apu_req_o,
-    input  logic                              apu_gnt_i,
-    // request channel
-    output logic [   APU_NARGS_CPU-1:0][31:0] apu_operands_o,
-    output logic [     APU_WOP_CPU-1:0]       apu_op_o,
-    output logic [APU_NDSFLAGS_CPU-1:0]       apu_flags_o,
-    // response channel
-    input  logic                              apu_rvalid_i,
-    input  logic [                31:0]       apu_result_i,
-    input  logic [APU_NUSFLAGS_CPU-1:0]       apu_flags_i,
+    // X-Interface
+    // X-Request Channel
+    output logic              x_valid_o,
+    input  logic              x_ready_i,
+    output logic [ 2:0][31:0] x_rs_o,
+    output logic [ 2:0]       x_rs_valid_o,
+    output logic              x_rd_clean_o,
+    input  logic              x_accept_i,
+    input  logic              x_is_mem_op_i,
+    input  logic              x_writeback_i,
+    // X-Response Channel
+    input  logic              x_rvalid_i,
+    output logic              x_rready_o,
+    input  logic              x_rd_i,
+    input  logic [31:0]       x_data_i,
+    input  logic              x_dualwb_i,  // Moritz: not handled yet
+    input  logic              x_type_i,  // Moritz: not handled yet
+    input  logic              x_error_i,  // Moritz: not handled yet
+    // XMem-Request Channel
+
+    // XMem-Response Channel
 
     // Interrupt inputs
     input  logic [31:0] irq_i,  // CLINT interrupts + CLINT extension interrupts
@@ -122,8 +129,6 @@ module cv32e40p_core
 
   localparam N_HWLP = 2;
   localparam N_HWLP_BITS = $clog2(N_HWLP);
-  localparam APU = (FPU == 1) ? 1 : 0;
-
 
   // IF/ID signals
   logic        instr_valid_id;
@@ -162,7 +167,6 @@ module cv32e40p_core
   logic               ctrl_busy;
   logic               if_busy;
   logic               lsu_busy;
-  logic               apu_busy;
 
   logic        [31:0] pc_ex;  // PC of last executed branch or p.elw
 
@@ -177,6 +181,7 @@ module cv32e40p_core
   logic        [ 1:0] imm_vec_ext_ex;
   logic        [ 1:0] alu_vec_mode_ex;
   logic alu_is_clpx_ex, alu_is_subrot_ex;
+
   logic        [                 1:0]       alu_clpx_shift_ex;
 
   // Multiplier Control
@@ -196,30 +201,8 @@ module cv32e40p_core
   logic        [                 1:0]       mult_clpx_shift_ex;
   logic                                     mult_clpx_img_ex;
 
-  // FPU
-  logic        [            C_RM-1:0]       frm_csr;
-  logic        [         C_FFLAG-1:0]       fflags_csr;
-  logic                                     fflags_we;
-
   // APU
   logic                                     apu_en_ex;
-  logic        [APU_NDSFLAGS_CPU-1:0]       apu_flags_ex;
-  logic        [     APU_WOP_CPU-1:0]       apu_op_ex;
-  logic        [                 1:0]       apu_lat_ex;
-  logic        [   APU_NARGS_CPU-1:0][31:0] apu_operands_ex;
-  logic        [                 5:0]       apu_waddr_ex;
-
-  logic        [                 2:0][ 5:0] apu_read_regs;
-  logic        [                 2:0]       apu_read_regs_valid;
-  logic                                     apu_read_dep;
-  logic        [                 1:0][ 5:0] apu_write_regs;
-  logic        [                 1:0]       apu_write_regs_valid;
-  logic                                     apu_write_dep;
-
-  logic                                     perf_apu_type;
-  logic                                     perf_apu_cont;
-  logic                                     perf_apu_dep;
-  logic                                     perf_apu_wb;
 
   // Register Write Control
   logic        [                 5:0]       regfile_waddr_ex;
@@ -238,6 +221,7 @@ module cv32e40p_core
   // CSR control
   logic                                     csr_access_ex;
   csr_opcode_e                              csr_op_ex;
+
   logic [23:0] mtvec, utvec;
   logic        [ 1:0] mtvec_mode;
   logic        [ 1:0] utvec_mode;
@@ -275,8 +259,6 @@ module cv32e40p_core
 
   logic               lsu_ready_ex;
   logic               lsu_ready_wb;
-
-  logic               apu_ready_wb;
 
   // Signals between instruction core interface and pipe (if and id stages)
   logic               instr_req_int;  // Id stage asserts a req to instruction core interface
@@ -363,10 +345,6 @@ module cv32e40p_core
   // PULP_SECURE == 0
   assign irq_sec_i = 1'b0;
 
-  // APU master signals
-  assign apu_flags_o = apu_flags_ex;
-  assign fflags_csr = apu_flags_i;
-
   //////////////////////////////////////////////////////////////////////////////////////////////
   //   ____ _            _      __  __                                                   _    //
   //  / ___| | ___   ___| | __ |  \/  | __ _ _ __   __ _  __ _  ___ _ __ ___   ___ _ __ | |_  //
@@ -399,7 +377,6 @@ module cv32e40p_core
       .if_busy_i  (if_busy),
       .ctrl_busy_i(ctrl_busy),
       .lsu_busy_i (lsu_busy),
-      .apu_busy_i (apu_busy),
 
       // PULP cluster
       .pulp_clock_en_i       (pulp_clock_en_i),
@@ -423,8 +400,7 @@ module cv32e40p_core
   cv32e40p_if_stage #(
       .PULP_XPULP (PULP_XPULP),
       .PULP_OBI   (PULP_OBI),
-      .PULP_SECURE(PULP_SECURE),
-      .FPU        (FPU)
+      .PULP_SECURE(PULP_SECURE)
   ) if_stage_i (
       .clk  (clk),
       .rst_n(rst_ni),
@@ -515,14 +491,9 @@ module cv32e40p_core
       .PULP_SECURE     (PULP_SECURE),
       .USE_PMP         (USE_PMP),
       .A_EXTENSION     (A_EXTENSION),
-      .APU             (APU),
-      .FPU             (FPU),
       .PULP_ZFINX      (PULP_ZFINX),
-      .APU_NARGS_CPU   (APU_NARGS_CPU),
-      .APU_WOP_CPU     (APU_WOP_CPU),
-      .APU_NDSFLAGS_CPU(APU_NDSFLAGS_CPU),
-      .APU_NUSFLAGS_CPU(APU_NUSFLAGS_CPU),
-      .DEBUG_TRIGGER_EN(DEBUG_TRIGGER_EN)
+      .DEBUG_TRIGGER_EN(DEBUG_TRIGGER_EN),
+      .FPU             (FPU)
   ) id_stage_i (
       .clk          (clk),  // Gated clock
       .clk_ungated_i(clk_i),  // Ungated clock
@@ -610,25 +581,20 @@ module cv32e40p_core
       .mult_clpx_shift_ex_o(mult_clpx_shift_ex),  // from ID to EX stage
       .mult_clpx_img_ex_o  (mult_clpx_img_ex),  // from ID to EX stage
 
-      // FPU
-      .frm_i(frm_csr),
-
       // APU
-      .apu_en_ex_o      (apu_en_ex),
-      .apu_op_ex_o      (apu_op_ex),
-      .apu_lat_ex_o     (apu_lat_ex),
-      .apu_operands_ex_o(apu_operands_ex),
-      .apu_flags_ex_o   (apu_flags_ex),
-      .apu_waddr_ex_o   (apu_waddr_ex),
+      .apu_en_ex_o(apu_en_ex),
 
-      .apu_read_regs_o       (apu_read_regs),
-      .apu_read_regs_valid_o (apu_read_regs_valid),
-      .apu_read_dep_i        (apu_read_dep),
-      .apu_write_regs_o      (apu_write_regs),
-      .apu_write_regs_valid_o(apu_write_regs_valid),
-      .apu_write_dep_i       (apu_write_dep),
-      .apu_perf_dep_o        (perf_apu_dep),
-      .apu_busy_i            (apu_busy),
+      // X-Interface
+      .x_valid_o    (x_valid_o),
+      .x_ready_i    (x_ready_i),
+      .x_rs_o       (x_rs_o),
+      .x_rs_valid_o (x_rs_valid_o),
+      .x_rd_clean_o (x_rd_clean_o),
+      .x_accept_i   (x_accept_i),
+      .x_is_mem_op_i(x_is_mem_op_i),
+      .x_writeback_i(x_writeback_i),
+      .x_rvalid_i   (x_rvalid_i),
+      .x_rd_i       (x_rd_i),
 
       // CSR ID/EX
       .csr_access_ex_o      (csr_access_ex),
@@ -740,13 +706,8 @@ module cv32e40p_core
   //  |_____/_/\_\ |____/ |_/_/   \_\____|_____|     //
   //                                                 //
   /////////////////////////////////////////////////////
-  cv32e40p_ex_stage #(
-      .FPU             (FPU),
-      .APU_NARGS_CPU   (APU_NARGS_CPU),
-      .APU_WOP_CPU     (APU_WOP_CPU),
-      .APU_NDSFLAGS_CPU(APU_NDSFLAGS_CPU),
-      .APU_NUSFLAGS_CPU(APU_NUSFLAGS_CPU)
-  ) ex_stage_i (
+
+  cv32e40p_ex_stage ex_stage_i (
       // Global signals: Clock and active low asynchronous reset
       .clk  (clk),
       .rst_n(rst_ni),
@@ -784,40 +745,14 @@ module cv32e40p_core
 
       .mult_multicycle_o(mult_multicycle),  // to ID/EX pipe registers
 
-      // FPU
-      .fpu_fflags_we_o(fflags_we),
-
       // APU
-      .apu_en_i      (apu_en_ex),
-      .apu_op_i      (apu_op_ex),
-      .apu_lat_i     (apu_lat_ex),
-      .apu_operands_i(apu_operands_ex),
-      .apu_waddr_i   (apu_waddr_ex),
-      .apu_flags_i   (apu_flags_ex),
+      .apu_en_i(apu_en_ex),
 
-      .apu_read_regs_i       (apu_read_regs),
-      .apu_read_regs_valid_i (apu_read_regs_valid),
-      .apu_read_dep_o        (apu_read_dep),
-      .apu_write_regs_i      (apu_write_regs),
-      .apu_write_regs_valid_i(apu_write_regs_valid),
-      .apu_write_dep_o       (apu_write_dep),
-
-      .apu_perf_type_o(perf_apu_type),
-      .apu_perf_cont_o(perf_apu_cont),
-      .apu_perf_wb_o  (perf_apu_wb),
-      .apu_ready_wb_o (apu_ready_wb),
-      .apu_busy_o     (apu_busy),
-
-      // apu-interconnect
-      // handshake signals
-      .apu_req_o     (apu_req_o),
-      .apu_gnt_i     (apu_gnt_i),
-      // request channel
-      .apu_operands_o(apu_operands_o),
-      .apu_op_o      (apu_op_o),
-      // response channel
-      .apu_rvalid_i  (apu_rvalid_i),
-      .apu_result_i  (apu_result_i),
+      // X-Interface
+      .x_rvalid_i(1'b0),
+      // .x_rvalid_i                 ( x_rvalid_i                   ),
+      .x_rd_i    (x_rd_i),
+      .x_data_i  (x_data_i),
 
       .lsu_en_i   (data_req_ex),
       .lsu_rdata_i(lsu_rdata),
@@ -848,8 +783,6 @@ module cv32e40p_core
       .regfile_alu_we_fw_o   (regfile_alu_we_fw),
       .regfile_alu_wdata_fw_o(regfile_alu_wdata_fw),
 
-      // stall control
-      .is_decoding_i (is_decoding),
       .lsu_ready_ex_i(lsu_ready_ex),
       .lsu_err_i     (data_err_pmp),
 
@@ -917,7 +850,7 @@ module cv32e40p_core
   );
 
   // Tracer signal
-  assign wb_valid = lsu_ready_wb & apu_ready_wb;
+  assign wb_valid = lsu_ready_wb;
 
 
   //////////////////////////////////////
@@ -932,8 +865,6 @@ module cv32e40p_core
 
   cv32e40p_cs_registers #(
       .A_EXTENSION     (A_EXTENSION),
-      .FPU             (FPU),
-      .APU             (APU),
       .PULP_SECURE     (PULP_SECURE),
       .USE_PMP         (USE_PMP),
       .N_PMP_ENTRIES   (N_PMP_ENTRIES),
@@ -959,10 +890,6 @@ module cv32e40p_core
       .csr_wdata_i     (csr_wdata),
       .csr_op_i        (csr_op),
       .csr_rdata_o     (csr_rdata),
-
-      .frm_o      (frm_csr),
-      .fflags_i   (fflags_csr),
-      .fflags_we_i(fflags_we),
 
       // Interrupt related control signals
       .mie_bypass_o  (mie_bypass),
@@ -1027,11 +954,7 @@ module cv32e40p_core
       .mhpmevent_jr_stall_i    (mhpmevent_jr_stall),
       .mhpmevent_imiss_i       (mhpmevent_imiss),
       .mhpmevent_ld_stall_i    (mhpmevent_ld_stall),
-      .mhpmevent_pipe_stall_i  (mhpmevent_pipe_stall),
-      .apu_typeconflict_i      (perf_apu_type),
-      .apu_contention_i        (perf_apu_cont),
-      .apu_dep_i               (perf_apu_dep),
-      .apu_wb_i                (perf_apu_wb)
+      .mhpmevent_pipe_stall_i  (mhpmevent_pipe_stall)
   );
 
   //  CSR access

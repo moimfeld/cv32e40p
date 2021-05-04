@@ -73,7 +73,6 @@ module cv32e40p_sleep_unit #(
     input logic if_busy_i,
     input logic ctrl_busy_i,
     input logic lsu_busy_i,
-    input logic apu_busy_i,
 
     // PULP Cluster interface
     input logic pulp_clock_en_i,  // PULP clock enable (only used if PULP_CLUSTER = 1)
@@ -105,8 +104,8 @@ module cv32e40p_sleep_unit #(
   generate
     if (PULP_CLUSTER) begin : g_pulp_sleep
 
-      // Busy unless in a p.elw and IF/APU are no longer busy
-      assign core_busy_d = p_elw_busy_d ? (if_busy_i || apu_busy_i) : 1'b1;
+      // Busy unless in a p.elw and IF are no longer busy
+      assign core_busy_d = p_elw_busy_d ? (if_busy_i) : 1'b1;
 
       // Enable the clock only after the initial fetch enable while busy or instructed so by PULP Cluster's pulp_clock_en_i
       assign clock_en = fetch_enable_q && (pulp_clock_en_i || core_busy_q);
@@ -120,8 +119,7 @@ module cv32e40p_sleep_unit #(
     end else begin : g_no_pulp_sleep
 
       // Busy when any of the sub units is busy (typically wait for the instruction buffer to fill up)
-      assign core_busy_d = if_busy_i || ctrl_busy_i || lsu_busy_i || apu_busy_i;
-
+      assign core_busy_d = if_busy_i || ctrl_busy_i || lsu_busy_i;
       // Enable the clock only after the initial fetch enable while busy or waking up to become busy
       assign clock_en = fetch_enable_q && (wake_from_sleep_i || core_busy_q);
 
