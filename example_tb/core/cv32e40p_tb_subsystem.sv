@@ -11,7 +11,9 @@
 // Wrapper for a RI5CY testbench, containing RI5CY, Memory and stdout peripheral
 // Contributor: Robert Balas <balasr@student.ethz.ch>
 
-module cv32e40p_tb_subsystem #(
+module cv32e40p_tb_subsystem
+    import cv32e40p_core_v_xif_pkg::*;
+  #(
     parameter INSTR_RDATA_WIDTH = 32,
     parameter RAM_ADDR_WIDTH = 20,
     parameter BOOT_ADDR = 'h180,
@@ -32,8 +34,6 @@ module cv32e40p_tb_subsystem #(
     output logic        exit_valid_o
 );
 
-  import cv32e40p_apu_core_pkg::*;
-
   // signals connecting core to memory
   logic                               instr_req;
   logic                               instr_gnt;
@@ -52,7 +52,7 @@ module cv32e40p_tb_subsystem #(
   logic [                  5:0]       data_atop = 6'b0;
 
   // signals to debug unit
-  logic                               debug_req_i;
+  logic                               debug_req;
 
   // irq signals
   logic                               irq_ack;
@@ -62,109 +62,53 @@ module cv32e40p_tb_subsystem #(
   logic                               irq_external;
   logic [                 15:0]       irq_fast;
 
-  logic                               core_sleep_o;
+  logic                               core_sleep;
 
-  // APU Core to FP Wrapper
-  logic                               apu_req;
-  logic [    APU_NARGS_CPU-1:0][31:0] apu_operands;
-  logic [      APU_WOP_CPU-1:0]       apu_op;
-  logic [ APU_NDSFLAGS_CPU-1:0]       apu_flags;
+  assign debug_req = 1'b0;
 
 
-  // APU FP Wrapper to Core
-  logic                               apu_gnt;
-  logic                               apu_rvalid;
-  logic [                 31:0]       apu_rdata;
-  logic [ APU_NUSFLAGS_CPU-1:0]       apu_rflags;
+  cv32e40p_core_and_coprocessor_wrapper #(
+    .INSTR_RDATA_WIDTH(INSTR_RDATA_WIDTH),
+    .BOOT_ADDR(BOOT_ADDR),
+    .PULP_XPULP(PULP_XPULP),
+    .PULP_CLUSTER(PULP_CLUSTER),
+    .FPU(FPU),
+    .PULP_ZFINX(PULP_ZFINX),
+    .NUM_MHPMCOUNTERS(NUM_MHPMCOUNTERS),
+    .DM_HALTADDRESS(NUM_MHPMCOUNTERS)
+  ) cv32e40p_core_and_coprocessor_wrapper_i (
+    .clk_i(clk_i),
+    .rst_ni(rst_ni),
 
+    .fetch_enable_i(fetch_enable_i),
 
+    // signals connecting core to memory
+    .instr_req_o(instr_req),
+    .instr_gnt_i(instr_gnt),
+    .instr_rvalid_i(instr_rvalid),
+    .instr_addr_o(instr_addr),
+    .instr_rdata_i(instr_rdata),
 
+    .data_req_o(data_req),
+    .data_gnt_i(data_gnt),
+    .data_rvalid_i(data_rvalid),
+    .data_addr_o(data_addr),
+    .data_we_o(data_we),
+    .data_be_o(data_be),
+    .data_rdata_i(data_rdata),
+    .data_wdata_o(data_wdata),
 
-  assign debug_req_i = 1'b0;
+    // signals to debug unit
+    .debug_req_i(debug_req),
 
-  // instantiate the core
-  cv32e40p_wrapper #(
-      .PULP_XPULP      (PULP_XPULP),
-      .PULP_CLUSTER    (PULP_CLUSTER),
-      .FPU             (FPU),
-      .PULP_ZFINX      (PULP_ZFINX),
-      .NUM_MHPMCOUNTERS(NUM_MHPMCOUNTERS)
-  ) wrapper_i (
-      .clk_i (clk_i),
-      .rst_ni(rst_ni),
-
-      .pulp_clock_en_i(1'b1),
-      .scan_cg_en_i   (1'b0),
-
-      .boot_addr_i        (BOOT_ADDR),
-      .mtvec_addr_i       (32'h0),
-      .dm_halt_addr_i     (DM_HALTADDRESS),
-      .hart_id_i          (32'h0),
-      .dm_exception_addr_i(32'h0),
-
-      .instr_addr_o  (instr_addr),
-      .instr_req_o   (instr_req),
-      .instr_rdata_i (instr_rdata),
-      .instr_gnt_i   (instr_gnt),
-      .instr_rvalid_i(instr_rvalid),
-
-      .data_addr_o  (data_addr),
-      .data_wdata_o (data_wdata),
-      .data_we_o    (data_we),
-      .data_req_o   (data_req),
-      .data_be_o    (data_be),
-      .data_rdata_i (data_rdata),
-      .data_gnt_i   (data_gnt),
-      .data_rvalid_i(data_rvalid),
-
-      .apu_req_o     (apu_req),
-      .apu_gnt_i     (apu_gnt),
-      .apu_operands_o(apu_operands),
-      .apu_op_o      (apu_op),
-      .apu_flags_o   (apu_flags),
-      .apu_rvalid_i  (apu_rvalid),
-      .apu_result_i  (apu_rdata),
-      .apu_flags_i   (apu_rflags),
-
-      .irq_i    ({irq_fast, 4'b0, irq_external, 3'b0, irq_timer, 3'b0, irq_software, 3'b0}),
-      .irq_ack_o(irq_ack),
-      .irq_id_o (irq_id_out),
-
-      .debug_req_i      (debug_req_i),
-      .debug_havereset_o(),
-      .debug_running_o  (),
-      .debug_halted_o   (),
-
-      .fetch_enable_i(fetch_enable_i),
-      .core_sleep_o  (core_sleep_o)
-  );
-
-
-
-  generate
-    if (FPU) begin
-      cv32e40p_fp_wrapper fp_wrapper_i (
-          .clk_i         (clk_i),
-          .rst_ni        (rst_ni),
-          .apu_req_i     (apu_req),
-          .apu_gnt_o     (apu_gnt),
-          .apu_operands_i(apu_operands),
-          .apu_op_i      (apu_op),
-          .apu_flags_i   (apu_flags),
-          .apu_rvalid_o  (apu_rvalid),
-          .apu_rdata_o   (apu_rdata),
-          .apu_rflags_o  (apu_rflags)
-      );
-    end else begin
-      assign apu_gnt_o      = '0;
-      assign apu_operands_i = '0;
-      assign apu_op_i       = '0;
-      assign apu_flags_i    = '0;
-      assign apu_rvalid_o   = '0;
-      assign apu_rdata_o    = '0;
-      assign apu_rflags_o   = '0;
-    end
-  endgenerate
+    // irq signals
+    .irq_ack_o(irq_ack),
+    .irq_id_out_o(irq_id_out),
+    .irq_software_i(irq_software),
+    .irq_timer_i(irq_timer),
+    .irq_external_i(irq_external),
+    .irq_fast_i(irq_fast)
+);
 
   // this handles read to RAM and memory mapped pseudo peripherals
   mm_ram #(
@@ -199,7 +143,7 @@ module cv32e40p_tb_subsystem #(
       .irq_external_o(irq_external),
       .irq_fast_o    (irq_fast),
 
-      .pc_core_id_i(wrapper_i.core_i.pc_id),
+      .pc_core_id_i(cv32e40p_core_and_coprocessor_wrapper_i.wrapper_i.core_i.pc_id),
 
       .tests_passed_o(tests_passed_o),
       .tests_failed_o(tests_failed_o),

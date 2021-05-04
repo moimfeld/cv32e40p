@@ -22,10 +22,26 @@ elaborate design -revised
 
 report design data > ./lec_reports/report_design.log
 
+// remaining APU Signals
+// they are kept in the core to retain logical equivalence
+
 add ignored outputs apu_req_o -Both
 add ignored outputs apu_operands_o* -Both
 add ignored outputs apu_op_o* -Both
 add ignored outputs apu_flags_o* -Both
+
+// core_v_xif signals
+add ignored outputs x_compressed_valid_o -Both
+add ignored outputs x_compressed_req_o* -Both
+add ignored outputs x_issue_valid_o -Both
+add ignored outputs x_issue_req_o* -Both
+add ignored outputs x_commit_valid_o -Both
+add ignored outputs x_commit_o* -Both
+add ignored outputs x_mem_ready_o -Both
+add ignored outputs x_mem_resp_o* -Both
+add ignored outputs x_mem_result_valid_o -Both
+add ignored outputs x_mem_result_o* -Both
+add ignored outputs x_result_ready_o -Both
 
 write hier_compare dofile hier_compare_r2r.do -constraint -replace
 

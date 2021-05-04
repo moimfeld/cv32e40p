@@ -73,7 +73,7 @@ module tb_top #(
     if ($value$plusargs("firmware=%s", firmware)) begin
       if ($test$plusargs("verbose"))
         $display("[TESTBENCH] %t: loading firmware %0s ...", $time, firmware);
-      $readmemh(firmware, wrapper_i.ram_i.dp_ram_i.mem);
+      $readmemh(firmware, cv32e40p_tb_subsystem_i.ram_i.dp_ram_i.mem);
 
     end else begin
       $display("No firmware specified");
@@ -152,7 +152,7 @@ module tb_top #(
       .PULP_ZFINX       (PULP_ZFINX),
       .NUM_MHPMCOUNTERS (NUM_MHPMCOUNTERS),
       .DM_HALTADDRESS   (DM_HALTADDRESS)
-  ) wrapper_i (
+  ) cv32e40p_tb_subsystem_i (
       .clk_i         (clk),
       .rst_ni        (rst_n),
       .fetch_enable_i(fetch_enable),

@@ -33,6 +33,7 @@ module cv32e40p_cs_registers
     parameter N_HWLP           = 2,
     parameter N_HWLP_BITS      = $clog2(N_HWLP),
     parameter A_EXTENSION      = 0,
+    parameter FPU              = 0,
     parameter PULP_SECURE      = 0,
     parameter USE_PMP          = 0,
     parameter N_PMP_ENTRIES    = 16,
@@ -156,6 +157,7 @@ module cv32e40p_cs_registers
   | (1 << 2)  // C - Compressed extension
   | (0 << 3)  // D - Double precision floating-point extension
   | (0 << 4)  // E - RV32E base ISA
+  | (32'(FPU) << 5)  // F - Single precision floating-point extension
   | (1 << 8)  // I - RV32I/64I/128I base ISA
   | (1 << 12)  // M - Integer Multiply/Divide extension
   | (0 << 13)  // N - User level interrupts supported
@@ -1325,7 +1327,7 @@ module cv32e40p_cs_registers
   assign hpm_events[9] = mhpmevent_branch_taken_i;  // nr of taken branches (conditional)
   assign hpm_events[10] = mhpmevent_compressed_i;  // compressed instruction counter
   assign hpm_events[11] = PULP_CLUSTER ? mhpmevent_pipe_stall_i : 1'b0;  // extra cycles from ELW
-  assign hpm_events[12] = 1'b0;  // Moritz: set event by default to 0
+  assign hpm_events[12] = 1'b0;
   assign hpm_events[13] = 1'b0;
   assign hpm_events[14] = 1'b0;
   assign hpm_events[15] = 1'b0;

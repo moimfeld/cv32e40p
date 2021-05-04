@@ -26,7 +26,7 @@
 `endif
 
 module cv32e40p_wrapper
-  import cv32e40p_apu_core_pkg::*;
+    import cv32e40p_core_v_xif_pkg::*;
 #(
     parameter PULP_XPULP          =  0,                   // PULP ISA Extension (incl. custom CSRs and hardware loop, excl. p.elw)
     parameter PULP_CLUSTER = 0,  // PULP Cluster interface (incl. p.elw)
@@ -65,18 +65,37 @@ module cv32e40p_wrapper
     output logic [31:0] data_wdata_o,
     input  logic [31:0] data_rdata_i,
 
-    // apu-interconnect
-    // handshake signals
-    output logic                              apu_req_o,
-    input  logic                              apu_gnt_i,
-    // request channel
-    output logic [   APU_NARGS_CPU-1:0][31:0] apu_operands_o,
-    output logic [     APU_WOP_CPU-1:0]       apu_op_o,
-    output logic [APU_NDSFLAGS_CPU-1:0]       apu_flags_o,
-    // response channel
-    input  logic                              apu_rvalid_i,
-    input  logic [                31:0]       apu_result_i,
-    input  logic [APU_NUSFLAGS_CPU-1:0]       apu_flags_i,
+    // CORE-V-XIF
+    // Compressed interface
+    output logic x_compressed_valid_o,
+    input  logic x_compressed_ready_i,
+    output x_compressed_req_t x_compressed_req_o,
+    input  x_compressed_resp_t x_compressed_resp_i,
+
+    // Issue Interface
+    output logic x_issue_valid_o,
+    input  logic x_issue_ready_i,
+    output x_issue_req_t x_issue_req_o,
+    input  x_issue_resp_t x_issue_resp_i,
+
+    // Commit Interface
+    output logic x_commit_valid_o,
+    output x_commit_t x_commit_o,
+
+    // Memory request/response Interface
+    input  logic x_mem_valid_i,
+    output logic x_mem_ready_o,
+    input  x_mem_req_t x_mem_req_i,
+    output x_mem_resp_t x_mem_resp_o,
+
+    // Memory Result Interface
+    output logic x_mem_result_valid_o,
+    output x_mem_result_t x_mem_result_o,
+
+    // Result Interface
+    input  logic x_result_valid_i,
+    output logic x_result_ready_o,
+    input  x_result_t x_result_i,
 
     // Interrupt inputs
     input  logic [31:0] irq_i,  // CLINT interrupts + CLINT extension interrupts
@@ -118,7 +137,7 @@ module cv32e40p_wrapper
   ) core_log_i (
       .clk_i             (core_i.id_stage_i.clk),
       .is_decoding_i     (core_i.id_stage_i.is_decoding_o),
-      .illegal_insn_dec_i(core_i.id_stage_i.illegal_insn_dec),
+      .illegal_insn_dec_i(core_i.id_stage_i.illegal_insn),
       .hart_id_i         (core_i.hart_id_i),
       .pc_id_i           (core_i.pc_id)
   );
@@ -153,11 +172,6 @@ module cv32e40p_wrapper
       .rs2_value         (core_i.id_stage_i.operand_b_fw_id),
       .rs3_value         (core_i.id_stage_i.alu_operand_c),
       .rs2_value_vec     (core_i.id_stage_i.alu_operand_b),
-
-      .rs1_is_fp(core_i.id_stage_i.regfile_fp_a),
-      .rs2_is_fp(core_i.id_stage_i.regfile_fp_b),
-      .rs3_is_fp(core_i.id_stage_i.regfile_fp_c),
-      .rd_is_fp (core_i.id_stage_i.regfile_fp_d),
 
       .ex_valid    (core_i.ex_valid),
       .ex_reg_addr (core_i.regfile_alu_waddr_fw),
