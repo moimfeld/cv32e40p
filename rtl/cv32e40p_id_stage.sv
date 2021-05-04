@@ -29,7 +29,6 @@
 
 module cv32e40p_id_stage
   import cv32e40p_pkg::*;
-  import cv32e40p_apu_core_pkg::*;
 #(
     parameter PULP_XPULP        =  1,                     // PULP ISA Extension (including PULP specific CSRs and hardware loop, excluding p.elw)
     parameter PULP_CLUSTER = 0,
@@ -38,14 +37,9 @@ module cv32e40p_id_stage
     parameter PULP_SECURE = 0,
     parameter USE_PMP = 0,
     parameter A_EXTENSION = 0,
-    parameter APU = 0,
-    parameter FPU = 0,
     parameter PULP_ZFINX = 0,
-    parameter APU_NARGS_CPU = 3,
-    parameter APU_WOP_CPU = 6,
-    parameter APU_NDSFLAGS_CPU = 15,
-    parameter APU_NUSFLAGS_CPU = 5,
-    parameter DEBUG_TRIGGER_EN = 1
+    parameter DEBUG_TRIGGER_EN = 1,
+    parameter FPU = 0
 ) (
     input logic clk,  // Gated clock
     input logic clk_ungated_i,  // Ungated clock
@@ -134,22 +128,19 @@ module cv32e40p_id_stage
     output logic        mult_clpx_img_ex_o,
 
     // APU
-    output logic                              apu_en_ex_o,
-    output logic [     APU_WOP_CPU-1:0]       apu_op_ex_o,
-    output logic [                 1:0]       apu_lat_ex_o,
-    output logic [   APU_NARGS_CPU-1:0][31:0] apu_operands_ex_o,
-    output logic [APU_NDSFLAGS_CPU-1:0]       apu_flags_ex_o,
-    output logic [                 5:0]       apu_waddr_ex_o,
+    output logic apu_en_ex_o,
 
-    output logic [     2:0][5:0] apu_read_regs_o,
-    output logic [     2:0]      apu_read_regs_valid_o,
-    input  logic                 apu_read_dep_i,
-    output logic [     1:0][5:0] apu_write_regs_o,
-    output logic [     1:0]      apu_write_regs_valid_o,
-    input  logic                 apu_write_dep_i,
-    output logic                 apu_perf_dep_o,
-    input  logic                 apu_busy_i,
-    input  logic [C_RM-1:0]      frm_i,
+    //X-Interface
+    output logic             x_valid_o,
+    input  logic             x_ready_i,
+    output logic [2:0][31:0] x_rs_o,
+    output logic [2:0]       x_rs_valid_o,
+    output logic             x_rd_clean_o,
+    input  logic             x_accept_i,
+    input  logic             x_is_mem_op_i,
+    input  logic             x_writeback_i,
+    input  logic             x_rvalid_i,
+    input  logic             x_rd_i,
 
     // CSR ID/EX
     output logic              csr_access_ex_o,
@@ -334,13 +325,6 @@ module cv32e40p_id_stage
   logic [ 5:0] regfile_addr_rb_id;
   logic [ 5:0] regfile_addr_rc_id;
 
-  logic        regfile_fp_a;
-  logic        regfile_fp_b;
-  logic        regfile_fp_c;
-  logic        regfile_fp_d;
-
-  logic        fregfile_ena;  // whether the fp register file is enabled/present
-
   logic [ 5:0] regfile_waddr_id;
   logic [ 5:0] regfile_alu_waddr_id;
   logic regfile_alu_we_id, regfile_alu_we_dec_id;
@@ -370,26 +354,8 @@ module cv32e40p_id_stage
   logic mult_dot_en;  // use dot product
   logic [1:0] mult_dot_signed;  // Signed mode dot products (can be mixed types)
 
-  // FPU signals
-  logic [cv32e40p_fpu_pkg::FP_FORMAT_BITS-1:0] fpu_src_fmt;
-  logic [cv32e40p_fpu_pkg::FP_FORMAT_BITS-1:0] fpu_dst_fmt;
-  logic [cv32e40p_fpu_pkg::INT_FORMAT_BITS-1:0] fpu_int_fmt;
-
-  // APU signals
-  logic apu_en;
-  logic [APU_WOP_CPU-1:0] apu_op;
-  logic [1:0] apu_lat;
-  logic [APU_NARGS_CPU-1:0][31:0] apu_operands;
-  logic [APU_NDSFLAGS_CPU-1:0] apu_flags;
-  logic [5:0] apu_waddr;
-
-  logic [2:0][5:0] apu_read_regs;
-  logic [2:0] apu_read_regs_valid;
-  logic [1:0][5:0] apu_write_regs;
-  logic [1:0] apu_write_regs_valid;
-
-  logic apu_stall;
-  logic [2:0] fp_rnd_mode;
+  // X-Interface
+  logic illegal_insn;
 
   // Register Write Control
   logic regfile_we_id;
@@ -513,32 +479,25 @@ module cv32e40p_id_stage
   // The end result is a mask that has 1's set in the lower part
   assign imm_clip_type = (32'h1 << instr[24:20]) - 1;
 
-  //-----------------------------------------------------------------------------
-  //-- FPU Register file enable:
-  //-- Taken from Cluster Config Reg if FPU reg file exists, or always disabled
-  //-----------------------------------------------------------------------------
-  assign fregfile_ena = FPU && !PULP_ZFINX ? 1'b1 : 1'b0;
-
-  //---------------------------------------------------------------------------
-  // source register selection regfile_fp_x=1 <=> CV32E40P_REG_x is a FP-register
-  //---------------------------------------------------------------------------
-  assign regfile_addr_ra_id = {fregfile_ena & regfile_fp_a, instr[REG_S1_MSB:REG_S1_LSB]};
-  assign regfile_addr_rb_id = {fregfile_ena & regfile_fp_b, instr[REG_S2_MSB:REG_S2_LSB]};
+  // Moritz: Here one can add the x-interface compressed handling
+  assign regfile_addr_ra_id = {'0, instr[REG_S1_MSB:REG_S1_LSB]};
+  assign regfile_addr_rb_id = {'0, instr[REG_S2_MSB:REG_S2_LSB]};
 
   // register C mux
   always_comb begin
-    unique case (regc_mux)
-      REGC_ZERO: regfile_addr_rc_id = '0;
-      REGC_RD:   regfile_addr_rc_id = {fregfile_ena & regfile_fp_c, instr[REG_D_MSB:REG_D_LSB]};
-      REGC_S1:   regfile_addr_rc_id = {fregfile_ena & regfile_fp_c, instr[REG_S1_MSB:REG_S1_LSB]};
-      REGC_S4:   regfile_addr_rc_id = {fregfile_ena & regfile_fp_c, instr[REG_S4_MSB:REG_S4_LSB]};
-    endcase
+    if (!illegal_insn_dec) begin  // Moritz: x-interface if statement
+      unique case (regc_mux)
+        REGC_ZERO: regfile_addr_rc_id = '0;
+        REGC_RD:   regfile_addr_rc_id = {'0, instr[REG_D_MSB:REG_D_LSB]};
+        REGC_S1:   regfile_addr_rc_id = {'0, instr[REG_S1_MSB:REG_S1_LSB]};
+        REGC_S4:   regfile_addr_rc_id = {'0, instr[REG_S4_MSB:REG_S4_LSB]};
+      endcase
+    end else begin
+      regfile_addr_rc_id = {'0, instr[REG_S4_MSB:REG_S4_LSB]};
+    end
   end
 
-  //---------------------------------------------------------------------------
-  // destination registers regfile_fp_d=1 <=> REG_D is a FP-register
-  //---------------------------------------------------------------------------
-  assign regfile_waddr_id = {fregfile_ena & regfile_fp_d, instr[REG_D_MSB:REG_D_LSB]};
+  assign regfile_waddr_id = {'0, instr[REG_D_MSB:REG_D_LSB]};
 
   // Second Register Write Address Selection
   // Used for prepost load/store and multiplier
@@ -788,111 +747,9 @@ module cv32e40p_id_stage
     endcase
   end
 
-  /////////////////////////////
-  // APU operand assignment  //
-  /////////////////////////////
-  // read regs
-  generate
-    if (APU == 1) begin : gen_apu
-
-      if (APU_NARGS_CPU >= 1) assign apu_operands[0] = alu_operand_a;
-      if (APU_NARGS_CPU >= 2) assign apu_operands[1] = alu_operand_b;
-      if (APU_NARGS_CPU >= 3) assign apu_operands[2] = alu_operand_c;
-
-      // write reg
-      assign apu_waddr = regfile_alu_waddr_id;
-
-      // flags
-      assign apu_flags = (FPU == 1) ? {fpu_int_fmt, fpu_src_fmt, fpu_dst_fmt, fp_rnd_mode} : '0;
-
-      // dependency checks
-      always_comb begin
-        unique case (alu_op_a_mux_sel)
-          OP_A_REGA_OR_FWD: begin
-            apu_read_regs[0]       = regfile_addr_ra_id;
-            apu_read_regs_valid[0] = 1'b1;
-          end  // OP_A_REGA_OR_FWD:
-          OP_A_REGB_OR_FWD: begin
-            apu_read_regs[0]       = regfile_addr_rb_id;
-            apu_read_regs_valid[0] = 1'b1;
-          end
-          default: begin
-            apu_read_regs[0]       = regfile_addr_ra_id;
-            apu_read_regs_valid[0] = 1'b0;
-          end
-        endcase
-      end
-
-      always_comb begin
-        unique case (alu_op_b_mux_sel)
-          OP_B_REGA_OR_FWD: begin
-            apu_read_regs[1]       = regfile_addr_ra_id;
-            apu_read_regs_valid[1] = 1'b1;
-          end
-          OP_B_REGB_OR_FWD: begin
-            apu_read_regs[1]       = regfile_addr_rb_id;
-            apu_read_regs_valid[1] = 1'b1;
-          end
-          OP_B_REGC_OR_FWD: begin
-            apu_read_regs[1]       = regfile_addr_rc_id;
-            apu_read_regs_valid[1] = 1'b1;
-          end
-          default: begin
-            apu_read_regs[1]       = regfile_addr_rb_id;
-            apu_read_regs_valid[1] = 1'b0;
-          end
-        endcase
-      end
-
-      always_comb begin
-        unique case (alu_op_c_mux_sel)
-          OP_C_REGB_OR_FWD: begin
-            apu_read_regs[2]       = regfile_addr_rb_id;
-            apu_read_regs_valid[2] = 1'b1;
-          end
-          OP_C_REGC_OR_FWD: begin
-            apu_read_regs[2]       = regfile_addr_rc_id;
-            apu_read_regs_valid[2] = 1'b1;
-          end
-          default: begin
-            apu_read_regs[2]       = regfile_addr_rc_id;
-            apu_read_regs_valid[2] = 1'b0;
-          end
-        endcase
-      end
-
-      assign apu_write_regs[0]       = regfile_alu_waddr_id;
-      assign apu_write_regs_valid[0] = regfile_alu_we_id;
-
-      assign apu_write_regs[1]       = regfile_waddr_id;
-      assign apu_write_regs_valid[1] = regfile_we_id;
-
-      assign apu_read_regs_o         = apu_read_regs;
-      assign apu_read_regs_valid_o   = apu_read_regs_valid;
-
-      assign apu_write_regs_o        = apu_write_regs;
-      assign apu_write_regs_valid_o  = apu_write_regs_valid;
-    end else begin : gen_no_apu
-      for (genvar i = 0; i < APU_NARGS_CPU; i++) begin : gen_apu_tie_off
-        assign apu_operands[i] = '0;
-      end
-
-      assign apu_read_regs          = '0;
-      assign apu_read_regs_valid    = '0;
-      assign apu_write_regs         = '0;
-      assign apu_write_regs_valid   = '0;
-      assign apu_waddr              = '0;
-      assign apu_flags              = '0;
-      assign apu_write_regs_o       = '0;
-      assign apu_read_regs_o        = '0;
-      assign apu_write_regs_valid_o = '0;
-      assign apu_read_regs_valid_o  = '0;
-    end
-  endgenerate
-
-  assign apu_perf_dep_o = apu_stall;
   // stall when we access the CSR after a multicycle APU instruction
-  assign csr_apu_stall  = (csr_access & (apu_en_ex_o & (apu_lat_ex_o[1] == 1'b1) | apu_busy_i));
+  logic [1:0] apu_lat_ex_o;
+  assign csr_apu_stall = (csr_access & (apu_en_ex_o & (apu_lat_ex_o[1] == 1'b1)));
 
   /////////////////////////////////////////////////////////
   //  ____  _____ ____ ___ ____ _____ _____ ____  ____   //
@@ -906,7 +763,6 @@ module cv32e40p_id_stage
   cv32e40p_register_file #(
       .ADDR_WIDTH(6),
       .DATA_WIDTH(32),
-      .FPU       (FPU),
       .PULP_ZFINX(PULP_ZFINX)
   ) register_file_i (
       .clk  (clk),
@@ -951,10 +807,8 @@ module cv32e40p_id_stage
       .PULP_XPULP      (PULP_XPULP),
       .PULP_CLUSTER    (PULP_CLUSTER),
       .A_EXTENSION     (A_EXTENSION),
-      .FPU             (FPU),
       .PULP_SECURE     (PULP_SECURE),
       .USE_PMP         (USE_PMP),
-      .APU_WOP_CPU     (APU_WOP_CPU),
       .DEBUG_TRIGGER_EN(DEBUG_TRIGGER_EN)
   ) decoder_i (
       // controller related signals
@@ -979,11 +833,6 @@ module cv32e40p_id_stage
       .rega_used_o(rega_used_dec),
       .regb_used_o(regb_used_dec),
       .regc_used_o(regc_used_dec),
-
-      .reg_fp_a_o(regfile_fp_a),
-      .reg_fp_b_o(regfile_fp_b),
-      .reg_fp_c_o(regfile_fp_c),
-      .reg_fp_d_o(regfile_fp_d),
 
       .bmask_a_mux_o        (bmask_a_mux),
       .bmask_b_mux_o        (bmask_b_mux),
@@ -1017,16 +866,6 @@ module cv32e40p_id_stage
       .mult_imm_mux_o    (mult_imm_mux),
       .mult_dot_en_o     (mult_dot_en),
       .mult_dot_signed_o (mult_dot_signed),
-
-      // FPU / APU signals
-      .frm_i        (frm_i),
-      .fpu_src_fmt_o(fpu_src_fmt),
-      .fpu_dst_fmt_o(fpu_dst_fmt),
-      .fpu_int_fmt_o(fpu_int_fmt),
-      .apu_en_o     (apu_en),
-      .apu_op_o     (apu_op),
-      .apu_lat_o    (apu_lat),
-      .fp_rnd_mode_o(fp_rnd_mode),
 
       // Register file control signals
       .regfile_mem_we_o       (regfile_we_id),
@@ -1072,6 +911,76 @@ module cv32e40p_id_stage
 
   );
 
+  logic x_illegal_insn_o;
+  logic x_stall;
+  logic [2:0][4:0] x_rs_addr;
+  logic [4:0] x_waddr_id;
+  logic x_we_id;
+  logic [2:0] x_regs_used;
+
+
+  generate
+    if (FPU) begin : gen_x_disp
+      ////////////////////////////////////////
+      //  __  __     ____ ___ ____  ____    //
+      //  \ \/ /    |  _ \_ _/ ___||  _ \   //
+      //   \  /_____| | | | |\___ \| |_) |  //
+      //   /  \_____| |_| | | ___) |  __/   //
+      //  /_/\_\    |____/___|____/|_|      //
+      //                                    //
+      ////////////////////////////////////////
+
+
+
+
+      cv32e40p_x_disp x_disp_i (
+          .clk_i (clk),
+          .rst_ni(rst_n),
+
+          .x_illegal_insn_dec_i(illegal_insn_dec),
+
+          // Scoreboard
+          .x_waddr_id_i      (x_waddr_id),
+          .x_writeback_i     (x_writeback_i),
+          .x_waddr_ex_i      (regfile_alu_waddr_fw_i),
+          .x_we_ex_i         (regfile_alu_we_fw_i),
+          .x_waddr_wb_i      (regfile_waddr_wb_i),
+          .x_we_wb_i         (regfile_we_wb_i),
+          .x_rwaddr_i        (x_rd_i),
+          .x_rvalid_i        (x_rvalid_i),
+          .x_rs_addr_i       (x_rs_addr),
+          .x_regs_used_i     (x_regs_used),
+          .x_branch_or_jump_i(branch_in_ex_o),
+
+          .x_valid_o       (x_valid_o),
+          .x_ready_i       (x_ready_i),
+          .x_accept_i      (x_accept_i),
+          .x_is_mem_op_i   (x_is_mem_op_i),
+          .x_rs_valid_o    (x_rs_valid_o),
+          .x_rd_clean_o    (x_rd_clean_o),
+          .x_stall_o       (x_stall),
+          .x_illegal_insn_o(x_illegal_insn_o)
+      );
+
+      assign illegal_insn = x_illegal_insn_o;
+      assign x_rs_addr[0] = regfile_addr_ra_id[4:0];
+      assign x_rs_addr[1] = regfile_addr_rb_id[4:0];
+      assign x_rs_addr[2] = regfile_addr_rc_id[4:0];
+      assign x_waddr_id = instr[REG_D_MSB:REG_D_LSB];
+      assign x_we_id      = regfile_we_id | regfile_alu_we_id; // these are both the LSU write enable and the ALU write enable
+      assign x_regs_used = {regc_used_dec, regb_used_dec, rega_used_dec};
+      assign x_rs_o[0] = regfile_data_ra_id;
+      assign x_rs_o[1] = regfile_data_rb_id;
+      assign x_rs_o[2] = regfile_data_rc_id;
+      // assign regfile_addr_rc_id = (illegal_insn_dec) ? {0, x_rs_addr[2]} : regfile_addr_rc_id;
+    end else begin : gen_no_x_disp
+      assign illegal_insn = illegal_insn_dec;
+      assign x_rs_addr[2:0]    = 5'b0;
+      assign x_rs_o[2:0] = 31'b0;
+      assign x_stall = 1'b0;
+    end : gen_no_x_disp
+  endgenerate
+
   ////////////////////////////////////////////////////////////////////
   //    ____ ___  _   _ _____ ____   ___  _     _     _____ ____    //
   //   / ___/ _ \| \ | |_   _|  _ \ / _ \| |   | |   | ____|  _ \   //
@@ -1097,7 +1006,7 @@ module cv32e40p_id_stage
       // decoder related signals
       .deassert_we_o(deassert_we),
 
-      .illegal_insn_i(illegal_insn_dec),
+      .illegal_insn_i(illegal_insn),
       .ecall_insn_i  (ecall_insn_dec),
       .mret_insn_i   (mret_insn_dec),
       .uret_insn_i   (uret_insn_dec),
@@ -1151,13 +1060,6 @@ module cv32e40p_id_stage
 
       // ALU
       .mult_multicycle_i(mult_multicycle_i),
-
-      // APU
-      .apu_en_i       (apu_en),
-      .apu_read_dep_i (apu_read_dep_i),
-      .apu_write_dep_i(apu_write_dep_i),
-
-      .apu_stall_o(apu_stall),
 
       // jump/branch control
       .branch_taken_ex_i          (branch_taken_ex),
@@ -1433,15 +1335,8 @@ module cv32e40p_id_stage
       mult_clpx_shift_ex_o   <= 2'b0;
       mult_clpx_img_ex_o     <= 1'b0;
 
-      apu_en_ex_o            <= '0;
-      apu_op_ex_o            <= '0;
-      apu_lat_ex_o           <= '0;
-      apu_operands_ex_o[0]   <= '0;
-      apu_operands_ex_o[1]   <= '0;
-      apu_operands_ex_o[2]   <= '0;
-      apu_flags_ex_o         <= '0;
-      apu_waddr_ex_o         <= '0;
-
+      apu_en_ex_o            <= 1'b0;
+      apu_lat_ex_o           <= 2'b0;
 
       regfile_waddr_ex_o     <= 6'b0;
       regfile_we_ex_o        <= 1'b0;
@@ -1526,15 +1421,7 @@ module cv32e40p_id_stage
           mult_clpx_img_ex_o   <= instr[25];
         end
 
-        // APU pipeline
-        apu_en_ex_o <= apu_en;
-        if (apu_en) begin
-          apu_op_ex_o       <= apu_op;
-          apu_lat_ex_o      <= apu_lat;
-          apu_operands_ex_o <= apu_operands;
-          apu_flags_ex_o    <= apu_flags;
-          apu_waddr_ex_o    <= apu_waddr;
-        end
+        apu_en_ex_o     <= 1'b0;
 
         regfile_we_ex_o <= regfile_we_id;
         if (regfile_we_id) begin
@@ -1650,7 +1537,7 @@ module cv32e40p_id_stage
   end
 
   // stall control
-  assign id_ready_o = ((~misaligned_stall) & (~jr_stall) & (~load_stall) & (~apu_stall) & (~csr_apu_stall) & ex_ready_i);
+  assign id_ready_o = ((~misaligned_stall) & (~jr_stall) & (~load_stall) & (~csr_apu_stall) & (~x_stall) & ex_ready_i);
   assign id_valid_o = (~halt_id) & id_ready_o;
   assign halt_if_o = halt_if;
 
@@ -1659,15 +1546,6 @@ module cv32e40p_id_stage
   // Assertions
   //----------------------------------------------------------------------------
 `ifdef CV32E40P_ASSERT_ON
-
-  always_comb begin
-    if (FPU == 1) begin
-      assert (APU_NDSFLAGS_CPU >= C_RM+2*cv32e40p_fpu_pkg::FP_FORMAT_BITS+cv32e40p_fpu_pkg::INT_FORMAT_BITS)
-      else
-        $error("[apu] APU_NDSFLAGS_CPU APU flagbits is smaller than %0d",
-               C_RM + 2 * cv32e40p_fpu_pkg::FP_FORMAT_BITS + cv32e40p_fpu_pkg::INT_FORMAT_BITS);
-    end
-  end
 
   // make sure that branch decision is valid when jumping
   a_br_decision :
