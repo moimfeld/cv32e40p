@@ -60,15 +60,7 @@ module cv32e40p_x_disp #(
 
   // One should be sure to encounter no branches before setting x_valid_o to high
   assign x_valid_o = x_illegal_insn_dec_i & ~x_branch_or_jump_i;
-
-  // Moritz: stall needs to be in an always_comb or else it will might be "x" at some point, which stalls the core forever :(
-  always_comb begin
-    x_stall_o = 1'b0;
-    if((x_valid_o & ~x_ready_i) | dep | x_is_mem_op_i) begin
-      x_stall_o = 1'b1;
-    end
-  end
-
+  assign (x_valid_o & ~x_ready_i) | dep | x_is_mem_op_i
 
   always_comb begin
     x_illegal_insn_o = 1'b0;
