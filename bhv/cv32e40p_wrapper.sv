@@ -68,6 +68,7 @@ module cv32e40p_wrapper
     // X-Request Channel
     output logic              x_valid_o,
     input  logic              x_ready_i,
+    output logic [31:0]       x_instr_data_o,
     output logic [ 2:0][31:0] x_rs_o,
     output logic [ 2:0]       x_rs_valid_o,
     output logic              x_rd_clean_o,
