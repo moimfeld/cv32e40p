@@ -480,13 +480,12 @@ module cv32e40p_id_stage
   // The end result is a mask that has 1's set in the lower part
   assign imm_clip_type = (32'h1 << instr[24:20]) - 1;
 
-  // Moritz: Here one can add the x-interface compressed handling
   assign regfile_addr_ra_id = {'0, instr[REG_S1_MSB:REG_S1_LSB]};
   assign regfile_addr_rb_id = {'0, instr[REG_S2_MSB:REG_S2_LSB]};
 
   // register C mux
   always_comb begin
-    if (!illegal_insn_dec) begin  // Moritz: x-interface if statement
+    if (!illegal_insn_dec) begin
       unique case (regc_mux)
         REGC_ZERO: regfile_addr_rc_id = '0;
         REGC_RD:   regfile_addr_rc_id = {'0, instr[REG_D_MSB:REG_D_LSB]};
