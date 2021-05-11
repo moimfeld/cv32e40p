@@ -133,6 +133,7 @@ module cv32e40p_id_stage
     //X-Interface
     output logic             x_valid_o,
     input  logic             x_ready_i,
+    output logic [31:0]      x_instr_data_o,
     output logic [2:0][31:0] x_rs_o,
     output logic [2:0]       x_rs_valid_o,
     output logic             x_rd_clean_o,
@@ -911,7 +912,7 @@ module cv32e40p_id_stage
 
   );
 
-  logic x_illegal_insn_o;
+  logic x_illegal_insn;
   logic x_stall;
   logic [2:0][4:0] x_rs_addr;
   logic [4:0] x_waddr_id;
@@ -930,9 +931,6 @@ module cv32e40p_id_stage
       //                                    //
       ////////////////////////////////////////
 
-
-
-
       cv32e40p_x_disp x_disp_i (
           .clk_i (clk),
           .rst_ni(rst_n),
@@ -940,38 +938,39 @@ module cv32e40p_id_stage
           .x_illegal_insn_dec_i(illegal_insn_dec),
 
           // Scoreboard
-          .x_waddr_id_i      (x_waddr_id),
-          .x_writeback_i     (x_writeback_i),
+          .x_waddr_id_i      (x_waddr_id            ),
+          .x_writeback_i     (x_writeback_i         ),
           .x_waddr_ex_i      (regfile_alu_waddr_fw_i),
-          .x_we_ex_i         (regfile_alu_we_fw_i),
-          .x_waddr_wb_i      (regfile_waddr_wb_i),
-          .x_we_wb_i         (regfile_we_wb_i),
-          .x_rwaddr_i        (x_rd_i),
-          .x_rvalid_i        (x_rvalid_i),
-          .x_rs_addr_i       (x_rs_addr),
-          .x_regs_used_i     (x_regs_used),
-          .x_branch_or_jump_i(branch_in_ex_o),
+          .x_we_ex_i         (regfile_alu_we_fw_i   ),
+          .x_waddr_wb_i      (regfile_waddr_wb_i    ),
+          .x_we_wb_i         (regfile_we_wb_i       ),
+          .x_rwaddr_i        (x_rd_i                ),
+          .x_rvalid_i        (x_rvalid_i            ),
+          .x_rs_addr_i       (x_rs_addr             ),
+          .x_regs_used_i     (x_regs_used           ),
+          .x_branch_or_jump_i(branch_in_ex_o        ),
 
-          .x_valid_o       (x_valid_o),
-          .x_ready_i       (x_ready_i),
-          .x_accept_i      (x_accept_i),
-          .x_is_mem_op_i   (x_is_mem_op_i),
-          .x_rs_valid_o    (x_rs_valid_o),
-          .x_rd_clean_o    (x_rd_clean_o),
-          .x_stall_o       (x_stall),
-          .x_illegal_insn_o(x_illegal_insn_o)
+          .x_valid_o       (x_valid_o     ),
+          .x_ready_i       (x_ready_i     ),
+          .x_accept_i      (x_accept_i    ),
+          .x_is_mem_op_i   (x_is_mem_op_i ),
+          .x_rs_valid_o    (x_rs_valid_o  ),
+          .x_rd_clean_o    (x_rd_clean_o  ),
+          .x_stall_o       (x_stall       ),
+          .x_illegal_insn_o(x_illegal_insn)
       );
 
-      assign illegal_insn = x_illegal_insn_o;
-      assign x_rs_addr[0] = regfile_addr_ra_id[4:0];
-      assign x_rs_addr[1] = regfile_addr_rb_id[4:0];
-      assign x_rs_addr[2] = regfile_addr_rc_id[4:0];
-      assign x_waddr_id = instr[REG_D_MSB:REG_D_LSB];
-      assign x_we_id      = regfile_we_id | regfile_alu_we_id; // these are both the LSU write enable and the ALU write enable
-      assign x_regs_used = {regc_used_dec, regb_used_dec, rega_used_dec};
-      assign x_rs_o[0] = regfile_data_ra_id;
-      assign x_rs_o[1] = regfile_data_rb_id;
-      assign x_rs_o[2] = regfile_data_rc_id;
+      assign illegal_insn   = x_illegal_insn;
+      assign x_rs_addr[0]   = regfile_addr_ra_id[4:0];
+      assign x_rs_addr[1]   = regfile_addr_rb_id[4:0];
+      assign x_rs_addr[2]   = regfile_addr_rc_id[4:0];
+      assign x_waddr_id     = instr[REG_D_MSB:REG_D_LSB];
+      assign x_we_id        = regfile_we_id | regfile_alu_we_id; // these are both the LSU write enable and the ALU write enable
+      assign x_regs_used    = {regc_used_dec, regb_used_dec, rega_used_dec};
+      assign x_rs_o[0]      = regfile_data_ra_id;
+      assign x_rs_o[1]      = regfile_data_rb_id;
+      assign x_rs_o[2]      = regfile_data_rc_id;
+      assign x_instr_data_o = instr;
       // assign regfile_addr_rc_id = (illegal_insn_dec) ? {0, x_rs_addr[2]} : regfile_addr_rc_id;
     end else begin : gen_no_x_disp
       assign illegal_insn = illegal_insn_dec;
