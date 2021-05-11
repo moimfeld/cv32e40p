@@ -70,6 +70,7 @@ module cv32e40p_core #(
     // X-Request Channel
     output logic              x_valid_o,
     input  logic              x_ready_i,
+    output logic [31:0]       x_instr_data_o,
     output logic [ 2:0][31:0] x_rs_o,
     output logic [ 2:0]       x_rs_valid_o,
     output logic              x_rd_clean_o,
@@ -585,16 +586,17 @@ module cv32e40p_core #(
       .apu_en_ex_o(apu_en_ex),
 
       // X-Interface
-      .x_valid_o    (x_valid_o),
-      .x_ready_i    (x_ready_i),
-      .x_rs_o       (x_rs_o),
-      .x_rs_valid_o (x_rs_valid_o),
-      .x_rd_clean_o (x_rd_clean_o),
-      .x_accept_i   (x_accept_i),
-      .x_is_mem_op_i(x_is_mem_op_i),
-      .x_writeback_i(x_writeback_i),
-      .x_rvalid_i   (x_rvalid_i),
-      .x_rd_i       (x_rd_i),
+      .x_valid_o     (x_valid_o),
+      .x_ready_i     (x_ready_i),
+      .x_instr_data_o(x_instr_data_o),
+      .x_rs_o        (x_rs_o),
+      .x_rs_valid_o  (x_rs_valid_o),
+      .x_rd_clean_o  (x_rd_clean_o),
+      .x_accept_i    (x_accept_i),
+      .x_is_mem_op_i (x_is_mem_op_i),
+      .x_writeback_i (x_writeback_i),
+      .x_rvalid_i    (x_rvalid_i),
+      .x_rd_i        (x_rd_i),
 
       // CSR ID/EX
       .csr_access_ex_o      (csr_access_ex),
@@ -696,7 +698,6 @@ module cv32e40p_core #(
       .perf_imiss_i(perf_imiss),
       .mcounteren_i(mcounteren)
   );
-
 
   /////////////////////////////////////////////////////
   //   _______  __  ____ _____  _    ____ _____      //

@@ -22,52 +22,57 @@
 
 // Thi is the x_disp copy!
 
-module cv32e40p_x_disp
-  #(
+module cv32e40p_x_disp #(
 
-  )
-  (
+) (
     // Clock and Reset
-    input  logic            clk_i,
-    input  logic            rst_ni,
+    input logic clk_i,
+    input logic rst_ni,
 
-    input  logic            x_illegal_insn_dec_i,
+    input logic x_illegal_insn_dec_i,
 
     // Scoreboard & Dependency Check
-    input  logic [4:0]      x_waddr_id_i,
-    input  logic            x_writeback_i,
-    input  logic [4:0]      x_waddr_ex_i,
-    input  logic            x_we_ex_i,
-    input  logic [4:0]      x_waddr_wb_i,
-    input  logic            x_we_wb_i,
-    input  logic [4:0]      x_rwaddr_i,
-    input  logic            x_rvalid_i,
-    input  logic [2:0][4:0] x_rs_addr_i,
-    input  logic [2:0]      x_regs_used_i,
-    input  logic            x_branch_or_jump_i,
+    input logic [4:0]      x_waddr_id_i,
+    input logic            x_writeback_i,
+    input logic [4:0]      x_waddr_ex_i,
+    input logic            x_we_ex_i,
+    input logic [4:0]      x_waddr_wb_i,
+    input logic            x_we_wb_i,
+    input logic [4:0]      x_rwaddr_i,
+    input logic            x_rvalid_i,
+    input logic [2:0][4:0] x_rs_addr_i,
+    input logic [2:0]      x_regs_used_i,
+    input logic            x_branch_or_jump_i,
 
-    output logic            x_valid_o,
-    input  logic            x_ready_i,
-    input  logic            x_accept_i,
-    input  logic            x_is_mem_op_i,
-    output logic [2:0]      x_rs_valid_o,
-    output logic            x_rd_clean_o,
-    output logic            x_stall_o,
-    output logic            x_illegal_insn_o
-  );
+    output logic       x_valid_o,
+    input  logic       x_ready_i,
+    input  logic       x_accept_i,
+    input  logic       x_is_mem_op_i,
+    output logic [2:0] x_rs_valid_o,
+    output logic       x_rd_clean_o,
+    output logic       x_stall_o,
+    output logic       x_illegal_insn_o
+);
 
-  logic [31:0]      scoreboard_q, scoreboard_d;
-  logic             dep;
+  logic [31:0] scoreboard_q, scoreboard_d;
+  logic dep;
 
 
   // One should be sure to encounter no branches before setting x_valid_o to high
   assign x_valid_o = x_illegal_insn_dec_i & ~x_branch_or_jump_i;
-  assign x_stall_o = (x_valid_o & ~x_ready_i) | dep | x_is_mem_op_i;
+
+  // Moritz: stall needs to be in an always_comb or else it will might be "x" at some point, which stalls the core forever :(
+  always_comb begin
+    x_stall_o = 1'b0;
+    if((x_valid_o & ~x_ready_i) | dep | x_is_mem_op_i) begin
+      x_stall_o = 1'b1;
+    end
+  end
 
 
   always_comb begin
     x_illegal_insn_o = 1'b0;
-    if(x_valid_o & x_ready_i & ~x_accept_i) begin
+    if (x_valid_o & x_ready_i & ~x_accept_i) begin
       x_illegal_insn_o = 1'b1;
     end
   end
@@ -88,7 +93,7 @@ module cv32e40p_x_disp
   // scoreboard with only the offloaded instructions
   always_comb begin
     scoreboard_d = scoreboard_q;
-    if(x_writeback_i & x_illegal_insn_dec_i) begin // update rule for outgoing instructions
+    if (x_writeback_i & x_illegal_insn_dec_i) begin  // update rule for outgoing instructions
       scoreboard_d[x_waddr_id_i] = 1'b1;
     end else if((x_rvalid_i & (x_waddr_id_i != x_rwaddr_i)) | (~x_writeback_i & ~x_illegal_insn_dec_i)) begin // update rule for returning instructions
       scoreboard_d[x_rwaddr_i] = 1'b0;
@@ -96,7 +101,7 @@ module cv32e40p_x_disp
   end
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
-    if(~rst_ni) begin
+    if (~rst_ni) begin
       scoreboard_q <= 32'b0;
     end else begin
       scoreboard_q <= scoreboard_d;
