@@ -52,6 +52,7 @@ module cv32e40p_tb_subsystem #(
   // X-Interface
   logic                               x_valid;
   logic                               x_ready;
+  logic [                 31:0]       x_instr_data;
   logic [                  2:0][31:0] x_rs;
   logic [                  2:0]       x_rs_valid;
   logic                               x_rd_clean;
@@ -117,25 +118,22 @@ module cv32e40p_tb_subsystem #(
       .data_gnt_i   (data_gnt),
       .data_rvalid_i(data_rvalid),
 
-      .x_valid_o    (x_valid),
-      .x_ready_i    (1'b1),
-      // .x_ready_i              ( x_ready               ),
-      .x_rs_o       (x_rs),
-      .x_rs_valid_o (x_rs_valid),
-      .x_rd_clean_o (x_rd_clean),
-      .x_accept_i   (1'b1),
-      .x_is_mem_op_i(1'b0),
-      .x_writeback_i(1'b0),
-      // .x_accept_i             ( x_accept              ),
-      // .x_is_mem_op_i          ( x_is_mem_op           ),
-      // .x_writeback_i          ( x_writeback           ),
-      .x_rvalid_i   (x_rvalid),
-      .x_rready_o   (x_rready),
-      .x_rd_i       (x_rd),
-      .x_data_i     (x_data),
-      .x_dualwb_i   (x_dualwb),
-      .x_type_i     (x_type),
-      .x_error_i    (x_error),
+      .x_valid_o     (x_valid),
+      .x_ready_i              ( x_ready               ),
+      .x_instr_data_o(x_instr_data),
+      .x_rs_o        (x_rs),
+      .x_rs_valid_o  (x_rs_valid),
+      .x_rd_clean_o  (x_rd_clean),
+      .x_accept_i             ( x_accept              ),
+      .x_is_mem_op_i          ( x_is_mem_op           ),
+      .x_writeback_i          ( x_writeback           ),
+      .x_rvalid_i    (x_rvalid),
+      .x_rready_o    (x_rready),
+      .x_rd_i        (x_rd),
+      .x_data_i      (x_data),
+      .x_dualwb_i    (x_dualwb),
+      .x_type_i      (x_type),
+      .x_error_i     (x_error),
 
       .irq_i    ({irq_fast, 4'b0, irq_external, 3'b0, irq_timer, 3'b0, irq_software, 3'b0}),
       .irq_ack_o(irq_ack),
@@ -150,33 +148,45 @@ module cv32e40p_tb_subsystem #(
       .core_sleep_o  (core_sleep_o)
   );
 
+  generate
+    if (FPU) begin : gen_rei_wrapper
+      cv32e40p_rei_wrapper rei_wrapper_i (
+          .clk_i (clk_i),
+          .rst_ni(rst_ni),
 
+          // X-Request Channel
+          .x_q_valid_i     (x_valid),
+          .x_p_ready_o     (x_ready),
+          .x_q_instr_data_i(x_instr_data),
+          .x_q_rs_i        (x_rs),
+          .x_q_rs_valid_i  (x_rs_valid),
+          .x_q_rd_clean_i  (x_rd_clean),
+          .x_k_accept_o    (x_accept),
+          .x_k_is_mem_op_o (x_is_mem_op),
+          .x_k_writeback_o (x_writeback),
 
-  // generate
-  //     if(FPU) begin
-  //         cv32e40p_fp_wrapper fp_wrapper_i
-  //         (
-  //            .clk_i          ( clk_i        ),
-  //            .rst_ni         ( rst_ni       ),
-  //            .apu_req_i      ( apu_req      ),
-  //            .apu_gnt_o      ( apu_gnt      ),
-  //            .apu_operands_i ( apu_operands ),
-  //            .apu_op_i       ( apu_op       ),
-  //            .apu_flags_i    ( apu_flags    ),
-  //            .apu_rvalid_o   ( apu_rvalid   ),
-  //            .apu_rdata_o    ( apu_rdata    ),
-  //            .apu_rflags_o   ( apu_rflags   )
-  //         );
-  //     end else begin
-  //         assign apu_gnt_o      = '0;
-  //         assign apu_operands_i = '0;
-  //         assign apu_op_i       = '0;
-  //         assign apu_flags_i    = '0;
-  //         assign apu_rvalid_o   = '0;
-  //         assign apu_rdata_o    = '0;
-  //         assign apu_rflags_o   = '0;
-  //     end
-  // endgenerate
+          // X-Response Channel
+          .x_p_valid_o (x_rvalid),
+          .x_q_ready_i (x_rready),
+          .x_p_rd_o    (x_rd),
+          .x_p_data_o  (x_data),
+          .x_p_dualwb_o(x_dualwb),
+          .x_p_type_o  (x_type),
+          .x_p_error_o (x_error)
+      );
+    end else begin : no_gen_rei_wrapper
+      assign x_ready     = '0;
+      assign x_accept    = '0;
+      assign x_is_mem_op = '0;
+      assign x_writeback = '0;
+      assign x_rvalid    = '0;
+      assign x_rd        = '0;
+      assign x_data      = '0;
+      assign x_dualwb    = '0;
+      assign x_type      = '0;
+      assign x_error     = '0;
+    end
+  endgenerate
 
   // this handles read to RAM and memory mapped pseudo peripherals
   mm_ram #(
