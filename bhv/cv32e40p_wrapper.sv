@@ -80,9 +80,9 @@ module cv32e40p_wrapper
     output logic              x_rready_o,
     input  logic              x_rd_i,
     input  logic [31:0]       x_data_i,
-    input  logic              x_dualwb_i,  // Moritz: not handled yet
-    input  logic              x_type_i,  // Moritz: not handled yet
-    input  logic              x_error_i,  // Moritz: not handled yet
+    input  logic              x_dualwb_i,
+    input  logic              x_type_i,
+    input  logic              x_error_i,
     // XMem-Request Channel
 
     // XMem-Response Channel

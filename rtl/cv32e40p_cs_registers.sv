@@ -1325,7 +1325,7 @@ module cv32e40p_cs_registers
   assign hpm_events[9] = mhpmevent_branch_taken_i;  // nr of taken branches (conditional)
   assign hpm_events[10] = mhpmevent_compressed_i;  // compressed instruction counter
   assign hpm_events[11] = PULP_CLUSTER ? mhpmevent_pipe_stall_i : 1'b0;  // extra cycles from ELW
-  assign hpm_events[12] = 1'b0;  // Moritz: set event by default to 0
+  assign hpm_events[12] = 1'b0;
   assign hpm_events[13] = 1'b0;
   assign hpm_events[14] = 1'b0;
   assign hpm_events[15] = 1'b0;
