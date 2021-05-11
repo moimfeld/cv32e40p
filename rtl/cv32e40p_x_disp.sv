@@ -60,7 +60,7 @@ module cv32e40p_x_disp #(
 
   // One should be sure to encounter no branches before setting x_valid_o to high
   assign x_valid_o = x_illegal_insn_dec_i & ~x_branch_or_jump_i;
-  assign (x_valid_o & ~x_ready_i) | dep | x_is_mem_op_i
+  assign x_stall_o = (x_valid_o & ~x_ready_i) | dep | x_is_mem_op_i;
 
   always_comb begin
     x_illegal_insn_o = 1'b0;
