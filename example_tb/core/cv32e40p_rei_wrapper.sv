@@ -11,16 +11,14 @@
 // Wrapper for the RISC-V Extention Interface and all its accelerators
 // Contributor: Moritz Imfeld <moimfeld@student.ethz.ch>
 
-// Note: PATH to the accelerator directory needs to be set based on the local location
-
 module cv32e40p_rei_wrapper (
     input logic clk_i,
     input logic rst_ni,
 
     // X-Request Channel
     input  logic             x_q_valid_i,
-    output logic             x_p_ready_o,
-    input  logic             x_q_instr_data_i,
+    output logic             x_q_ready_o,
+    input  logic [31:0]      x_q_instr_data_i,
     input  logic [2:0][31:0] x_q_rs_i,
     input  logic [2:0]       x_q_rs_valid_i,
     input  logic             x_q_rd_clean_i,
@@ -30,7 +28,7 @@ module cv32e40p_rei_wrapper (
 
     // X-Response Channel
     output logic        x_p_valid_o,
-    input  logic        x_q_ready_i,
+    input  logic        x_p_ready_i,
     output logic        x_p_rd_o,
     output logic [31:0] x_p_data_o,
     output logic        x_p_dualwb_o,
@@ -71,7 +69,7 @@ module cv32e40p_rei_wrapper (
 
   // X-Request Channel assignment
   assign x_req.q_valid      = x_q_valid_i;
-  assign x_p_ready_o        = x_req.p_ready;
+  assign x_q_ready_o        = x_rsp.q_ready;
   assign x_req.q.instr_data = x_q_instr_data_i;
   assign x_req.q.rs         = x_q_rs_i;
   assign x_req.q.rs_valid   = x_q_rs_valid_i;
@@ -82,9 +80,9 @@ module cv32e40p_rei_wrapper (
 
   // X-Response Channel assignment
   assign x_p_valid_o        = x_rsp.p_valid;
-  assign x_rsp.q_ready      = x_q_ready_i;
+  assign x_req.p_ready      = x_p_ready_i;
   assign x_p_rd_o           = x_rsp.p.rd;
-  assign x_p_data_o           = x_rsp.p.data;
+  assign x_p_data_o         = x_rsp.p.data;
   assign x_p_dualwb_o       = x_rsp.p.dualwb;
   // assign p_type_o = // commented out because it is not implemented (maybe it was removed when xmem and cmem channels were created)
   assign x_p_error_o        = x_rsp.p.error;
@@ -144,8 +142,24 @@ module cv32e40p_rei_wrapper (
   );
 
 
-  // cv32e40p_fp_wrapper fp_wrapper (
-  //   /* put signals here */
-  // );
+  cv32e40p_fp_wrapper fp_wrapper (
+      .clk_i (clk_i ),
+      .rst_ni(rst_ni),
+
+      .c_q_valid_i     (c_req[0].q_valid),
+      .c_p_ready_o     (c_req[0].p_ready),
+      .c_q_addr_i      (c_req[0].q.addr),
+      .c_q_rs_i        (c_req[0].q.rs),
+      .c_q_instr_data_i(c_req[0].q.instr_data),
+      .c_q_hart_id_i   (c_req[0].q.hart_id),
+
+      .c_p_valid_o  (c_rsp[0].p_valid),
+      .c_q_ready_i  (c_rsp[0].q_ready),
+      .c_p_data_o   (c_rsp[0].p.data),
+      .c_p_error_o  (c_rsp[0].p.error),
+      .c_p_dualwb_o (c_rsp[0].p.dualwb),
+      .c_p_hart_id_o(c_rsp[0].p.hart_id),
+      .c_p_rd_o     (c_rsp[0].p.rd)
+  );
 
 endmodule : cv32e40p_rei_wrapper
