@@ -155,8 +155,8 @@ module cv32e40p_tb_subsystem #(
           .rst_ni(rst_ni),
 
           // X-Request Channel
-          .x_q_valid_i     (x_valid),
-          .x_p_ready_o     (x_ready),
+          .x_q_valid_i     (x_valid ),
+          .x_q_ready_o     (x_ready),
           .x_q_instr_data_i(x_instr_data),
           .x_q_rs_i        (x_rs),
           .x_q_rs_valid_i  (x_rs_valid),
@@ -167,7 +167,7 @@ module cv32e40p_tb_subsystem #(
 
           // X-Response Channel
           .x_p_valid_o (x_rvalid),
-          .x_q_ready_i (x_rready),
+          .x_p_ready_i (x_rready),
           .x_p_rd_o    (x_rd),
           .x_p_data_o  (x_data),
           .x_p_dualwb_o(x_dualwb),
