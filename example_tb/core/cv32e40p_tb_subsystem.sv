@@ -149,8 +149,8 @@ module cv32e40p_tb_subsystem #(
   );
 
   generate
-    if (FPU) begin : gen_rei_wrapper
-      cv32e40p_rei_wrapper rei_wrapper_i (
+    if (FPU) begin : gen_cv_x_if_wrapper
+      cv32e40p_cv_x_if_wrapper cv_x_if_wrapper_i (
           .clk_i (clk_i),
           .rst_ni(rst_ni),
 
@@ -174,7 +174,7 @@ module cv32e40p_tb_subsystem #(
           .x_p_type_o  (x_type),
           .x_p_error_o (x_error)
       );
-    end else begin : no_gen_rei_wrapper
+    end else begin : no_gen_cv_x_if_wrapper
       assign x_ready     = '0;
       assign x_accept    = '0;
       assign x_is_mem_op = '0;
