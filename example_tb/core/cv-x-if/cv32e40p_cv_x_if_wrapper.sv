@@ -11,20 +11,20 @@
 // Wrapper for the RISC-V Extention Interface and all its accelerators
 // Contributor: Moritz Imfeld <moimfeld@student.ethz.ch>
 
-module cv32e40p_rei_wrapper (
+module cv32e40p_cv_x_if_wrapper (
     input logic clk_i,
     input logic rst_ni,
 
     // X-Request Channel
-    input  logic             x_q_valid_i,
-    output logic             x_q_ready_o,
-    input  logic [31:0]      x_q_instr_data_i,
-    input  logic [2:0][31:0] x_q_rs_i,
-    input  logic [2:0]       x_q_rs_valid_i,
-    input  logic             x_q_rd_clean_i,
-    output logic             x_k_accept_o,
-    output logic             x_k_is_mem_op_o,
-    output logic             x_k_writeback_o,
+    input  logic              x_q_valid_i,
+    output logic              x_q_ready_o,
+    input  logic [31:0]       x_q_instr_data_i,
+    input  logic [ 2:0][31:0] x_q_rs_i,
+    input  logic [ 2:0]       x_q_rs_valid_i,
+    input  logic              x_q_rd_clean_i,
+    output logic              x_k_accept_o,
+    output logic              x_k_is_mem_op_o,
+    output logic              x_k_writeback_o,
 
     // X-Response Channel
     output logic        x_p_valid_o,
@@ -39,7 +39,6 @@ module cv32e40p_rei_wrapper (
     // TODO: Xmem-Request channel
 
     // TODO: Xmem-Response channel
-
 );
 
   import acc_pkg::*;
@@ -68,24 +67,24 @@ module cv32e40p_rei_wrapper (
   acc_prd_rsp_t [NumRspTot-1:0] prd_rsp;
 
   // X-Request Channel assignment
-  assign x_req.q_valid      = x_q_valid_i;
-  assign x_q_ready_o        = x_rsp.q_ready;
+  assign x_req.q_valid = x_q_valid_i;
+  assign x_q_ready_o = x_rsp.q_ready;
   assign x_req.q.instr_data = x_q_instr_data_i;
-  assign x_req.q.rs         = x_q_rs_i;
-  assign x_req.q.rs_valid   = x_q_rs_valid_i;
-  assign x_req.q.rd_clean   = x_q_rd_clean_i;
-  assign x_k_accept_o       = x_rsp.k.accept;
-  assign x_k_is_mem_op_o    = x_rsp.k.is_mem_op;
-  assign x_k_writeback_o    = x_rsp.k.writeback;
+  assign x_req.q.rs = x_q_rs_i;
+  assign x_req.q.rs_valid = x_q_rs_valid_i;
+  assign x_req.q.rd_clean = x_q_rd_clean_i;
+  assign x_k_accept_o = x_rsp.k.accept;
+  assign x_k_is_mem_op_o = x_rsp.k.is_mem_op;
+  assign x_k_writeback_o = x_rsp.k.writeback;
 
   // X-Response Channel assignment
-  assign x_p_valid_o        = x_rsp.p_valid;
-  assign x_req.p_ready      = x_p_ready_i;
-  assign x_p_rd_o           = x_rsp.p.rd;
-  assign x_p_data_o         = x_rsp.p.data;
-  assign x_p_dualwb_o       = x_rsp.p.dualwb;
+  assign x_p_valid_o = x_rsp.p_valid;
+  assign x_req.p_ready = x_p_ready_i;
+  assign x_p_rd_o = x_rsp.p.rd;
+  assign x_p_data_o = x_rsp.p.data;
+  assign x_p_dualwb_o = x_rsp.p.dualwb;
   // assign p_type_o = // commented out because it is not implemented (maybe it was removed when xmem and cmem channels were created)
-  assign x_p_error_o        = x_rsp.p.error;
+  assign x_p_error_o = x_rsp.p.error;
 
   // TODO: Xmem-Request Channel assignment
 
@@ -125,36 +124,36 @@ module cv32e40p_rei_wrapper (
       .RegisterReq(RegisterReq[0]),
       .RegisterRsp(RegisterRsp[0])
   ) acc_interconnect_i (
-      .clk_i                  (clk_i           ),
-      .rst_ni                 (rst_ni          ),
-      .acc_c_slv_req_i        (c_req_adapter   ),
-      .acc_c_slv_rsp_o        (c_rsp_adapter   ),
+      .clk_i                  (clk_i),
+      .rst_ni                 (rst_ni),
+      .acc_c_slv_req_i        (c_req_adapter),
+      .acc_c_slv_rsp_o        (c_rsp_adapter),
       .acc_cmem_mst_req_o     (cmem_req_adapter),
       .acc_cmem_mst_rsp_i     (cmem_rsp_adapter),
-      .acc_c_mst_next_req_o   (  /* unused */  ),
-      .acc_c_mst_next_rsp_i   (  /* unused */  ),
-      .acc_cmem_slv_next_req_i(  /* unused */  ),
-      .acc_cmem_slv_next_rsp_o(  /* unused */  ),
-      .acc_c_mst_req_o        (c_req           ),
-      .acc_c_mst_rsp_i        (c_rsp           ),
-      .acc_cmem_slv_req_i     (cmem_req        ),
-      .acc_cmem_slv_rsp_o     (cmem_rsp        )
+      .acc_c_mst_next_req_o   (  /* unused */),
+      .acc_c_mst_next_rsp_i   (  /* unused */),
+      .acc_cmem_slv_next_req_i(  /* unused */),
+      .acc_cmem_slv_next_rsp_o(  /* unused */),
+      .acc_c_mst_req_o        (c_req),
+      .acc_c_mst_rsp_i        (c_rsp),
+      .acc_cmem_slv_req_i     (cmem_req),
+      .acc_cmem_slv_rsp_o     (cmem_rsp)
   );
 
 
-  cv32e40p_fp_wrapper fp_wrapper (
-      .clk_i (clk_i ),
+  fpu_ss i_fpu_ss (
+      .clk_i (clk_i),
       .rst_ni(rst_ni),
 
       .c_q_valid_i     (c_req[0].q_valid),
-      .c_p_ready_o     (c_req[0].p_ready),
+      .c_q_ready_o     (c_rsp[0].q_ready),
       .c_q_addr_i      (c_req[0].q.addr),
       .c_q_rs_i        (c_req[0].q.rs),
       .c_q_instr_data_i(c_req[0].q.instr_data),
       .c_q_hart_id_i   (c_req[0].q.hart_id),
 
       .c_p_valid_o  (c_rsp[0].p_valid),
-      .c_q_ready_i  (c_rsp[0].q_ready),
+      .c_p_ready_i  (c_req[0].p_ready),
       .c_p_data_o   (c_rsp[0].p.data),
       .c_p_error_o  (c_rsp[0].p.error),
       .c_p_dualwb_o (c_rsp[0].p.dualwb),
@@ -162,4 +161,4 @@ module cv32e40p_rei_wrapper (
       .c_p_rd_o     (c_rsp[0].p.rd)
   );
 
-endmodule : cv32e40p_rei_wrapper
+endmodule  // cv32e40p_cv_x_if_wrapper
