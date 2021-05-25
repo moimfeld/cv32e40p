@@ -11,11 +11,6 @@ package fpu_ss_pkg;
   } op_select_e;
 
   typedef enum logic [1:0] {
-    ResNone,
-    ResAccBus
-  } result_select_e;
-
-  typedef enum logic [1:0] {
     Byte       = 2'b00,
     HalfWord   = 2'b01,
     Word       = 2'b10,
