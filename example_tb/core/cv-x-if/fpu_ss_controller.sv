@@ -11,7 +11,9 @@
 // FPU Subsystem Controller
 // Contributor: Moritz Imfeld <moimfeld@student.ethz.ch>
 
-module fpu_ss_controller (
+module fpu_ss_controller #(
+    parameter BUFFER_ADDR_DEPTH = 0
+) (
     // Signals for buffer pop handshake
     input  logic fpu_out_valid_i,
     input  logic fpu_busy_i,
@@ -26,7 +28,15 @@ module fpu_ss_controller (
     output logic fpu_out_ready_o,
 
     // Register write enable
-    output logic fpr_we_o
+    input  logic rd_is_fp_i,
+    output logic fpr_we_o,
+
+    // Signals for C-Response Channel Handshake
+    input  logic c_p_ready_i,
+    input  logic csr_instr_i,
+    output logic c_p_valid_o,
+
+    input  logic [BUFFER_ADDR_DEPTH-1:0] fifo_usage_i
 );
     // assign pop_ready_o = pop_valid_i & (fpu_out_valid_i | ~fpu_busy_i) & use_fpu_i; // also add pop for load, store and csr
     assign fpu_in_valid_o = pop_ready_o; // whenever there is a pop, in the same clockcycle should be a
@@ -37,12 +47,22 @@ module fpu_ss_controller (
         if(pop_valid_i & (fpu_out_valid_i | ~fpu_busy_i) & use_fpu_i) begin
             pop_ready_o = 1'b1;
         end
+        else if (fpu_out_valid_i & ~rd_is_fp_i & ~csr_instr_i) begin
+            pop_ready_o = 1'b1;
+        end
     end
 
     always_comb begin
         fpr_we_o = 1'b0;
-        if(fpu_out_valid_i) begin
+        if(fpu_out_valid_i & rd_is_fp_i) begin
             fpr_we_o = 1'b1;
+        end
+    end
+
+    always_comb begin
+        c_p_valid_o = 1'b0;
+        if(fpu_out_valid_i & ~rd_is_fp_i & ~csr_instr_i & (fifo_usage_i != '0)) begin
+            c_p_valid_o = 1'b1;
         end
     end
 
