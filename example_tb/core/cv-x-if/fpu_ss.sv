@@ -175,6 +175,8 @@ module fpu_ss #(
   );
 
   fpu_ss_controller fpu_ss_controller_i (
+      .clk_i(clk_i),
+      .rst_ni(rst_ni),
       // Signals for buffer pop handshake
       .fpu_out_valid_i(fpu_out_valid),
       .fpu_busy_i(fpu_busy),
@@ -195,9 +197,7 @@ module fpu_ss #(
       // Signals for C-Response handshake
       .c_p_ready_i(c_p_ready_i),
       .csr_instr_i(csr_instr),
-      .c_p_valid_o(c_p_valid_o),
-
-      .fifo_usage_i(fifo_usage)
+      .c_p_valid_o(c_p_valid_o)
   );
 
   // fp Register File
@@ -284,7 +284,7 @@ module fpu_ss #(
       .vectorial_op_i(vectorial_op),
       .tag_i(1'b0),
       .in_valid_i(fpu_in_valid),
-      .in_ready_o    (  /* unused */), // Note: unused since its assumed to be high whenever in_valid_i is high
+      .in_ready_o(  /* unused */), // Note: unused since its assumed to be high whenever in_valid_i is high
       .flush_i(1'b0),
       .result_o(fpu_result),
       .status_o(  /* unused */),  // Note: discuss with supervisor if needed
