@@ -78,7 +78,7 @@ module cv32e40p_wrapper
     // X-Response Channel
     input  logic              x_rvalid_i,
     output logic              x_rready_o,
-    input  logic              x_rd_i,
+    input  logic [ 4:0]       x_rd_i,
     input  logic [31:0]       x_data_i,
     input  logic              x_dualwb_i,
     input  logic              x_type_i,
