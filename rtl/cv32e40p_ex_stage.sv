@@ -74,7 +74,7 @@ module cv32e40p_ex_stage
 
     // X-Interface
     input logic        x_rvalid_i,
-    input logic        x_rd_i,
+    input logic [ 4:0] x_rd_i,
     input logic [31:0] x_data_i,
 
     input logic        lsu_en_i,
@@ -136,7 +136,7 @@ module cv32e40p_ex_stage
     regfile_alu_waddr_fw_o = '0;
     if (x_rvalid_i) begin
       regfile_alu_we_fw_o    = 1'b1;
-      regfile_alu_waddr_fw_o = x_rd_i;
+      regfile_alu_waddr_fw_o = {1'b0, x_rd_i};
       regfile_alu_wdata_fw_o = x_data_i;
     end else begin
       regfile_alu_we_fw_o    = regfile_alu_we_i & ~apu_en_i;
