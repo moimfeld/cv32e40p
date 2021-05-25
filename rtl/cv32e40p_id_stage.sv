@@ -142,6 +142,7 @@ module cv32e40p_id_stage
     input  logic             x_writeback_i,
     input  logic             x_rvalid_i,
     input  logic [ 4:0]      x_rd_i,
+    output logic             x_rvalid_assigned_o,
     output logic             x_rready_o,
 
     // CSR ID/EX
@@ -976,12 +977,14 @@ module cv32e40p_id_stage
       assign x_rs_o[1]      = regfile_data_rb_id;
       assign x_rs_o[2]      = regfile_data_rc_id;
       assign x_instr_data_o = instr;
+      assign x_rvalid_assigned_o = x_rvalid_i;
       // assign regfile_addr_rc_id = (illegal_insn_dec) ? {0, x_rs_addr[2]} : regfile_addr_rc_id;
     end else begin : gen_no_x_disp
       assign illegal_insn = illegal_insn_dec;
       assign x_rs_addr[2:0]    = 5'b0;
       assign x_rs_o[2:0] = 31'b0;
       assign x_stall = 1'b0;
+      assign x_rvalid_assigned_o = 1'b0;
     end : gen_no_x_disp
   endgenerate
 
