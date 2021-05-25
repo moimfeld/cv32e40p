@@ -51,13 +51,16 @@ module cv32e40p_x_disp #(
     output logic [2:0] x_rs_valid_o,
     output logic       x_rd_clean_o,
     output logic       x_stall_o,
-    output logic       x_illegal_insn_o
+    output logic       x_illegal_insn_o,
+
+    output logic x_rready_o
 );
 
   logic [31:0] scoreboard_q, scoreboard_d;
   logic dep;
 
-
+  // Core is always ready to receive returning fp instruction results
+  assign x_rready_o = 1'b1;
   // One should be sure to encounter no branches before setting x_valid_o to high
   assign x_valid_o = x_illegal_insn_dec_i & ~x_branch_or_jump_i;
   assign x_stall_o = (x_valid_o & ~x_ready_i) | dep | x_is_mem_op_i;
