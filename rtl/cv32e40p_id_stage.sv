@@ -141,7 +141,8 @@ module cv32e40p_id_stage
     input  logic             x_is_mem_op_i,
     input  logic             x_writeback_i,
     input  logic             x_rvalid_i,
-    input  logic             x_rd_i,
+    input  logic [ 4:0]      x_rd_i,
+    output logic             x_rready_o,
 
     // CSR ID/EX
     output logic              csr_access_ex_o,
@@ -356,7 +357,9 @@ module cv32e40p_id_stage
   logic [1:0] mult_dot_signed;  // Signed mode dot products (can be mixed types)
 
   // X-Interface
-  logic illegal_insn;
+  logic       illegal_insn;
+  logic [4:0] x_waddr_ex;
+  logic [4:0] x_waddr_wb;
 
   // Register Write Control
   logic regfile_we_id;
@@ -937,17 +940,17 @@ module cv32e40p_id_stage
           .x_illegal_insn_dec_i(illegal_insn_dec),
 
           // Scoreboard
-          .x_waddr_id_i      (x_waddr_id            ),
-          .x_writeback_i     (x_writeback_i         ),
-          .x_waddr_ex_i      (regfile_alu_waddr_fw_i),
-          .x_we_ex_i         (regfile_alu_we_fw_i   ),
-          .x_waddr_wb_i      (regfile_waddr_wb_i    ),
-          .x_we_wb_i         (regfile_we_wb_i       ),
-          .x_rwaddr_i        (x_rd_i                ),
-          .x_rvalid_i        (x_rvalid_i            ),
-          .x_rs_addr_i       (x_rs_addr             ),
-          .x_regs_used_i     (x_regs_used           ),
-          .x_branch_or_jump_i(branch_in_ex_o        ),
+          .x_waddr_id_i      (x_waddr_id                 ),
+          .x_writeback_i     (x_writeback_i              ),
+          .x_waddr_ex_i      (x_waddr_ex                 ),
+          .x_we_ex_i         (regfile_alu_we_fw_i        ),
+          .x_waddr_wb_i      (x_waddr_wb                 ),
+          .x_we_wb_i         (regfile_we_wb_i            ),
+          .x_rwaddr_i        (x_rd_i                     ),
+          .x_rvalid_i        (x_rvalid_i                 ),
+          .x_rs_addr_i       (x_rs_addr                  ),
+          .x_regs_used_i     (x_regs_used                ),
+          .x_branch_or_jump_i(branch_in_ex_o             ),
 
           .x_valid_o       (x_valid_o     ),
           .x_ready_i       (x_ready_i     ),
@@ -956,7 +959,8 @@ module cv32e40p_id_stage
           .x_rs_valid_o    (x_rs_valid_o  ),
           .x_rd_clean_o    (x_rd_clean_o  ),
           .x_stall_o       (x_stall       ),
-          .x_illegal_insn_o(x_illegal_insn)
+          .x_illegal_insn_o(x_illegal_insn),
+          .x_rready_o      (x_rready_o)
       );
 
       assign illegal_insn   = x_illegal_insn;
@@ -964,6 +968,8 @@ module cv32e40p_id_stage
       assign x_rs_addr[1]   = regfile_addr_rb_id[4:0];
       assign x_rs_addr[2]   = regfile_addr_rc_id[4:0];
       assign x_waddr_id     = instr[REG_D_MSB:REG_D_LSB];
+      assign x_waddr_ex     = regfile_alu_waddr_fw_i[4:0];
+      assign x_waddr_wb     = regfile_waddr_wb_i[4:0];
       assign x_we_id        = regfile_we_id | regfile_alu_we_id; // these are both the LSU write enable and the ALU write enable
       assign x_regs_used    = {regc_used_dec, regb_used_dec, rega_used_dec};
       assign x_rs_o[0]      = regfile_data_ra_id;
