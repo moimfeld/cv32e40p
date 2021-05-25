@@ -14,6 +14,8 @@
 module fpu_ss_controller #(
     parameter BUFFER_ADDR_DEPTH = 0
 ) (
+    input  logic clk_i,
+    input  logic rst_ni,
     // Signals for buffer pop handshake
     input  logic fpu_out_valid_i,
     input  logic fpu_busy_i,
@@ -34,21 +36,27 @@ module fpu_ss_controller #(
     // Signals for C-Response Channel Handshake
     input  logic c_p_ready_i,
     input  logic csr_instr_i,
-    output logic c_p_valid_o,
-
-    input  logic [BUFFER_ADDR_DEPTH-1:0] fifo_usage_i
+    output logic c_p_valid_o
 );
-    // assign pop_ready_o = pop_valid_i & (fpu_out_valid_i | ~fpu_busy_i) & use_fpu_i; // also add pop for load, store and csr
-    assign fpu_in_valid_o = pop_ready_o; // whenever there is a pop, in the same clockcycle should be a
+
+    logic instr_done_d;
+    logic instr_done_q;
+    logic fpu_out_valid_q;
+
     assign fpu_out_ready_o = 1'b1; // always accept writebacks from the fpu
 
-    always_comb begin // pop_ready has to be asigned in an always comb because it would not be always well defined if one would only use an assign statement
+    // Pop Instruction (instruction completion from non fpu instruction not included yet)
+    always_comb begin
         pop_ready_o = 1'b0;
-        if(pop_valid_i & (fpu_out_valid_i | ~fpu_busy_i) & use_fpu_i) begin
-            pop_ready_o = 1'b1;
-        end
-        else if (fpu_out_valid_i & ~rd_is_fp_i & ~csr_instr_i) begin
-            pop_ready_o = 1'b1;
+            if(fpu_out_valid_i & pop_valid_i) begin  // if instr completed, pop the complete instruction from the buffer (including writeback, thats why one has one more clockcycle latency)
+                pop_ready_o = 1'b1;
+            end
+    end
+
+    always_comb begin
+        fpu_in_valid_o = 1'b0;
+        if(use_fpu_i & ~instr_done_q & pop_valid_i)begin
+            fpu_in_valid_o = 1'b1;
         end
     end
 
@@ -61,8 +69,28 @@ module fpu_ss_controller #(
 
     always_comb begin
         c_p_valid_o = 1'b0;
-        if(fpu_out_valid_i & ~rd_is_fp_i & ~csr_instr_i & (fifo_usage_i != '0)) begin
+        if(fpu_out_valid_i & ~rd_is_fp_i & ~csr_instr_i & pop_valid_i) begin
             c_p_valid_o = 1'b1;
+        end
+    end
+
+    // Determin whether curretly exposed instruction by the buffer is already done/inflight (sequence of if statement matter,
+    // because if there is a pop and a fpu_in_valid at the same time, then the instr_done signal needs to go to low)
+    always_comb begin
+        instr_done_d = instr_done_q;
+        if(pop_ready_o) begin
+            instr_done_d = 1'b0;
+        end else if (fpu_in_valid_o) begin
+            instr_done_d = 1'b1;
+        end
+    end
+
+    always_ff @(posedge clk_i, negedge rst_ni) begin
+        if(~rst_ni) begin
+            instr_done_q <= 1'b0;
+        end else begin
+            instr_done_q <= instr_done_d;
+            fpu_out_valid_q <= fpu_out_valid_i;
         end
     end
 
