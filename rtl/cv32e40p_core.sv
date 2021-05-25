@@ -597,6 +597,7 @@ module cv32e40p_core #(
       .x_writeback_i (x_writeback_i),
       .x_rvalid_i    (x_rvalid_i),
       .x_rd_i        (x_rd_i),
+      .x_rvalid_assigned_o(x_rvalid), // hardwired to ground if FPU = 0
       .x_rready_o    (x_rready_o),
 
       // CSR ID/EX
@@ -751,7 +752,7 @@ module cv32e40p_core #(
       .apu_en_i(apu_en_ex),
 
       // X-Interface
-      .x_rvalid_i(x_rvalid_i),
+      .x_rvalid_i(x_rvalid),
       .x_rd_i    (x_rd_i),
       .x_data_i  (x_data_i),
 
