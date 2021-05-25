@@ -80,7 +80,7 @@ module cv32e40p_core #(
     // X-Response Channel
     input  logic              x_rvalid_i,
     output logic              x_rready_o,
-    input  logic              x_rd_i,
+    input  logic [ 4:0]       x_rd_i,
     input  logic [31:0]       x_data_i,
     input  logic              x_dualwb_i,
     input  logic              x_type_i,
@@ -597,6 +597,7 @@ module cv32e40p_core #(
       .x_writeback_i (x_writeback_i),
       .x_rvalid_i    (x_rvalid_i),
       .x_rd_i        (x_rd_i),
+      .x_rready_o    (x_rready_o),
 
       // CSR ID/EX
       .csr_access_ex_o      (csr_access_ex),
@@ -750,8 +751,7 @@ module cv32e40p_core #(
       .apu_en_i(apu_en_ex),
 
       // X-Interface
-      .x_rvalid_i(1'b0),
-      // .x_rvalid_i                 ( x_rvalid_i                   ),
+      .x_rvalid_i(x_rvalid_i),
       .x_rd_i    (x_rd_i),
       .x_data_i  (x_data_i),
 

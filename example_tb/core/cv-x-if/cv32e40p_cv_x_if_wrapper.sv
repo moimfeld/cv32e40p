@@ -29,7 +29,7 @@ module cv32e40p_cv_x_if_wrapper (
     // X-Response Channel
     output logic        x_p_valid_o,
     input  logic        x_p_ready_i,
-    output logic        x_p_rd_o,
+    output logic [ 4:0] x_p_rd_o,
     output logic [31:0] x_p_data_o,
     output logic        x_p_dualwb_o,
     // NOT IN THE typedef.svh DEFINITION BUT IN THE ACCELERATOR INTERFACE DOCUMENTATION
@@ -53,6 +53,8 @@ module cv32e40p_cv_x_if_wrapper (
 
   acc_c_req_t [NumRsp[0]-1:0] c_req;
   acc_c_rsp_t [NumRsp[0]-1:0] c_rsp;
+
+  acc_c_rsp_t [NumRsp[0]-1:0] c_mst_next_rsp;
 
   acc_xmem_req_t xmem_req;
   acc_xmem_rsp_t xmem_rsp;
@@ -92,6 +94,8 @@ module cv32e40p_cv_x_if_wrapper (
 
 
   assign hart_id = 32'h0; // what does the hart id do? (it is assigned to 0 in the cv32e40p_tb_subsystem.sv)
+  assign c_mst_next_rsp[0].p.hart_id = 32'd0;
+  assign c_mst_next_rsp[0].p_valid = '0;
 
   acc_adapter acc_adapter_i (
       .clk_i         (clk_i),
@@ -130,10 +134,10 @@ module cv32e40p_cv_x_if_wrapper (
       .acc_c_slv_rsp_o        (c_rsp_adapter),
       .acc_cmem_mst_req_o     (cmem_req_adapter),
       .acc_cmem_mst_rsp_i     (cmem_rsp_adapter),
-      .acc_c_mst_next_req_o   (  /* unused */),
-      .acc_c_mst_next_rsp_i   (  /* unused */),
-      .acc_cmem_slv_next_req_i(  /* unused */),
-      .acc_cmem_slv_next_rsp_o(  /* unused */),
+      .acc_c_mst_next_req_o   (c_req_o),
+      .acc_c_mst_next_rsp_i   (c_mst_next_rsp),
+      .acc_cmem_slv_next_req_i(cmem_req_i),
+      .acc_cmem_slv_next_rsp_o(cmem_rsp_o),
       .acc_c_mst_req_o        (c_req),
       .acc_c_mst_rsp_i        (c_rsp),
       .acc_cmem_slv_req_i     (cmem_req),
@@ -141,7 +145,12 @@ module cv32e40p_cv_x_if_wrapper (
   );
 
 
-  fpu_ss i_fpu_ss (
+  fpu_ss #(
+      .BUFFER_DEPTH(4),
+      .FPU_FEATURES(cv32e40p_fpu_pkg::FPU_FEATURES),
+      .FPU_IMPLEMENTATION(cv32e40p_fpu_pkg::FPU_IMPLEMENTATION),
+      .FPU_TAG_TYPE(logic)
+    )fpu_ss_i (
       .clk_i (clk_i),
       .rst_ni(rst_ni),
 
