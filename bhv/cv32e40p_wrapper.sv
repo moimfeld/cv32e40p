@@ -84,8 +84,21 @@ module cv32e40p_wrapper
     input  logic              x_type_i,
     input  logic              x_error_i,
     // XMem-Request Channel
-
+    input  logic                       xmem_valid_i,
+    output logic                       xmem_ready_o,
+    input  logic                [31:0] xmem_laddr_i,
+    input  logic                [31:0] xmem_wdata_i,
+    input  logic                [ 2:0] xmem_width_i,
+    input  cv_x_if_pkg::mem_req_type_e xmem_req_type_i,
+    input  logic                       xmem_mode_i,
+    input  logic                       xmem_spec_i,
+    input  logic                       xmem_endoftransaction_i,
     // XMem-Response Channel
+    output logic                  xmem_rvalid_o,
+    input  logic                  xmem_rready_i,
+    output logic [          31:0] xmem_rdata_o,
+    output logic [$clog2(32)-1:0] xmem_range_o,
+    output logic                  xmem_status_o,
 
 
     // Interrupt inputs
