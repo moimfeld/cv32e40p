@@ -14,8 +14,8 @@
 package acc_fp_pkg;
 
 // parameter int unsigned NumInstr="NUMBER OF FP INSTR";
-parameter int unsigned NumInstr=26;
-parameter acc_pkg::offload_instr_t OffloadInstr[26] = '{
+parameter int unsigned NumInstr=34;
+parameter acc_pkg::offload_instr_t OffloadInstr[NumInstr] = '{
   '{
     instr_data: 32'b 000000000000_00000_010_00000_0000111, // FLW
     instr_mask: 32'b 000000000000_00000_111_00000_1111111,
@@ -27,7 +27,7 @@ parameter acc_pkg::offload_instr_t OffloadInstr[26] = '{
    }
   },
   '{
-    instr_data: 32'b 0000000_00000_00000_010_00000_0000111, // FSW
+    instr_data: 32'b 0000000_00000_00000_010_00000_0100111, // FSW
     instr_mask: 32'b 0000000_00000_00000_111_00000_1111111,
     prd_rsp : '{
       p_accept : 1'b1,
@@ -274,6 +274,86 @@ parameter acc_pkg::offload_instr_t OffloadInstr[26] = '{
       p_writeback : 2'b00,
       p_is_mem_op : 1'b0,
       p_use_rs : 3'b001
+    }
+  },
+  '{
+    instr_data: 32'b 000000000011_00000_001_00000_1110011, // CSRRW (fscsr) NOTE: two instructions (swap and write)
+    instr_mask: 32'b 111111111111_00000_111_00000_1111111,
+    prd_rsp : '{
+      p_accept : 1'b1,
+      p_writeback : 2'b01,
+      p_is_mem_op : 1'b0,
+      p_use_rs : 3'b001
+    }
+  },
+  '{
+    instr_data: 32'b 000000000011_00000_010_00000_1110011, // CSRRS (frcsr)
+    instr_mask: 32'b 111111111111_00000_111_00000_1111111,
+    prd_rsp : '{
+      p_accept : 1'b1,
+      p_writeback : 2'b01,
+      p_is_mem_op : 1'b0,
+      p_use_rs : 3'b001
+    }
+  },
+  '{
+    instr_data: 32'b 000000000010_00000_001_00000_1110011, // CSRRW (fsrm) NOTE: two instructions (swap and write)
+    instr_mask: 32'b 111111111111_00000_111_00000_1111111,
+    prd_rsp : '{
+      p_accept : 1'b1,
+      p_writeback : 2'b01,
+      p_is_mem_op : 1'b0,
+      p_use_rs : 3'b001
+    }
+  },
+  '{
+    instr_data: 32'b 000000000010_00000_010_00000_1110011, // CSRRS (frrm)
+    instr_mask: 32'b 111111111111_00000_111_00000_1111111,
+    prd_rsp : '{
+      p_accept : 1'b1,
+      p_writeback : 2'b01,
+      p_is_mem_op : 1'b0,
+      p_use_rs : 3'b001
+    }
+  },
+  '{
+    instr_data: 32'b 000000000010_00000_101_00000_1110011, // CSRRWI (fsrmi) NOTE: two instructions (swap and write)
+    instr_mask: 32'b 111111111111_00000_111_00000_1111111,
+    prd_rsp : '{
+      p_accept : 1'b1,
+      p_writeback : 2'b01,
+      p_is_mem_op : 1'b0,
+      p_use_rs : 3'b000
+    }
+  },
+  '{
+    instr_data: 32'b 000000000001_00000_001_00000_1110011, // CSRRW (fsflags) NOTE: two instructions (swap and write)
+    instr_mask: 32'b 111111111111_00000_111_00000_1111111,
+    prd_rsp : '{
+      p_accept : 1'b1,
+      p_writeback : 2'b01,
+      p_is_mem_op : 1'b0,
+      p_use_rs : 3'b001
+    }
+  },
+  '{
+    instr_data: 32'b 000000000001_00000_010_00000_1110011, // CSRRS (frflags)
+    instr_mask: 32'b 111111111111_00000_111_00000_1111111,
+    prd_rsp : '{
+      p_accept : 1'b1,
+      p_writeback : 2'b01,
+      p_is_mem_op : 1'b0,
+      p_use_rs : 3'b001
+    }
+  },
+  '{
+    instr_data: 32'b 000000000001_00000_101_00000_1110011, // CSRRWI (fsflagsi) NOTE: two instructions (swap and write)
+    instr_mask: 32'b 111111111111_00000_111_00000_1111111,
+    prd_rsp : '{
+      p_accept : 1'b1,
+      p_writeback : 2'b01,
+      p_is_mem_op : 1'b0,
+      p_use_rs : 3'b000
     }
   }
 };
