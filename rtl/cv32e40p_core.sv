@@ -86,8 +86,21 @@ module cv32e40p_core #(
     input  logic              x_type_i,
     input  logic              x_error_i,
     // XMem-Request Channel
-
+    input  logic                       xmem_valid_i,
+    output logic                       xmem_ready_o,
+    input  logic                [31:0] xmem_laddr_i,
+    input  logic                [31:0] xmem_wdata_i,
+    input  logic                [ 2:0] xmem_width_i,
+    input  cv_x_if_pkg::mem_req_type_e xmem_req_type_i,
+    input  logic                       xmem_mode_i,
+    input  logic                       xmem_spec_i,
+    input  logic                       xmem_endoftransaction_i,
     // XMem-Response Channel
+    output logic                  xmem_rvalid_o,
+    input  logic                  xmem_rready_i,
+    output logic [          31:0] xmem_rdata_o,
+    output logic [$clog2(32)-1:0] xmem_range_o,
+    output logic                  xmem_status_o,
 
     // Interrupt inputs
     input  logic [31:0] irq_i,  // CLINT interrupts + CLINT extension interrupts
@@ -204,6 +217,11 @@ module cv32e40p_core #(
 
   // APU
   logic                                     apu_en_ex;
+
+  // X-Interface
+  logic                                     x_rvalid;
+  logic                                     xmem_instr;
+  logic                                     xmem_instr_wb;
 
   // Register Write Control
   logic        [                 5:0]       regfile_waddr_ex;
@@ -600,6 +618,23 @@ module cv32e40p_core #(
       .x_rvalid_assigned_o(x_rvalid), // hardwired to ground if FPU = 0
       .x_rready_o    (x_rready_o),
 
+      .xmem_valid_i            (xmem_valid_i),
+      .xmem_ready_o            (xmem_ready_o),
+      .xmem_laddr_i            (xmem_laddr_i),
+      .xmem_wdata_i            (xmem_wdata_i),
+      .xmem_width_i            (xmem_width_i),
+      .xmem_req_type_i         (xmem_req_type_i),
+      .xmem_mode_i             (xmem_mode_i),
+      .xmem_spec_i             (xmem_spec_i),
+      .xmem_endoftransaction_i (xmem_endoftransaction_i),
+
+      .xmem_instr_ex_o         (xmem_instr),
+      .xmem_instr_wb_i         (xmem_instr_wb),
+
+      .xmem_rvalid_o(xmem_rvalid_o),
+      .xmem_rready_i(xmem_rready_i),
+      .xmem_status_o(xmem_status_o),
+
       // CSR ID/EX
       .csr_access_ex_o      (csr_access_ex),
       .csr_op_ex_o          (csr_op_ex),
@@ -752,9 +787,12 @@ module cv32e40p_core #(
       .apu_en_i(apu_en_ex),
 
       // X-Interface
-      .x_rvalid_i(x_rvalid),
-      .x_rd_i    (x_rd_i),
-      .x_data_i  (x_data_i),
+      .x_rvalid_i      (x_rvalid),
+      .x_rd_i          (x_rd_i),
+      .x_data_i        (x_data_i),
+      .xmem_instr_i    (xmem_instr),
+      .xmem_rdata_o    (xmem_rdata_o),
+      .xmem_instr_wb_o (xmem_instr_wb),
 
       .lsu_en_i   (data_req_ex),
       .lsu_rdata_i(lsu_rdata),
