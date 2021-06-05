@@ -68,6 +68,22 @@ module cv32e40p_tb_subsystem #(
   logic                               x_type;
   logic                               x_error;
 
+  logic                               xmem_valid;
+  logic                               xmem_ready;
+  logic [                 31:0]       xmem_laddr;
+  logic [                 31:0]       xmem_wdata;
+  logic [                  2:0]       xmem_width;
+  cv_x_if_pkg::mem_req_type_e         xmem_req_type;
+  logic                               xmem_mode;
+  logic                               xmem_spec;
+  logic                               xmem_endoftransaction;
+
+  logic                               xmem_rvalid;
+  logic                               xmem_rready;
+  logic [                 31:0]       xmem_rdata;
+  logic [       $clog2(32)-1:0]       xmem_range;
+  logic                               xmem_status;
+
   // signals to debug unit
   logic                               debug_req_i;
 
@@ -119,14 +135,15 @@ module cv32e40p_tb_subsystem #(
       .data_rvalid_i(data_rvalid),
 
       .x_valid_o     (x_valid),
-      .x_ready_i              ( x_ready               ),
+      .x_ready_i     (x_ready),
       .x_instr_data_o(x_instr_data),
       .x_rs_o        (x_rs),
       .x_rs_valid_o  (x_rs_valid),
       .x_rd_clean_o  (x_rd_clean),
-      .x_accept_i             ( x_accept              ),
-      .x_is_mem_op_i          ( x_is_mem_op           ),
-      .x_writeback_i          ( x_writeback           ),
+      .x_accept_i    (x_accept),
+      .x_is_mem_op_i (x_is_mem_op),
+      .x_writeback_i (x_writeback),
+
       .x_rvalid_i    (x_rvalid),
       .x_rready_o    (x_rready),
       .x_rd_i        (x_rd),
@@ -134,6 +151,22 @@ module cv32e40p_tb_subsystem #(
       .x_dualwb_i    (x_dualwb),
       .x_type_i      (x_type),
       .x_error_i     (x_error),
+
+      .xmem_valid_i            (xmem_valid),
+      .xmem_ready_o            (xmem_ready),
+      .xmem_laddr_i            (xmem_laddr),
+      .xmem_wdata_i            (xmem_wdata),
+      .xmem_width_i            (xmem_width),
+      .xmem_req_type_i         (xmem_req_type),
+      .xmem_mode_i             (xmem_mode),
+      .xmem_spec_i             (xmem_spec),
+      .xmem_endoftransaction_i (xmem_endoftransaction),
+
+      .xmem_rvalid_o (xmem_rvalid),
+      .xmem_rready_i (xmem_rready),
+      .xmem_rdata_o  (xmem_rdata),
+      .xmem_range_o  (xmem_range),
+      .xmem_status_o (xmem_status),
 
       .irq_i    ({irq_fast, 4'b0, irq_external, 3'b0, irq_timer, 3'b0, irq_software, 3'b0}),
       .irq_ack_o(irq_ack),
@@ -172,7 +205,25 @@ module cv32e40p_tb_subsystem #(
           .x_p_data_o  (x_data),
           .x_p_dualwb_o(x_dualwb),
           .x_p_type_o  (x_type),
-          .x_p_error_o (x_error)
+          .x_p_error_o (x_error),
+
+          // Xmem-Request channel
+          .xmem_q_valid_o            (xmem_valid),
+          .xmem_q_ready_i            (xmem_ready),
+          .xmem_q_laddr_o            (xmem_laddr),
+          .xmem_q_wdata_o            (xmem_wdata),
+          .xmem_q_width_o            (xmem_width),
+          .xmem_q_req_type_o         (xmem_req_type),
+          .xmem_q_mode_o             (xmem_mode),
+          .xmem_q_spec_o             (xmem_spec),
+          .xmem_q_endoftransaction_o (xmem_endoftransaction),
+
+          // Xmem-Response channel
+          .xmem_p_valid_i  (xmem_rvalid),
+          .xmem_p_ready_o  (xmem_rready),
+          .xmem_p_rdata_i  (xmem_rdata),
+          .xmem_p_range_i  (xmem_range),
+          .xmem_p_status_i (xmem_status)
       );
     end else begin : no_gen_cv_x_if_wrapper
       assign x_ready     = '0;
