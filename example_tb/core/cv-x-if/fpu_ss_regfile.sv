@@ -39,8 +39,8 @@ module fpu_ss_regfile (
   // loop from 1 to NumWords-1 as R0 is nil
   always_ff @(posedge clk_i) begin : register_write_behavioral
     for (int unsigned i = 0; i < NumWords; i++) begin
-      if (we_dec[i]) begin
-        mem[i] <= wdata_i;
+      if (we_dec[i]) begin //(1'b1) begin // NOTE: JUST AN EXAMPLE
+        mem[i] <= wdata_i;//32'b0000_0000_0000_0000_0000_0000_0000_1111;// wdata_i;// NOTE: JUST AN EXAMPLE
       end
     end
   end
