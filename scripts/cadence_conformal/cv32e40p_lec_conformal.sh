@@ -29,10 +29,16 @@ add ignored outputs apu_flags_o* -Both
 
 add ignored outputs x_valid_o -Both
 add ignored outputs x_rs_o* -Both
+add ignored outputs x_instr_data_o* -Both
 add ignored outputs x_rs_valid_o* -Both
 add ignored outputs x_rd_clean_o -Both
 add ignored outputs x_rready_o -Both
 
+add ignored outputs xmem_ready_o -Both
+add ignored outputs xmem_rvalid_o -Both
+add ignored outputs xmem_rdata_o* -Both
+add ignored outputs xmem_range_o* -Both
+add ignored outputs xmem_status_o -Both
 
 write hier_compare dofile hier_compare_r2r.do -constraint -replace
 
