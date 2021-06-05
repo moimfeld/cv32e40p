@@ -22,19 +22,16 @@ module fpu_ss_decoder (
     output fpnew_pkg::fp_format_e        dst_fmt_o,
     output fpnew_pkg::int_format_e       int_fmt_o,
     output logic                         rd_is_fp_o,
-    output logic                         csr_instr_o,
     output logic                         vectorial_op_o,
     output logic                         op_mode_o,
     output logic                         use_fpu_o,
     output logic                         is_store_o,
     output logic                         is_load_o,
-    output fpu_ss_pkg::ls_size_e         ls_size_o,
-    output logic                         error_o
+    output fpu_ss_pkg::ls_size_e         ls_size_o
 );
 
   always_comb begin
 
-    error_o = 1'b0;
     fpu_op_o = fpnew_pkg::ADD;
     use_fpu_o = 1'b1;
     fpu_rnd_mode_o = (fpnew_pkg::roundmode_e'(instr_i[14:12]) == fpnew_pkg::DYN)
@@ -60,7 +57,6 @@ module fpu_ss_decoder (
 
     // Destination register is in FPR
     rd_is_fp_o = 1'b1;
-    csr_instr_o = 1'b0;  // is a csr instr_iuction
 
     unique casez (instr_i)
       // FP - FP Operations
@@ -2018,24 +2014,9 @@ module fpu_ss_decoder (
         use_fpu_o = 1'b0;
         rd_is_fp_o = 1'b0;
       end
-      // -------------
-      // CSR Handling
-      // -------------
-      // Set or clear corresponding CSR
-      fpu_ss_instr_pkg::CSRRSI: begin
-        use_fpu_o   = 1'b0;
-        rd_is_fp_o  = 1'b0;
-        csr_instr_o = 1'b1;
-      end
-      fpu_ss_instr_pkg::CSRRCI: begin
-        use_fpu_o   = 1'b0;
-        rd_is_fp_o  = 1'b0;
-        csr_instr_o = 1'b1;
-      end
       default: begin
-        use_fpu_o = 1'b0;
-        error_o = 1'b1;
-        rd_is_fp_o = 1'b0;
+        use_fpu_o   = 1'b0;
+        rd_is_fp_o  = 1'b0;
       end
     endcase
     // fix round mode for vectors and fp16alt
