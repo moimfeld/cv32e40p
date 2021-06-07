@@ -28,7 +28,9 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-module cv32e40p_core #(
+module cv32e40p_core
+    import cv32e40p_x_if_pkg::*;
+  #(
     parameter PULP_XPULP          =  0,                   // PULP ISA Extension (incl. custom CSRs and hardware loop, excl. p.elw)
     parameter PULP_CLUSTER = 0,  // PULP Cluster interface (incl. p.elw)
     parameter FPU = 0,  // Floating Point Unit (interfaced via APU interface)
@@ -86,15 +88,15 @@ module cv32e40p_core #(
     input  logic              x_type_i,
     input  logic              x_error_i,
     // XMem-Request Channel
-    input  logic                       xmem_valid_i,
-    output logic                       xmem_ready_o,
-    input  logic                [31:0] xmem_laddr_i,
-    input  logic                [31:0] xmem_wdata_i,
-    input  logic                [ 2:0] xmem_width_i,
-    input  cv_x_if_pkg::mem_req_type_e xmem_req_type_i,
-    input  logic                       xmem_mode_i,
-    input  logic                       xmem_spec_i,
-    input  logic                       xmem_endoftransaction_i,
+    input  logic          xmem_valid_i,
+    output logic          xmem_ready_o,
+    input  logic   [31:0] xmem_laddr_i,
+    input  logic   [31:0] xmem_wdata_i,
+    input  logic   [ 2:0] xmem_width_i,
+    input  mem_req_type_e xmem_req_type_i,
+    input  logic          xmem_mode_i,
+    input  logic          xmem_spec_i,
+    input  logic          xmem_endoftransaction_i,
     // XMem-Response Channel
     output logic                  xmem_rvalid_o,
     input  logic                  xmem_rready_i,
@@ -253,6 +255,8 @@ module cv32e40p_core #(
   PrivLvl_t           current_priv_lvl;
 
   // Data Memory Control:  From ID stage (id-ex pipe) <--> load store unit
+  logic        [31:0] lsu_operand_a_ex;
+  logic        [31:0] lsu_operand_c_ex;
   logic               data_we_ex;
   logic        [ 5:0] data_atop_ex;
   logic        [ 1:0] data_type_ex;
@@ -665,6 +669,8 @@ module cv32e40p_core #(
       .csr_hwlp_data_i (csr_hwlp_data),
 
       // LSU
+      .lsu_operand_a_ex_o  (lsu_operand_a_ex),
+      .lsu_operand_c_ex_o  (lsu_operand_c_ex),
       .data_req_ex_o       (data_req_ex),  // to load store unit
       .data_we_ex_o        (data_we_ex),  // to load store unit
       .atop_ex_o           (data_atop_ex),
@@ -865,14 +871,14 @@ module cv32e40p_core #(
       .data_we_ex_i        (data_we_ex),
       .data_atop_ex_i      (data_atop_ex),
       .data_type_ex_i      (data_type_ex),
-      .data_wdata_ex_i     (alu_operand_c_ex),
+      .data_wdata_ex_i     (lsu_operand_c_ex),
       .data_reg_offset_ex_i(data_reg_offset_ex),
       .data_load_event_ex_i(data_load_event_ex),
       .data_sign_ext_ex_i  (data_sign_ext_ex),  // sign extension
 
       .data_rdata_ex_o  (lsu_rdata),
       .data_req_ex_i    (data_req_ex),
-      .operand_a_ex_i   (alu_operand_a_ex),
+      .operand_a_ex_i   (lsu_operand_a_ex),
       .operand_b_ex_i   (alu_operand_b_ex),
       .addr_useincr_ex_i(useincr_addr_ex),
 
