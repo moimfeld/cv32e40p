@@ -55,8 +55,6 @@ module fpu_ss_controller (
     output logic cmem_rsp_hs_o
 );
 
-  // logic instr_done_d;
-  // logic instr_done_q;
   logic instr_inflight_d;
   logic instr_inflight_q;
   logic instr_offloaded_d;
@@ -146,25 +144,6 @@ module fpu_ss_controller (
     end
   end
 
-  // Determine whether curretly exposed instruction by the buffer is already done/inflight (sequence of if statement matter,
-  // because if there is a pop and a fpu_in_valid at the same time, then the instr_done signal needs to go to low)
-  // always_comb begin
-  //   instr_done_d = instr_done_q;
-  //   if (pop_ready_o) begin
-  //     instr_done_d = 1'b0;
-  //   end else if (fpu_out_valid_i & rd_is_fp_i) begin
-  //     instr_done_d = 1'b1;
-  //   end else if (~rd_is_fp_i & c_rsp_hs) begin
-  //     instr_done_d = 1'b1;
-  //   end else if (~use_fpu_i & ~is_load_i & ~is_store_i & ~rd_is_fp_i & c_rsp_hs) begin
-  //     instr_done_d = 1'b1;
-  //   end else if (is_load_i & is_store_i & cmem_rsp_hs_o) begin
-  //     instr_done_d = 1'b1;
-  //   end else if (csr_instr_i & c_rsp_hs) begin
-  //     instr_done_d = 1'b1;
-  //   end
-  // end
-
   always_comb begin
     instr_inflight_d = instr_inflight_q;
     if (pop_ready_o & pop_valid_i & fpu_out_ready_o) begin
@@ -185,11 +164,9 @@ module fpu_ss_controller (
 
   always_ff @(posedge clk_i, negedge rst_ni) begin
     if(~rst_ni) begin
-      // instr_done_q      <= 1'b0;
       instr_inflight_q  <= 1'b0;
       instr_offloaded_q <= 1'b0;
     end else begin
-      // instr_done_q      <= instr_done_d;
       instr_inflight_q  <= instr_inflight_d;
       instr_offloaded_q <= instr_offloaded_d;
     end
