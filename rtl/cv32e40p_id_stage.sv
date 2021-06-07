@@ -973,7 +973,7 @@ module cv32e40p_id_stage
           .x_waddr_id_i      (x_waddr_id                 ),
           .x_writeback_i     (x_writeback_i              ),
           .x_waddr_ex_i      (x_waddr_ex                 ),
-          .x_we_ex_i         (regfile_alu_we_fw_i        ),
+          .x_we_ex_i         (regfile_alu_we_ex_o        ),
           .x_waddr_wb_i      (x_waddr_wb                 ),
           .x_we_wb_i         (regfile_we_wb_i            ),
           .x_rwaddr_i        (x_rd_i                     ),
@@ -1018,7 +1018,7 @@ module cv32e40p_id_stage
       assign x_rs_addr[1]   = regfile_addr_rb_id[4:0];
       assign x_rs_addr[2]   = regfile_addr_rc_id[4:0];
       assign x_waddr_id     = instr[REG_D_MSB:REG_D_LSB];
-      assign x_waddr_ex     = regfile_alu_waddr_fw_i[4:0];
+      assign x_waddr_ex     = regfile_alu_waddr_ex_o[4:0];
       assign x_waddr_wb     = regfile_waddr_wb_i[4:0];
       assign x_regs_used    = {regc_used_dec, regb_used_dec, rega_used_dec};
       assign x_rs_o[0]      = regfile_data_ra_id;
