@@ -87,7 +87,19 @@ module cv32e40p_x_disp
 
   // One should be sure to encounter no branches before setting x_valid_o to high
   assign x_valid_o = x_illegal_insn_dec_i & ~x_branch_or_jump_i & ~instr_offloaded_q;
-  assign x_stall_o = (x_valid_o & ~x_ready_i) | dep | (x_is_mem_op_i & ~xmem_rvalid_o);
+  assign x_stall_o = (x_valid_o & ~x_ready_i) | dep | (x_is_mem_op_i & ~(xmem_rvalid_o & xmem_rready_i));
+
+  // Check validity of source registers and cleanness of destination register:
+  // - valid if scoreboard at the index of the source register is clean
+  // - valid if there is no active core side instruction currently writing back to the source register
+  // - valid if there is no memory instruction writing back to the source register
+  assign x_rs_valid_o[0] = ~(scoreboard_q[x_rs_addr_i[0]] | ((x_rs_addr_i[0] == x_waddr_ex_i) & x_we_ex_i) | ((x_rs_addr_i[0] == x_waddr_wb_i) & x_we_wb_i));
+  assign x_rs_valid_o[1] = ~(scoreboard_q[x_rs_addr_i[1]] | ((x_rs_addr_i[1] == x_waddr_ex_i) & x_we_ex_i) | ((x_rs_addr_i[1] == x_waddr_wb_i) & x_we_wb_i));
+  assign x_rs_valid_o[2] = ~(scoreboard_q[x_rs_addr_i[2]] | ((x_rs_addr_i[2] == x_waddr_ex_i) & x_we_ex_i) | ((x_rs_addr_i[2] == x_waddr_wb_i) & x_we_wb_i));
+  assign x_rd_clean_o = ~((scoreboard_q[x_waddr_id_i]) | ((x_waddr_id_i == x_waddr_ex_i) & x_we_ex_i) | ((x_waddr_id_i == x_waddr_wb_i) & x_we_wb_i));
+
+  // Check if scoreboard is clean for any instruction that stays in the core
+  assign dep = ((x_regs_used_i[0] & scoreboard_q[x_rs_addr_i[0]]) | (x_regs_used_i[1] & scoreboard_q[x_rs_addr_i[1]]) | (x_regs_used_i[2] & scoreboard_q[x_rs_addr_i[2]]));
 
   // Offload handshake
   always_comb begin
@@ -122,21 +134,11 @@ module cv32e40p_x_disp
     end
   end
 
-  // Dependency check
-  always_comb begin
-    // Check if scoreboard is clean and if there are no outstanding writebacks in the ex- or id-stage
-    x_rs_valid_o[0] = ~(scoreboard_q[x_rs_addr_i[0]] | ((x_rs_addr_i[0] == x_waddr_ex_i) & x_we_ex_i) | ((x_rs_addr_i[0] == x_waddr_wb_i) & x_we_wb_i));
-    x_rs_valid_o[1] = ~(scoreboard_q[x_rs_addr_i[1]] | ((x_rs_addr_i[1] == x_waddr_ex_i) & x_we_ex_i) | ((x_rs_addr_i[1] == x_waddr_wb_i) & x_we_wb_i));
-    x_rs_valid_o[2] = ~(scoreboard_q[x_rs_addr_i[2]] | ((x_rs_addr_i[2] == x_waddr_ex_i) & x_we_ex_i) | ((x_rs_addr_i[2] == x_waddr_wb_i) & x_we_wb_i));
-    x_rd_clean_o = ~((scoreboard_q[x_waddr_id_i]) | ((x_waddr_id_i == x_waddr_ex_i) & x_we_ex_i) | ((x_waddr_id_i == x_waddr_wb_i) & x_we_wb_i));
-    // Check if scoreboard is clean for any instruction that stays in the core
-    dep = ((x_regs_used_i[0] & scoreboard_q[x_rs_addr_i[0]]) | (x_regs_used_i[1] & scoreboard_q[x_rs_addr_i[1]]) | (x_regs_used_i[2] & scoreboard_q[x_rs_addr_i[2]]));
-  end
 
   // scoreboard with only the offloaded instructions
   always_comb begin
     scoreboard_d = scoreboard_q;
-    if (x_writeback_i & x_illegal_insn_dec_i & x_valid_o & x_ready_i) begin  // update rule for outgoing instructions
+    if (x_writeback_i & x_illegal_insn_dec_i & (x_valid_o & x_ready_i) & x_waddr_id_i != x_rwaddr_i) begin  // update rule for outgoing instructions
       scoreboard_d[x_waddr_id_i] = 1'b1;
     end
     if(x_rvalid_i | (~x_writeback_i & ~x_illegal_insn_dec_i)) begin // update rule for successful writebacks
@@ -175,6 +177,5 @@ module cv32e40p_x_disp
       mem_wb_complete_q <= mem_wb_complete_d;
     end
   end
-
 
 endmodule : cv32e40p_x_disp
