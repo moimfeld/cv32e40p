@@ -149,7 +149,12 @@ module fpu_ss #(
   assign c_p_error_o   = 1'b0; // no errors can occur for now
   assign c_p_dualwb_o  = 1'b0;
   assign c_p_hart_id_o = offloaded_data_pop.hart_id;
-  assign c_p_rd_o      = rd;
+  always_comb begin
+    c_p_rd_o = '0;
+    if (c_p_valid_o) begin
+      c_p_rd_o = rd;
+    end
+  end
 
   // cmem-request channel assignements
   assign cmem_q_wdata_o   = fpu_operands[1];
@@ -198,7 +203,7 @@ module fpu_ss #(
 
   // Fifo with built in Handshake protocol
   stream_fifo #(
-      .FALL_THROUGH(1'b0),
+      .FALL_THROUGH(1'b1),
       .DATA_WIDTH  (32),
       .DEPTH       (BUFFER_DEPTH),
       .T           (offloaded_data_t)

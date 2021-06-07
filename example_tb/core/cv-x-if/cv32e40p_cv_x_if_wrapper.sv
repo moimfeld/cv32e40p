@@ -11,7 +11,9 @@
 // Wrapper for the RISC-V Extention Interface and all its accelerators
 // Contributor: Moritz Imfeld <moimfeld@student.ethz.ch>
 
-module cv32e40p_cv_x_if_wrapper (
+module cv32e40p_cv_x_if_wrapper
+    import acc_pkg::*; import cv32e40p_x_if_pkg::*;
+  (
     input logic clk_i,
     input logic rst_ni,
 
@@ -37,15 +39,15 @@ module cv32e40p_cv_x_if_wrapper (
     output logic        x_p_error_o,
 
     // Xmem-Request channel
-    output logic                       xmem_q_valid_o,
-    input  logic                       xmem_q_ready_i,
-    output logic                [31:0] xmem_q_laddr_o,
-    output logic                [31:0] xmem_q_wdata_o,
-    output logic                [ 2:0] xmem_q_width_o,
-    output cv_x_if_pkg::mem_req_type_e xmem_q_req_type_o,
-    output logic                       xmem_q_mode_o,
-    output logic                       xmem_q_spec_o,
-    output logic                       xmem_q_endoftransaction_o,
+    output logic                             xmem_q_valid_o,
+    input  logic                             xmem_q_ready_i,
+    output logic                      [31:0] xmem_q_laddr_o,
+    output logic                      [31:0] xmem_q_wdata_o,
+    output logic                      [ 2:0] xmem_q_width_o,
+    output cv32e40p_x_if_pkg::mem_req_type_e xmem_q_req_type_o,
+    output logic                             xmem_q_mode_o,
+    output logic                             xmem_q_spec_o,
+    output logic                             xmem_q_endoftransaction_o,
 
     // Xmem-Response channel
     input  logic                  xmem_p_valid_i,
@@ -54,8 +56,6 @@ module cv32e40p_cv_x_if_wrapper (
     input  logic [$clog2(32)-1:0] xmem_p_range_i,
     input  logic                  xmem_p_status_i
 );
-
-  import acc_pkg::*;
 
   logic [31:0] hart_id;
 
@@ -109,7 +109,7 @@ module cv32e40p_cv_x_if_wrapper (
   assign xmem_q_laddr_o    = xmem_req.q.laddr;
   assign xmem_q_wdata_o    = xmem_req.q.wdata;
   assign xmem_q_width_o    = xmem_req.q.width;
-  assign xmem_q_req_type_o = cv_x_if_pkg::mem_req_type_e'(xmem_req.q.req_type); // cast from acc_pkg enum to cv_x_if_pkg enum (both enum are equivalent)
+  assign xmem_q_req_type_o = cv32e40p_x_if_pkg::mem_req_type_e'(xmem_req.q.req_type); // cast from acc_pkg enum to cv32e40p_x_if_pkg enum (both enum are equivalent)
   assign xmem_q_mode_o     = xmem_req.q.mode;
   assign xmem_q_spec_o     = xmem_req.q.spec;
   assign xmem_q_endoftransaction_o = xmem_req.q.endoftransaction;
