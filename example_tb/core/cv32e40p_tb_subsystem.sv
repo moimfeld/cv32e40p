@@ -11,7 +11,9 @@
 // Wrapper for a RI5CY testbench, containing RI5CY, Memory and stdout peripheral
 // Contributor: Robert Balas <balasr@student.ethz.ch>
 
-module cv32e40p_tb_subsystem #(
+module cv32e40p_tb_subsystem
+    import cv32e40p_x_if_pkg::*;
+  #(
     parameter INSTR_RDATA_WIDTH = 32,
     parameter RAM_ADDR_WIDTH = 20,
     parameter BOOT_ADDR = 'h180,
@@ -73,7 +75,7 @@ module cv32e40p_tb_subsystem #(
   logic [                 31:0]       xmem_laddr;
   logic [                 31:0]       xmem_wdata;
   logic [                  2:0]       xmem_width;
-  cv_x_if_pkg::mem_req_type_e         xmem_req_type;
+  mem_req_type_e                      xmem_req_type;
   logic                               xmem_mode;
   logic                               xmem_spec;
   logic                               xmem_endoftransaction;
