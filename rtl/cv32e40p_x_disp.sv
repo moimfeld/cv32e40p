@@ -19,9 +19,9 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-module cv32e40p_x_disp #(
-
-) (
+module cv32e40p_x_disp
+    import cv32e40p_x_if_pkg::*;
+  (
     // Clock and Reset
     input logic clk_i,
     input logic rst_ni,
@@ -52,12 +52,12 @@ module cv32e40p_x_disp #(
 
     output logic       x_rready_o,
 
-    input  logic                       xmem_valid_i,
-    output logic                       xmem_ready_o,
-    input  cv_x_if_pkg::mem_req_type_e xmem_req_type_i,
-    input  logic                       xmem_mode_i, // unused
-    input  logic                       xmem_spec_i, // unused
-    input  logic                       xmem_endoftransaction_i,
+    input  logic          xmem_valid_i,
+    output logic          xmem_ready_o,
+    input  mem_req_type_e xmem_req_type_i,
+    input  logic          xmem_mode_i, // unused
+    input  logic          xmem_spec_i, // unused
+    input  logic          xmem_endoftransaction_i,
 
     output logic                       xmem_data_req_o,
     output logic                       xmem_we_o,
@@ -80,7 +80,7 @@ module cv32e40p_x_disp #(
   assign x_rready_o = 1'b1;
 
   // Core is always ready to receive memory requests from the accelerator
-  assign xmem_ready_o = 1'b1;
+  // assign xmem_ready_o = 1'b1;
 
   // Status for memory instruction is always 1'b1 since there are no memory access faults
   assign xmem_status_o = 1'b1;
@@ -100,8 +100,10 @@ module cv32e40p_x_disp #(
   // Memory instruction request handling
   always_comb begin
     xmem_data_req_o = 1'b0;
-    if (xmem_valid_i) begin
+    xmem_ready_o    = 1'b0;
+    if (xmem_valid_i & ~data_req_ex_i) begin
       xmem_data_req_o = 1'b1;
+      xmem_ready_o    = 1'b1;
     end
   end
 
@@ -115,7 +117,7 @@ module cv32e40p_x_disp #(
 
   always_comb begin
     xmem_we_o = 1'b0;
-    if ((xmem_req_type_i == cv_x_if_pkg::WRITE) & xmem_valid_i) begin
+    if ((xmem_req_type_i == WRITE) & xmem_valid_i) begin
       xmem_we_o = 1'b1;
     end
   end
@@ -157,7 +159,7 @@ module cv32e40p_x_disp #(
     mem_wb_complete_d = mem_wb_complete_q;
     if (xmem_rvalid_o & xmem_rready_i) begin
       mem_wb_complete_d = 1'b1;
-    end else if (~xmem_instr_wb_i) begin
+    end else if (xmem_ready_o & xmem_valid_i) begin
       mem_wb_complete_d = 1'b0;
     end
   end
