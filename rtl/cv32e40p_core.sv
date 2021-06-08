@@ -29,8 +29,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 module cv32e40p_core
-    import cv32e40p_x_if_pkg::*;
-  #(
+  import cv32e40p_x_if_pkg::*;
+#(
     parameter PULP_XPULP          =  0,                   // PULP ISA Extension (incl. custom CSRs and hardware loop, excl. p.elw)
     parameter PULP_CLUSTER = 0,  // PULP Cluster interface (incl. p.elw)
     parameter FPU = 0,  // Floating Point Unit (interfaced via APU interface)
@@ -70,39 +70,39 @@ module cv32e40p_core
 
     // X-Interface
     // X-Request Channel
-    output logic              x_valid_o,
-    input  logic              x_ready_i,
-    output logic [31:0]       x_instr_data_o,
-    output logic [ 2:0][31:0] x_rs_o,
-    output logic [ 2:0]       x_rs_valid_o,
-    output logic              x_rd_clean_o,
-    input  logic              x_accept_i,
-    input  logic              x_is_mem_op_i,
-    input  logic              x_writeback_i,
+    output logic                                 x_valid_o,
+    input  logic                                 x_ready_i,
+    output logic          [          31:0]       x_instr_data_o,
+    output logic          [           2:0][31:0] x_rs_o,
+    output logic          [           2:0]       x_rs_valid_o,
+    output logic                                 x_rd_clean_o,
+    input  logic                                 x_accept_i,
+    input  logic                                 x_is_mem_op_i,
+    input  logic                                 x_writeback_i,
     // X-Response Channel
-    input  logic              x_rvalid_i,
-    output logic              x_rready_o,
-    input  logic [ 4:0]       x_rd_i,
-    input  logic [31:0]       x_data_i,
-    input  logic              x_dualwb_i,
-    input  logic              x_type_i,
-    input  logic              x_error_i,
+    input  logic                                 x_rvalid_i,
+    output logic                                 x_rready_o,
+    input  logic          [           4:0]       x_rd_i,
+    input  logic          [          31:0]       x_data_i,
+    input  logic                                 x_dualwb_i,
+    input  logic                                 x_type_i,
+    input  logic                                 x_error_i,
     // XMem-Request Channel
-    input  logic          xmem_valid_i,
-    output logic          xmem_ready_o,
-    input  logic   [31:0] xmem_laddr_i,
-    input  logic   [31:0] xmem_wdata_i,
-    input  logic   [ 2:0] xmem_width_i,
-    input  mem_req_type_e xmem_req_type_i,
-    input  logic          xmem_mode_i,
-    input  logic          xmem_spec_i,
-    input  logic          xmem_endoftransaction_i,
+    input  logic                                 xmem_valid_i,
+    output logic                                 xmem_ready_o,
+    input  logic          [          31:0]       xmem_laddr_i,
+    input  logic          [          31:0]       xmem_wdata_i,
+    input  logic          [           2:0]       xmem_width_i,
+    input  mem_req_type_e                        xmem_req_type_i,
+    input  logic                                 xmem_mode_i,
+    input  logic                                 xmem_spec_i,
+    input  logic                                 xmem_endoftransaction_i,
     // XMem-Response Channel
-    output logic                  xmem_rvalid_o,
-    input  logic                  xmem_rready_i,
-    output logic [          31:0] xmem_rdata_o,
-    output logic [$clog2(32)-1:0] xmem_range_o,
-    output logic                  xmem_status_o,
+    output logic                                 xmem_rvalid_o,
+    input  logic                                 xmem_rready_i,
+    output logic          [          31:0]       xmem_rdata_o,
+    output logic          [$clog2(32)-1:0]       xmem_range_o,
+    output logic                                 xmem_status_o,
 
     // Interrupt inputs
     input  logic [31:0] irq_i,  // CLINT interrupts + CLINT extension interrupts
@@ -198,50 +198,50 @@ module cv32e40p_core
   logic        [ 1:0] alu_vec_mode_ex;
   logic alu_is_clpx_ex, alu_is_subrot_ex;
 
-  logic        [                 1:0]       alu_clpx_shift_ex;
+  logic        [ 1:0] alu_clpx_shift_ex;
 
   // Multiplier Control
-  mul_opcode_e                              mult_operator_ex;
-  logic        [                31:0]       mult_operand_a_ex;
-  logic        [                31:0]       mult_operand_b_ex;
-  logic        [                31:0]       mult_operand_c_ex;
-  logic                                     mult_en_ex;
-  logic                                     mult_sel_subword_ex;
-  logic        [                 1:0]       mult_signed_mode_ex;
-  logic        [                 4:0]       mult_imm_ex;
-  logic        [                31:0]       mult_dot_op_a_ex;
-  logic        [                31:0]       mult_dot_op_b_ex;
-  logic        [                31:0]       mult_dot_op_c_ex;
-  logic        [                 1:0]       mult_dot_signed_ex;
-  logic                                     mult_is_clpx_ex;
-  logic        [                 1:0]       mult_clpx_shift_ex;
-  logic                                     mult_clpx_img_ex;
+  mul_opcode_e        mult_operator_ex;
+  logic        [31:0] mult_operand_a_ex;
+  logic        [31:0] mult_operand_b_ex;
+  logic        [31:0] mult_operand_c_ex;
+  logic               mult_en_ex;
+  logic               mult_sel_subword_ex;
+  logic        [ 1:0] mult_signed_mode_ex;
+  logic        [ 4:0] mult_imm_ex;
+  logic        [31:0] mult_dot_op_a_ex;
+  logic        [31:0] mult_dot_op_b_ex;
+  logic        [31:0] mult_dot_op_c_ex;
+  logic        [ 1:0] mult_dot_signed_ex;
+  logic               mult_is_clpx_ex;
+  logic        [ 1:0] mult_clpx_shift_ex;
+  logic               mult_clpx_img_ex;
 
   // APU
-  logic                                     apu_en_ex;
+  logic               apu_en_ex;
 
   // X-Interface
-  logic                                     x_rvalid;
-  logic                                     xmem_instr;
-  logic                                     xmem_instr_wb;
+  logic               x_rvalid;
+  logic               xmem_instr;
+  logic               xmem_instr_wb;
 
   // Register Write Control
-  logic        [                 5:0]       regfile_waddr_ex;
-  logic                                     regfile_we_ex;
-  logic        [                 5:0]       regfile_waddr_fw_wb_o;  // From WB to ID
-  logic                                     regfile_we_wb;
-  logic        [                31:0]       regfile_wdata;
+  logic        [ 5:0] regfile_waddr_ex;
+  logic               regfile_we_ex;
+  logic        [ 5:0] regfile_waddr_fw_wb_o;  // From WB to ID
+  logic               regfile_we_wb;
+  logic        [31:0] regfile_wdata;
 
-  logic        [                 5:0]       regfile_alu_waddr_ex;
-  logic                                     regfile_alu_we_ex;
+  logic        [ 5:0] regfile_alu_waddr_ex;
+  logic               regfile_alu_we_ex;
 
-  logic        [                 5:0]       regfile_alu_waddr_fw;
-  logic                                     regfile_alu_we_fw;
-  logic        [                31:0]       regfile_alu_wdata_fw;
+  logic        [ 5:0] regfile_alu_waddr_fw;
+  logic               regfile_alu_we_fw;
+  logic        [31:0] regfile_alu_wdata_fw;
 
   // CSR control
-  logic                                     csr_access_ex;
-  csr_opcode_e                              csr_op_ex;
+  logic               csr_access_ex;
+  csr_opcode_e        csr_op_ex;
 
   logic [23:0] mtvec, utvec;
   logic        [ 1:0] mtvec_mode;
@@ -608,32 +608,32 @@ module cv32e40p_core
       .apu_en_ex_o(apu_en_ex),
 
       // X-Interface
-      .x_valid_o     (x_valid_o),
-      .x_ready_i     (x_ready_i),
-      .x_instr_data_o(x_instr_data_o),
-      .x_rs_o        (x_rs_o),
-      .x_rs_valid_o  (x_rs_valid_o),
-      .x_rd_clean_o  (x_rd_clean_o),
-      .x_accept_i    (x_accept_i),
-      .x_is_mem_op_i (x_is_mem_op_i),
-      .x_writeback_i (x_writeback_i),
-      .x_rvalid_i    (x_rvalid_i),
-      .x_rd_i        (x_rd_i),
-      .x_rvalid_assigned_o(x_rvalid), // hardwired to ground if FPU = 0
-      .x_rready_o    (x_rready_o),
+      .x_valid_o          (x_valid_o),
+      .x_ready_i          (x_ready_i),
+      .x_instr_data_o     (x_instr_data_o),
+      .x_rs_o             (x_rs_o),
+      .x_rs_valid_o       (x_rs_valid_o),
+      .x_rd_clean_o       (x_rd_clean_o),
+      .x_accept_i         (x_accept_i),
+      .x_is_mem_op_i      (x_is_mem_op_i),
+      .x_writeback_i      (x_writeback_i),
+      .x_rvalid_i         (x_rvalid_i),
+      .x_rd_i             (x_rd_i),
+      .x_rvalid_assigned_o(x_rvalid),  // hardwired to ground if FPU = 0
+      .x_rready_o         (x_rready_o),
 
-      .xmem_valid_i            (xmem_valid_i),
-      .xmem_ready_o            (xmem_ready_o),
-      .xmem_laddr_i            (xmem_laddr_i),
-      .xmem_wdata_i            (xmem_wdata_i),
-      .xmem_width_i            (xmem_width_i),
-      .xmem_req_type_i         (xmem_req_type_i),
-      .xmem_mode_i             (xmem_mode_i),
-      .xmem_spec_i             (xmem_spec_i),
-      .xmem_endoftransaction_i (xmem_endoftransaction_i),
+      .xmem_valid_i           (xmem_valid_i),
+      .xmem_ready_o           (xmem_ready_o),
+      .xmem_laddr_i           (xmem_laddr_i),
+      .xmem_wdata_i           (xmem_wdata_i),
+      .xmem_width_i           (xmem_width_i),
+      .xmem_req_type_i        (xmem_req_type_i),
+      .xmem_mode_i            (xmem_mode_i),
+      .xmem_spec_i            (xmem_spec_i),
+      .xmem_endoftransaction_i(xmem_endoftransaction_i),
 
-      .xmem_instr_ex_o         (xmem_instr),
-      .xmem_instr_wb_i         (xmem_instr_wb),
+      .xmem_instr_ex_o(xmem_instr),
+      .xmem_instr_wb_i(xmem_instr_wb),
 
       .xmem_rvalid_o(xmem_rvalid_o),
       .xmem_rready_i(xmem_rready_i),
@@ -793,12 +793,12 @@ module cv32e40p_core
       .apu_en_i(apu_en_ex),
 
       // X-Interface
-      .x_rvalid_i      (x_rvalid),
-      .x_rd_i          (x_rd_i),
-      .x_data_i        (x_data_i),
-      .xmem_instr_i    (xmem_instr),
-      .xmem_rdata_o    (xmem_rdata_o),
-      .xmem_instr_wb_o (xmem_instr_wb),
+      .x_rvalid_i     (x_rvalid),
+      .x_rd_i         (x_rd_i),
+      .x_data_i       (x_data_i),
+      .xmem_instr_i   (xmem_instr),
+      .xmem_rdata_o   (xmem_rdata_o),
+      .xmem_instr_wb_o(xmem_instr_wb),
 
       .lsu_en_i   (data_req_ex),
       .lsu_rdata_i(lsu_rdata),
