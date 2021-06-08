@@ -162,7 +162,7 @@ module cv32e40p_ex_stage
   end
 
   // X-Interface writeback
-  assign xmem_rdata_o = lsu_rdata_i;
+  assign xmem_rdata_o      = lsu_rdata_i;
 
   // branch handling
   assign branch_decision_o = alu_cmp_result;
@@ -254,8 +254,8 @@ module cv32e40p_ex_stage
     end else begin
       if (ex_valid_o) // wb_ready_i is implied
       begin
-        regfile_we_lsu   <= regfile_we_i & ~lsu_err_i;
-        xmem_instr_wb_o  <= xmem_instr_i;
+        regfile_we_lsu  <= regfile_we_i & ~lsu_err_i;
+        xmem_instr_wb_o <= xmem_instr_i;
         if (regfile_we_i & ~lsu_err_i) begin
           regfile_waddr_lsu <= regfile_waddr_i;
         end
