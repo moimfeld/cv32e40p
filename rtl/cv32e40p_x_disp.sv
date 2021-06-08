@@ -20,8 +20,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 module cv32e40p_x_disp
-    import cv32e40p_x_if_pkg::*;
-  (
+  import cv32e40p_x_if_pkg::*;
+(
     // Clock and Reset
     input logic clk_i,
     input logic rst_ni,
@@ -38,9 +38,10 @@ module cv32e40p_x_disp
     input logic [4:0]      x_rwaddr_i,
     input logic            x_rvalid_i,
     input logic [2:0][4:0] x_rs_addr_i,
-    input logic [2:0]      x_regs_used_i,  // assumption, that when illegal instruction is decoded, x_regs_used_i is = 3'b000
+    input logic [2:0]      x_regs_used_i,
     input logic            x_branch_or_jump_i,
 
+    // X-Request and Response Channel Signals
     output logic       x_valid_o,
     input  logic       x_ready_i,
     input  logic       x_accept_i,
@@ -49,28 +50,31 @@ module cv32e40p_x_disp
     output logic       x_rd_clean_o,
     output logic       x_stall_o,
     output logic       x_illegal_insn_o,
-
     output logic       x_rready_o,
 
+    // Xmem-Request signals
     input  logic          xmem_valid_i,
     output logic          xmem_ready_o,
     input  mem_req_type_e xmem_req_type_i,
-    input  logic          xmem_mode_i, // unused
-    input  logic          xmem_spec_i, // unused
+    input  logic          xmem_mode_i,  // unused
+    input  logic          xmem_spec_i,  // unused
     input  logic          xmem_endoftransaction_i,
 
-    output logic                       xmem_data_req_o,
-    output logic                       xmem_we_o,
-    input  logic                       xmem_instr_wb_i,
+    // Memory instruction status signals
+    output logic xmem_data_req_o,
+    output logic xmem_we_o,
+    input  logic xmem_instr_wb_i,
 
-    output logic                       xmem_rvalid_o,
-    input  logic                       xmem_rready_i,
-    output logic                       xmem_status_o,
+    // Xmem-Response signals
+    output logic xmem_rvalid_o,
+    input  logic xmem_rready_i,
+    output logic xmem_status_o,
 
-    input  logic                       id_ready_i,
-    input  logic                       data_req_ex_i
+    input logic id_ready_i,
+    input logic data_req_ex_i
 );
 
+  // Scoreboard and status signals
   logic [31:0] scoreboard_q, scoreboard_d;
   logic instr_offloaded_q, instr_offloaded_d;
   logic mem_wb_complete_q, mem_wb_complete_d;
@@ -79,14 +83,19 @@ module cv32e40p_x_disp
   // Core is always ready to receive returning fp instruction results
   assign x_rready_o = 1'b1;
 
-  // Core is always ready to receive memory requests from the accelerator
-  // assign xmem_ready_o = 1'b1;
-
   // Status for memory instruction is always 1'b1 since there are no memory access faults
   assign xmem_status_o = 1'b1;
 
-  // One should be sure to encounter no branches before setting x_valid_o to high
+  // core is ready to offload instruction when:
+  // - an illegal instruction was decoded
+  // - there are no outstanding jumps or branches
+  // - the instruction has not already been offloaded
   assign x_valid_o = x_illegal_insn_dec_i & ~x_branch_or_jump_i & ~instr_offloaded_q;
+
+  // core needs to stall when:
+  // - there is an outstanding x-interface handshake
+  // - a dependency is detected
+  // - when a offloaded memory instruction is ongoing
   assign x_stall_o = (x_valid_o & ~x_ready_i) | dep | (x_is_mem_op_i & ~(xmem_rvalid_o & xmem_rready_i));
 
   // Check validity of source registers and cleanness of destination register:
@@ -98,10 +107,10 @@ module cv32e40p_x_disp
   assign x_rs_valid_o[2] = ~(scoreboard_q[x_rs_addr_i[2]] | ((x_rs_addr_i[2] == x_waddr_ex_i) & x_we_ex_i) | ((x_rs_addr_i[2] == x_waddr_wb_i) & x_we_wb_i));
   assign x_rd_clean_o = ~((scoreboard_q[x_waddr_id_i]) | ((x_waddr_id_i == x_waddr_ex_i) & x_we_ex_i) | ((x_waddr_id_i == x_waddr_wb_i) & x_we_wb_i));
 
-  // Check if scoreboard is clean for any instruction that stays in the core
+  // Dependency check
   assign dep = ((x_regs_used_i[0] & scoreboard_q[x_rs_addr_i[0]]) | (x_regs_used_i[1] & scoreboard_q[x_rs_addr_i[1]]) | (x_regs_used_i[2] & scoreboard_q[x_rs_addr_i[2]]));
 
-  // Offload handshake
+  // Illegal instruction assertion according to x-interface
   always_comb begin
     x_illegal_insn_o = 1'b0;
     if (x_valid_o & x_ready_i & ~x_accept_i) begin
@@ -127,6 +136,7 @@ module cv32e40p_x_disp
     end
   end
 
+  // Memory instrcution write enable signal
   always_comb begin
     xmem_we_o = 1'b0;
     if ((xmem_req_type_i == WRITE) & xmem_valid_i) begin
@@ -135,18 +145,18 @@ module cv32e40p_x_disp
   end
 
 
-  // scoreboard with only the offloaded instructions
+  // Scoreboard update (only destination registers with writeback mark the scoreboard)
   always_comb begin
     scoreboard_d = scoreboard_q;
-    if (x_writeback_i & x_illegal_insn_dec_i & (x_valid_o & x_ready_i) & x_waddr_id_i != x_rwaddr_i) begin  // update rule for outgoing instructions
+    if (x_writeback_i & x_illegal_insn_dec_i & (x_valid_o & x_ready_i) & x_waddr_id_i != x_rwaddr_i) begin  // Update rule for outgoing instructions
       scoreboard_d[x_waddr_id_i] = 1'b1;
     end
-    if(x_rvalid_i | (~x_writeback_i & ~x_illegal_insn_dec_i)) begin // update rule for successful writebacks
+    if(x_rvalid_i | (~x_writeback_i & ~x_illegal_insn_dec_i)) begin // Update rule for successful writebacks
       scoreboard_d[x_rwaddr_i] = 1'b0;
     end
   end
 
-  // update register that keeps track of already offloaded instructions
+  // Status signal which indicates if an instruction has already been offloaded
   always_comb begin
     instr_offloaded_d = instr_offloaded_q;
     if (id_ready_i) begin
@@ -156,7 +166,7 @@ module cv32e40p_x_disp
     end
   end
 
-  // update register that keeps completed memory instruction writeback; NOTE: For a "multi access" memory instruction, this update rule breaks
+  // Status signal that is high when a memory instruction writeback (to the accelerator) has been completed
   always_comb begin
     mem_wb_complete_d = mem_wb_complete_q;
     if (xmem_rvalid_o & xmem_rready_i) begin
@@ -166,6 +176,7 @@ module cv32e40p_x_disp
     end
   end
 
+  // Scoreboard and status signal register
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (~rst_ni) begin
       scoreboard_q      <= 32'b0;
