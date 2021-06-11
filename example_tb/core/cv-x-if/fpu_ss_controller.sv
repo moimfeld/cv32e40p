@@ -137,9 +137,8 @@ module fpu_ss_controller (
   // - When is_store_i -> req_type = 2'b01
   // (no default in the hope of less switching)
   always_comb begin
-    if (is_load_i) begin
-      cmem_q_req_type_o = acc_pkg::READ;
-    end else if (is_store_i) begin
+    cmem_q_req_type_o = acc_pkg::READ;
+    if (is_store_i) begin
       cmem_q_req_type_o = acc_pkg::WRITE;
     end
   end
