@@ -83,6 +83,9 @@ module cv32e40p_cv_x_if_wrapper
   acc_c_rsp_t [NumRsp[0]-1:0] c_mst_next_rsp;
   acc_cmem_req_t [NumRsp[0]-1:0] cmem_slv_next_req;
 
+  acc_c_req_t    c_req_o;
+  acc_cmem_rsp_t cmem_rsp_o;
+
   // X-Request Channel assignment
   assign x_req.q_valid = x_q_valid_i;
   assign x_q_ready_o = x_rsp.q_ready;
