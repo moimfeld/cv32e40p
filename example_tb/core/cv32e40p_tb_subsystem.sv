@@ -51,43 +51,8 @@ module cv32e40p_tb_subsystem
   logic [                 31:0]       data_wdata;
   logic [                  5:0]       data_atop = 6'b0;
 
-  // X-Interface
-  logic                               x_valid;
-  logic                               x_ready;
-  logic [                 31:0]       x_instr_data;
-  logic [                  2:0][31:0] x_rs;
-  logic [                  2:0]       x_rs_valid;
-  logic                               x_rd_clean;
-  logic                               x_accept;
-  logic                               x_is_mem_op;
-  logic                               x_writeback;
-
-  logic                               x_rvalid;
-  logic                               x_rready;
-  logic [                  4:0]       x_rd;
-  logic [                 31:0]       x_data;
-  logic                               x_dualwb;
-  logic                               x_type;
-  logic                               x_error;
-
-  logic                               xmem_valid;
-  logic                               xmem_ready;
-  logic [                 31:0]       xmem_laddr;
-  logic [                 31:0]       xmem_wdata;
-  logic [                  2:0]       xmem_width;
-  mem_req_type_e                      xmem_req_type;
-  logic                               xmem_mode;
-  logic                               xmem_spec;
-  logic                               xmem_endoftransaction;
-
-  logic                               xmem_rvalid;
-  logic                               xmem_rready;
-  logic [                 31:0]       xmem_rdata;
-  logic [       $clog2(32)-1:0]       xmem_range;
-  logic                               xmem_status;
-
   // signals to debug unit
-  logic                               debug_req_i;
+  logic                               debug_req;
 
   // irq signals
   logic                               irq_ack;
@@ -97,149 +62,53 @@ module cv32e40p_tb_subsystem
   logic                               irq_external;
   logic [                 15:0]       irq_fast;
 
-  logic                               core_sleep_o;
+  logic                               core_sleep;
 
-  assign debug_req_i = 1'b0;
+  assign debug_req = 1'b0;
 
-  // instantiate the core
-  cv32e40p_wrapper #(
-      .PULP_XPULP      (PULP_XPULP),
-      .PULP_CLUSTER    (PULP_CLUSTER),
-      .FPU             (FPU),
-      .PULP_ZFINX      (PULP_ZFINX),
-      .NUM_MHPMCOUNTERS(NUM_MHPMCOUNTERS)
-  ) wrapper_i (
-      .clk_i (clk_i),
-      .rst_ni(rst_ni),
 
-      .pulp_clock_en_i(1'b1),
-      .scan_cg_en_i   (1'b0),
+  cv32e40p_core_and_coprocessor_wrapper #(
+    .INSTR_RDATA_WIDTH(INSTR_RDATA_WIDTH),
+    .BOOT_ADDR(BOOT_ADDR),
+    .PULP_XPULP(PULP_XPULP),
+    .PULP_CLUSTER(PULP_CLUSTER),
+    .FPU(FPU),
+    .PULP_ZFINX(PULP_ZFINX),
+    .NUM_MHPMCOUNTERS(NUM_MHPMCOUNTERS),
+    .DM_HALTADDRESS(NUM_MHPMCOUNTERS)
+  ) cv32e40p_core_and_coprocessor_wrapper_i (
+    .clk_i(clk_i),
+    .rst_ni(rst_ni),
 
-      .boot_addr_i        (BOOT_ADDR),
-      .mtvec_addr_i       (32'h0),
-      .dm_halt_addr_i     (DM_HALTADDRESS),
-      .hart_id_i          (32'h0),
-      .dm_exception_addr_i(32'h0),
+    .fetch_enable_i(fetch_enable_i),
 
-      .instr_addr_o  (instr_addr),
-      .instr_req_o   (instr_req),
-      .instr_rdata_i (instr_rdata),
-      .instr_gnt_i   (instr_gnt),
-      .instr_rvalid_i(instr_rvalid),
+    // signals connecting core to memory
+    .instr_req_o(instr_req),
+    .instr_gnt_i(instr_gnt),
+    .instr_rvalid_i(instr_rvalid),
+    .instr_addr_o(instr_addr),
+    .instr_rdata_i(instr_rdata),
 
-      .data_addr_o  (data_addr),
-      .data_wdata_o (data_wdata),
-      .data_we_o    (data_we),
-      .data_req_o   (data_req),
-      .data_be_o    (data_be),
-      .data_rdata_i (data_rdata),
-      .data_gnt_i   (data_gnt),
-      .data_rvalid_i(data_rvalid),
+    .data_req_o(data_req),
+    .data_gnt_i(data_gnt),
+    .data_rvalid_i(data_rvalid),
+    .data_addr_o(data_addr),
+    .data_we_o(data_we),
+    .data_be_o(data_be),
+    .data_rdata_i(data_rdata),
+    .data_wdata_o(data_wdata),
 
-      .x_valid_o     (x_valid),
-      .x_ready_i     (x_ready),
-      .x_instr_data_o(x_instr_data),
-      .x_rs_o        (x_rs),
-      .x_rs_valid_o  (x_rs_valid),
-      .x_rd_clean_o  (x_rd_clean),
-      .x_accept_i    (x_accept),
-      .x_is_mem_op_i (x_is_mem_op),
-      .x_writeback_i (x_writeback),
+    // signals to debug unit
+    .debug_req_i(debug_req),
 
-      .x_rvalid_i    (x_rvalid),
-      .x_rready_o    (x_rready),
-      .x_rd_i        (x_rd),
-      .x_data_i      (x_data),
-      .x_dualwb_i    (x_dualwb),
-      .x_type_i      (x_type),
-      .x_error_i     (x_error),
-
-      .xmem_valid_i            (xmem_valid),
-      .xmem_ready_o            (xmem_ready),
-      .xmem_laddr_i            (xmem_laddr),
-      .xmem_wdata_i            (xmem_wdata),
-      .xmem_width_i            (xmem_width),
-      .xmem_req_type_i         (xmem_req_type),
-      .xmem_mode_i             (xmem_mode),
-      .xmem_spec_i             (xmem_spec),
-      .xmem_endoftransaction_i (xmem_endoftransaction),
-
-      .xmem_rvalid_o (xmem_rvalid),
-      .xmem_rready_i (xmem_rready),
-      .xmem_rdata_o  (xmem_rdata),
-      .xmem_range_o  (xmem_range),
-      .xmem_status_o (xmem_status),
-
-      .irq_i    ({irq_fast, 4'b0, irq_external, 3'b0, irq_timer, 3'b0, irq_software, 3'b0}),
-      .irq_ack_o(irq_ack),
-      .irq_id_o (irq_id_out),
-
-      .debug_req_i      (debug_req_i),
-      .debug_havereset_o(),
-      .debug_running_o  (),
-      .debug_halted_o   (),
-
-      .fetch_enable_i(fetch_enable_i),
-      .core_sleep_o  (core_sleep_o)
-  );
-
-  generate
-    if (FPU) begin : gen_cv_x_if_wrapper
-      cv32e40p_cv_x_if_wrapper cv_x_if_wrapper_i (
-          .clk_i (clk_i),
-          .rst_ni(rst_ni),
-
-          // X-Request Channel
-          .x_q_valid_i     (x_valid ),
-          .x_q_ready_o     (x_ready),
-          .x_q_instr_data_i(x_instr_data),
-          .x_q_rs_i        (x_rs),
-          .x_q_rs_valid_i  (x_rs_valid),
-          .x_q_rd_clean_i  (x_rd_clean),
-          .x_k_accept_o    (x_accept),
-          .x_k_is_mem_op_o (x_is_mem_op),
-          .x_k_writeback_o (x_writeback),
-
-          // X-Response Channel
-          .x_p_valid_o (x_rvalid),
-          .x_p_ready_i (x_rready),
-          .x_p_rd_o    (x_rd),
-          .x_p_data_o  (x_data),
-          .x_p_dualwb_o(x_dualwb),
-          .x_p_type_o  (x_type),
-          .x_p_error_o (x_error),
-
-          // Xmem-Request channel
-          .xmem_q_valid_o            (xmem_valid),
-          .xmem_q_ready_i            (xmem_ready),
-          .xmem_q_laddr_o            (xmem_laddr),
-          .xmem_q_wdata_o            (xmem_wdata),
-          .xmem_q_width_o            (xmem_width),
-          .xmem_q_req_type_o         (xmem_req_type),
-          .xmem_q_mode_o             (xmem_mode),
-          .xmem_q_spec_o             (xmem_spec),
-          .xmem_q_endoftransaction_o (xmem_endoftransaction),
-
-          // Xmem-Response channel
-          .xmem_p_valid_i  (xmem_rvalid),
-          .xmem_p_ready_o  (xmem_rready),
-          .xmem_p_rdata_i  (xmem_rdata),
-          .xmem_p_range_i  (xmem_range),
-          .xmem_p_status_i (xmem_status)
-      );
-    end else begin : no_gen_cv_x_if_wrapper
-      assign x_ready     = '0;
-      assign x_accept    = '0;
-      assign x_is_mem_op = '0;
-      assign x_writeback = '0;
-      assign x_rvalid    = '0;
-      assign x_rd        = '0;
-      assign x_data      = '0;
-      assign x_dualwb    = '0;
-      assign x_type      = '0;
-      assign x_error     = '0;
-    end
-  endgenerate
+    // irq signals
+    .irq_ack_o(irq_ack),
+    .irq_id_out_o(irq_id_out),
+    .irq_software_i(irq_software),
+    .irq_timer_i(irq_timer),
+    .irq_external_i(irq_external),
+    .irq_fast_i(irq_fast)
+);
 
   // this handles read to RAM and memory mapped pseudo peripherals
   mm_ram #(
@@ -274,7 +143,7 @@ module cv32e40p_tb_subsystem
       .irq_external_o(irq_external),
       .irq_fast_o    (irq_fast),
 
-      .pc_core_id_i(wrapper_i.core_i.pc_id),
+      .pc_core_id_i(cv32e40p_core_and_coprocessor_wrapper_i.wrapper_i.core_i.pc_id),
 
       .tests_passed_o(tests_passed_o),
       .tests_failed_o(tests_failed_o),
