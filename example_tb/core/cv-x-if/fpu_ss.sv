@@ -90,6 +90,7 @@ module fpu_ss #(
   logic                     [ 4:0]           rs2;
   logic                     [ 4:0]           rs3;
   logic                     [ 4:0]           rd;
+  logic                     [31:0]           offset;
 
   // FPU Result
   logic                     [31:0]           fpu_result;
@@ -165,17 +166,20 @@ module fpu_ss #(
   // load and store have different immediate encoding :(
   always_comb begin
     if (cmem_q_req_type_o == acc_pkg::READ) begin
-      cmem_q_laddr_o   = int_operands[0] + instr[31:20];
+      offset   = instr[31:20];
       if (instr[31]) begin
-        cmem_q_laddr_o = int_operands[0] + {20'b1111_1111_1111_1111_1111, instr[31:20]};
+        offset = {20'b1111_1111_1111_1111_1111, instr[31:20]};
       end
     end else begin
-      cmem_q_laddr_o   = int_operands[0] + {instr[31:25], instr[11:7]};
+      offset   = {instr[31:25], instr[11:7]};
       if (instr[31]) begin
-        cmem_q_laddr_o = int_operands[0] + {20'b1111_1111_1111_1111_1111, instr[31:25], instr[11:7]};
+        offset = {20'b1111_1111_1111_1111_1111, instr[31:25], instr[11:7]};
       end
     end
+    cmem_q_laddr_o = int_operands[0] + offset;
   end
+
+
 
 
 
@@ -203,7 +207,7 @@ module fpu_ss #(
 
   // Fifo with built in Handshake protocol
   stream_fifo #(
-      .FALL_THROUGH(1'b1),
+      .FALL_THROUGH(1),
       .DATA_WIDTH  (32),
       .DEPTH       (BUFFER_DEPTH),
       .T           (offloaded_data_t)
@@ -373,7 +377,7 @@ module fpu_ss #(
       .clk_i(clk_i),
       .rst_ni(rst_ni),
       .operands_i(fpu_operands),
-      .rnd_mode_i(fpnew_pkg::RNE), //fpnew_pkg::roundmode_e'(fpu_rnd_mode)
+      .rnd_mode_i(fpnew_pkg::roundmode_e'(fpu_rnd_mode)),
       .op_i(fpnew_pkg::operation_e'(fpu_op)),
       .op_mod_i(op_mode),
       .src_fmt_i(fpnew_pkg::fp_format_e'(src_fmt)),
@@ -392,4 +396,37 @@ module fpu_ss #(
       .busy_o(fpu_busy)
   );
 
+// some measurements
+int offloaded, writebacks, memory, csr;
+initial begin
+  offloaded = 0;
+  writebacks = 0;
+  memory = 0;
+  csr = 0;
+end
+
+
+cover property (@(posedge clk_i) c_q_valid_i & c_q_ready_o) begin
+  offloaded = offloaded+1;
+  $display("Number of offloaded instructions %d \n", offloaded);
+end;
+cover property (@(posedge clk_i) c_p_valid_o & c_p_ready_i) begin
+  writebacks = writebacks+1;
+  $display("Number of writebacks %d \n", writebacks);
+end;
+cover property (@(posedge clk_i) c_p_valid_o & c_p_ready_i & csr_instr) begin
+  csr = csr+1;
+  $display("Number of csr instructions %d \n", csr);
+end;
+cover property (@(posedge clk_i) cmem_q_valid_o & cmem_q_ready_i) begin
+  memory = memory+1;
+  $display("Number of memory instructions %d \n", memory);
+end;
+
+// final begin
+//   $display("%d", i);
+// end
+
+
 endmodule  // fpu_ss
+
