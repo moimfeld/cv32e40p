@@ -12,8 +12,9 @@
 // Contributor: Moritz Imfeld <moimfeld@student.ethz.ch>
 
 module cv32e40p_cv_x_if_wrapper
-    import acc_pkg::*; import cv32e40p_x_if_pkg::*;
-  (
+  import acc_pkg::*;
+  import cv32e40p_x_if_pkg::*;
+(
     input logic clk_i,
     input logic rst_ni,
 
@@ -37,20 +38,20 @@ module cv32e40p_cv_x_if_wrapper
     output logic        x_p_error_o,
 
     // Xmem-Request channel
-    output logic                             xmem_q_valid_o,
-    input  logic                             xmem_q_ready_i,
-    output logic                      [31:0] xmem_q_laddr_o,
-    output logic                      [31:0] xmem_q_wdata_o,
-    output logic                      [ 2:0] xmem_q_width_o,
-    output cv32e40p_x_if_pkg::mem_req_type_e xmem_q_req_type_o,
-    output logic                             xmem_q_mode_o,
-    output logic                             xmem_q_spec_o,
-    output logic                             xmem_q_endoftransaction_o,
+    output logic                                    xmem_q_valid_o,
+    input  logic                                    xmem_q_ready_i,
+    output logic                             [31:0] xmem_q_laddr_o,
+    output logic                             [31:0] xmem_q_wdata_o,
+    output logic                             [ 2:0] xmem_q_width_o,
+    output cv32e40p_x_if_pkg::mem_req_type_e        xmem_q_req_type_o,
+    output logic                                    xmem_q_mode_o,
+    output logic                                    xmem_q_spec_o,
+    output logic                                    xmem_q_endoftransaction_o,
 
     // Xmem-Response channel
     input  logic                  xmem_p_valid_i,
     output logic                  xmem_p_ready_o,
-    input  logic [31:0]           xmem_p_rdata_i,
+    input  logic [          31:0] xmem_p_rdata_i,
     input  logic [$clog2(32)-1:0] xmem_p_range_i,
     input  logic                  xmem_p_status_i
 );
@@ -104,14 +105,14 @@ module cv32e40p_cv_x_if_wrapper
   assign x_p_error_o = x_rsp.p.error;
 
   // Xmem-Request Channel assignment
-  assign xmem_q_valid_o    = xmem_req.q_valid;
-  assign xmem_rsp.q_ready  = xmem_q_ready_i;
-  assign xmem_q_laddr_o    = xmem_req.q.laddr;
-  assign xmem_q_wdata_o    = xmem_req.q.wdata;
-  assign xmem_q_width_o    = xmem_req.q.width;
-  assign xmem_q_req_type_o = cv32e40p_x_if_pkg::mem_req_type_e'(xmem_req.q.req_type); // cast from acc_pkg enum to cv32e40p_x_if_pkg enum (both enum are equivalent)
-  assign xmem_q_mode_o     = xmem_req.q.mode;
-  assign xmem_q_spec_o     = xmem_req.q.spec;
+  assign xmem_q_valid_o = xmem_req.q_valid;
+  assign xmem_rsp.q_ready = xmem_q_ready_i;
+  assign xmem_q_laddr_o = xmem_req.q.laddr;
+  assign xmem_q_wdata_o = xmem_req.q.wdata;
+  assign xmem_q_width_o = xmem_req.q.width;
+  assign xmem_q_req_type_o         = cv32e40p_x_if_pkg::mem_req_type_e'(xmem_req.q.req_type); // cast from acc_pkg enum to cv32e40p_x_if_pkg enum (both enum are equivalent)
+  assign xmem_q_mode_o = xmem_req.q.mode;
+  assign xmem_q_spec_o = xmem_req.q.spec;
   assign xmem_q_endoftransaction_o = xmem_req.q.endoftransaction;
 
   // Xmem-Response Channel assignment
@@ -122,11 +123,11 @@ module cv32e40p_cv_x_if_wrapper
   assign xmem_rsp.p.status = xmem_p_status_i;
 
 
-  assign hart_id = 32'h0;
-  assign c_mst_next_rsp[0].p.hart_id = 32'd0;
+  assign hart_id = '0;
+  assign c_mst_next_rsp[0].p.hart_id = '0;
   assign c_mst_next_rsp[0].p_valid = '0;
 
-  assign cmem_slv_next_req[0].q.hart_id = 32'd0;
+  assign cmem_slv_next_req[0].q.hart_id = '0;
   assign cmem_slv_next_req[0].q_valid = '0;
 
 
@@ -180,10 +181,11 @@ module cv32e40p_cv_x_if_wrapper
 
   fpu_ss #(
       .BUFFER_DEPTH(4),
+      .INT_REG_WB_DELAY(1),
       .FPU_FEATURES(cv32e40p_fpu_pkg::FPU_FEATURES),
       .FPU_IMPLEMENTATION(cv32e40p_fpu_pkg::FPU_IMPLEMENTATION),
       .FPU_TAG_TYPE(logic)
-    )fpu_ss_i (
+  ) fpu_ss_i (
       .clk_i (clk_i),
       .rst_ni(rst_ni),
 
@@ -202,25 +204,25 @@ module cv32e40p_cv_x_if_wrapper
       .c_p_hart_id_o(c_rsp[0].p.hart_id),
       .c_p_rd_o     (c_rsp[0].p.rd),
 
-      .cmem_q_valid_o            (cmem_req[0].q_valid),
-      .cmem_q_ready_i            (cmem_rsp[0].q_ready),
-      .cmem_q_laddr_o            (cmem_req[0].q.laddr),
-      .cmem_q_wdata_o            (cmem_req[0].q.wdata),
-      .cmem_q_width_o            (cmem_req[0].q.width),
-      .cmem_q_req_type_o         (cmem_req[0].q.req_type),
-      .cmem_q_mode_o             (cmem_req[0].q.mode),
-      .cmem_q_spec_o             (cmem_req[0].q.spec),
-      .cmem_q_endoftransaction_o (cmem_req[0].q.endoftransaction),
-      .cmem_q_hart_id_o          (cmem_req[0].q.hart_id),
-      .cmem_q_addr_o             (cmem_req[0].q.addr),
+      .cmem_q_valid_o           (cmem_req[0].q_valid),
+      .cmem_q_ready_i           (cmem_rsp[0].q_ready),
+      .cmem_q_laddr_o           (cmem_req[0].q.laddr),
+      .cmem_q_wdata_o           (cmem_req[0].q.wdata),
+      .cmem_q_width_o           (cmem_req[0].q.width),
+      .cmem_q_req_type_o        (cmem_req[0].q.req_type),
+      .cmem_q_mode_o            (cmem_req[0].q.mode),
+      .cmem_q_spec_o            (cmem_req[0].q.spec),
+      .cmem_q_endoftransaction_o(cmem_req[0].q.endoftransaction),
+      .cmem_q_hart_id_o         (cmem_req[0].q.hart_id),
+      .cmem_q_addr_o            (cmem_req[0].q.addr),
 
-      .cmem_p_valid_i   (cmem_rsp[0].p_valid),
-      .cmem_p_ready_o   (cmem_req[0].p_ready),
-      .cmem_p_rdata_i   (cmem_rsp[0].p.rdata),
-      .cmem_p_range_i   (cmem_rsp[0].p.range),
-      .cmem_p_status_i  (cmem_rsp[0].p.status),
-      .cmem_p_addr_i    (cmem_rsp[0].p.addr),
-      .cmem_p_hart_id_i (cmem_rsp[0].p.hart_id)
+      .cmem_p_valid_i  (cmem_rsp[0].p_valid),
+      .cmem_p_ready_o  (cmem_req[0].p_ready),
+      .cmem_p_rdata_i  (cmem_rsp[0].p.rdata),
+      .cmem_p_range_i  (cmem_rsp[0].p.range),
+      .cmem_p_status_i (cmem_rsp[0].p.status),
+      .cmem_p_addr_i   (cmem_rsp[0].p.addr),
+      .cmem_p_hart_id_i(cmem_rsp[0].p.hart_id)
   );
 
 endmodule  // cv32e40p_cv_x_if_wrapper

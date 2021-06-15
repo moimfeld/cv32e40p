@@ -11,14 +11,14 @@ package cv32e40p_fpu_pkg;
   parameter bit C_XFVEC = 1'b0;  // Is vectorial float extension (Xfvec) enabled
 
   // Latency of FP operations: 0 = no pipe registers, 1 = 1 pipe register etc.
-  parameter int unsigned C_LAT_FP64 = 'd0;
-  parameter int unsigned C_LAT_FP32 = 'd0;
-  parameter int unsigned C_LAT_FP16 = 'd0;
-  parameter int unsigned C_LAT_FP16ALT = 'd0;
-  parameter int unsigned C_LAT_FP8 = 'd0;
+  parameter int unsigned C_LAT_FP64 = 'd1; // set to 1 to break critical path
+  parameter int unsigned C_LAT_FP32 = 'd1; // set to 1 to break critical path
+  parameter int unsigned C_LAT_FP16 = 'd1; // set to 1 to break critical path
+  parameter int unsigned C_LAT_FP16ALT = 'd1; // set to 1 to break critical path
+  parameter int unsigned C_LAT_FP8 = 'd1; // set to 1 to break critical path
   parameter int unsigned C_LAT_DIVSQRT = 'd1;  // divsqrt post-processing pipe
-  parameter int unsigned C_LAT_CONV = 'd0;
-  parameter int unsigned C_LAT_NONCOMP = 'd0;
+  parameter int unsigned C_LAT_CONV = 'd1; // set to 1 to break critical path
+  parameter int unsigned C_LAT_NONCOMP = 'd1; // set to 1 to break critical path
 
   // General FPU-specific defines
 
@@ -60,6 +60,6 @@ package cv32e40p_fpu_pkg;
       '{default: fpnew_pkg::PARALLEL},  // NONCOMP
       '{default: fpnew_pkg::MERGED}
   },  // CONV
-  PipeConfig: fpnew_pkg::AFTER};
+  PipeConfig: fpnew_pkg::INSIDE};
 
 endpackage : cv32e40p_fpu_pkg
