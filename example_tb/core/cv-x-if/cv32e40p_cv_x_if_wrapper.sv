@@ -34,8 +34,6 @@ module cv32e40p_cv_x_if_wrapper
     output logic [ 4:0] x_p_rd_o,
     output logic [31:0] x_p_data_o,
     output logic        x_p_dualwb_o,
-    // NOT IN THE typedef.svh DEFINITION BUT IN THE ACCELERATOR INTERFACE DOCUMENTATION
-    output logic        x_p_type_o,
     output logic        x_p_error_o,
 
     // Xmem-Request channel

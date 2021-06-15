@@ -63,7 +63,6 @@ module cv32e40p_core_and_coprocessor_wrapper
   logic [                  4:0]       x_rd;
   logic [                 31:0]       x_data;
   logic                               x_dualwb;
-  logic                               x_type;
   logic                               x_error;
 
   logic                               xmem_valid;
@@ -132,7 +131,6 @@ module cv32e40p_core_and_coprocessor_wrapper
     .x_rd_i        (x_rd),
     .x_data_i      (x_data),
     .x_dualwb_i    (x_dualwb),
-    .x_type_i      (x_type),
     .x_error_i     (x_error),
 
     .xmem_valid_i            (xmem_valid),
@@ -187,7 +185,6 @@ module cv32e40p_core_and_coprocessor_wrapper
         .x_p_rd_o    (x_rd),
         .x_p_data_o  (x_data),
         .x_p_dualwb_o(x_dualwb),
-        .x_p_type_o  (x_type),
         .x_p_error_o (x_error),
 
         // Xmem-Request channel
@@ -217,7 +214,6 @@ module cv32e40p_core_and_coprocessor_wrapper
       assign x_rd        = '0;
       assign x_data      = '0;
       assign x_dualwb    = '0;
-      assign x_type      = '0;
       assign x_error     = '0;
     end
   endgenerate
