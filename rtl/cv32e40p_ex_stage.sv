@@ -137,10 +137,11 @@ module cv32e40p_ex_stage
     wb_contention          = 1'b0;
     regfile_alu_we_fw_o    = '0;
     regfile_alu_waddr_fw_o = '0;
-    if (x_rvalid_i & (x_rd_i != 5'b00000)) begin // CSR instructions could send a writeback to x0 register
+    if (x_rvalid_i & (x_rd_i != 5'b00000)) begin // CSR instructions could send a writeback to x0 register, which is not allowed
       regfile_alu_we_fw_o    = 1'b1;
       regfile_alu_waddr_fw_o = {1'b0, x_rd_i};
       regfile_alu_wdata_fw_o = x_data_i;
+      wb_contention          = 1'b1;
     end else begin
       regfile_alu_we_fw_o    = regfile_alu_we_i & ~apu_en_i;
       regfile_alu_waddr_fw_o = regfile_alu_waddr_i;
