@@ -101,7 +101,6 @@ module cv32e40p_cv_x_if_wrapper
   assign x_p_rd_o = x_rsp.p.rd;
   assign x_p_data_o = x_rsp.p.data;
   assign x_p_dualwb_o = x_rsp.p.dualwb;
-  // assign p_type_o = // commented out because it is not implemented (maybe it was removed when xmem and cmem channels were created)
   assign x_p_error_o = x_rsp.p.error;
 
   // Xmem-Request Channel assignment
@@ -123,7 +122,7 @@ module cv32e40p_cv_x_if_wrapper
   assign xmem_rsp.p.status = xmem_p_status_i;
 
 
-  assign hart_id = 32'h0; // what does the hart id do? (it is assigned to 0 in the cv32e40p_tb_subsystem.sv)
+  assign hart_id = 32'h0;
   assign c_mst_next_rsp[0].p.hart_id = 32'd0;
   assign c_mst_next_rsp[0].p_valid = '0;
 
