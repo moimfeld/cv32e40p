@@ -85,7 +85,6 @@ module cv32e40p_core
     input  logic          [           4:0]       x_rd_i,
     input  logic          [          31:0]       x_data_i,
     input  logic                                 x_dualwb_i,
-    input  logic                                 x_type_i,
     input  logic                                 x_error_i,
     // XMem-Request Channel
     input  logic                                 xmem_valid_i,
