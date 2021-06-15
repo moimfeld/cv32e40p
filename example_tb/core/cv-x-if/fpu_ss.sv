@@ -9,59 +9,58 @@
 // specific language governing permissions and limitations under the License.
 
 // FPU Subsystem
-// Contributor: Davide Schiavone <davide@openhwgroup.org>
-//              Moritz Imfeld <moimfeld@student.ethz.ch>
+// Contributor: Moritz Imfeld <moimfeld@student.ethz.ch>
+//              Davide Schiavone <davide@openhwgroup.org>
 
 module fpu_ss #(
     parameter                                 BUFFER_DEPTH       = 4,
+    parameter                                 INT_REG_WB_DELAY   = 1,
     parameter fpnew_pkg::fpu_features_t       FPU_FEATURES       = fpnew_pkg::RV64D_Xsflt,
     parameter fpnew_pkg::fpu_implementation_t FPU_IMPLEMENTATION = fpnew_pkg::DEFAULT_NOREGS,
-    parameter type                            FPU_TAG_TYPE       = logic,
-    // DO NOT OVERWRITE THIS PARAMETER
-    parameter int unsigned BUFFER_ADDR_DEPTH  = (BUFFER_DEPTH > 1) ? $clog2(BUFFER_DEPTH) : 1
+    parameter type                            FPU_TAG_TYPE       = logic
 ) (
     // Clock and Reset
     input logic clk_i,
     input logic rst_ni,
 
     // C-Request Channel
-    input  logic                                 c_q_valid_i,
+    input logic c_q_valid_i,
     output logic                                 c_q_ready_o, // Signal belongs to the c-rsp channel typedef but is part of the request handshake
-    input  logic [acc_pkg::AddrWidth-1:0]        c_q_addr_i,
-    input  logic [                   2:0] [31:0] c_q_rs_i,
-    input  logic [                  31:0]        c_q_instr_data_i,
-    input  logic [                  31:0]        c_q_hart_id_i,
+    input logic [acc_pkg::AddrWidth-1:0] c_q_addr_i,
+    input logic [2:0][31:0] c_q_rs_i,
+    input logic [31:0] c_q_instr_data_i,
+    input logic [31:0] c_q_hart_id_i,
 
     // C-Response Channel
-    output logic        c_p_valid_o,
+    output logic c_p_valid_o,
     input  logic        c_p_ready_i, // Signal belongs to the c-req channel typedef but is part of the response handshake
     output logic [31:0] c_p_data_o,
-    output logic        c_p_error_o,
-    output logic        c_p_dualwb_o,
+    output logic c_p_error_o,
+    output logic c_p_dualwb_o,
     output logic [31:0] c_p_hart_id_o,
-    output logic [ 4:0] c_p_rd_o,
+    output logic [4:0] c_p_rd_o,
 
     // Cmem-Request Channel
-    output logic                          cmem_q_valid_o,
+    output logic cmem_q_valid_o,
     input  logic                          cmem_q_ready_i, // Signal belongs to the cmem-rsp channel typedef but is part of the request handshake
-    output logic [                  31:0] cmem_q_laddr_o, // Note: ss
-    output logic [                  31:0] cmem_q_wdata_o, // Note: ss
-    output logic [                   2:0] cmem_q_width_o, // Note: controller
-    output acc_pkg::mem_req_type_e        cmem_q_req_type_o, // Note: controller
-    output logic                          cmem_q_mode_o, // Note: controller
-    output logic                          cmem_q_spec_o, // Note: controller
-    output logic                          cmem_q_endoftransaction_o, // Note: controller
-    output logic [                  31:0] cmem_q_hart_id_o, // Note: ss
-    output logic [acc_pkg::AddrWidth-1:0] cmem_q_addr_o, // Note: ss
+    output logic [31:0] cmem_q_laddr_o,
+    output logic [31:0] cmem_q_wdata_o,
+    output logic [2:0] cmem_q_width_o,
+    output acc_pkg::mem_req_type_e cmem_q_req_type_o,
+    output logic cmem_q_mode_o,
+    output logic cmem_q_spec_o,
+    output logic cmem_q_endoftransaction_o,
+    output logic [31:0] cmem_q_hart_id_o,
+    output logic [acc_pkg::AddrWidth-1:0] cmem_q_addr_o,
 
     // Cmem-Response Channel
-    input  logic                          cmem_p_valid_i,
-    output logic                          cmem_p_ready_o, // Signal belongs to the cmem-req channel typedef but is part of the request handshake
-    input  logic [                  31:0] cmem_p_rdata_i,
-    input  logic [        $clog2(32)-1:0] cmem_p_range_i,
-    input  logic                          cmem_p_status_i,
-    input  logic [acc_pkg::AddrWidth-1:0] cmem_p_addr_i,
-    input  logic [                  31:0] cmem_p_hart_id_i
+    input logic cmem_p_valid_i,
+    output logic                          cmem_p_ready_o, // Signal belongs to the cmem-req channel typedef but is part of the response handshake
+    input logic [31:0] cmem_p_rdata_i,
+    input logic [$clog2(32)-1:0] cmem_p_range_i,
+    input logic cmem_p_status_i,
+    input logic [acc_pkg::AddrWidth-1:0] cmem_p_addr_i,
+    input logic [31:0] cmem_p_hart_id_i
 );
 
   typedef struct packed {
@@ -121,34 +120,31 @@ module fpu_ss #(
   logic                                      fpu_out_ready;
   logic                                      cmem_rsp_hs;
 
-  // Fifo Usage
-  logic [BUFFER_ADDR_DEPTH-1:0] fifo_usage;
-
   // FPU signals
-  logic fpu_busy;
+  logic                                      fpu_busy;
 
   // CSR
-  logic [31:0] csr_rdata;
-  logic [ 2:0] frm;
-  logic        csr_wb;
+  logic                     [31:0]           csr_rdata;
+  logic                     [ 2:0]           frm;
+  logic                                      csr_wb;
 
-  assign offloaded_data_push.addr       = c_q_addr_i;
-  assign offloaded_data_push.rs         = c_q_rs_i;
+  assign offloaded_data_push.addr = c_q_addr_i;
+  assign offloaded_data_push.rs = c_q_rs_i;
   assign offloaded_data_push.instr_data = c_q_instr_data_i;
-  assign offloaded_data_push.hart_id    = c_q_hart_id_i;
+  assign offloaded_data_push.hart_id = c_q_hart_id_i;
 
-  assign instr                          = offloaded_data_pop.instr_data;
-  assign int_operands[0]                = offloaded_data_pop.rs[0];
-  assign int_operands[1]                = offloaded_data_pop.rs[1];
-  assign int_operands[2]                = offloaded_data_pop.rs[2];
+  assign instr = offloaded_data_pop.instr_data;
+  assign int_operands[0] = offloaded_data_pop.rs[0];
+  assign int_operands[1] = offloaded_data_pop.rs[1];
+  assign int_operands[2] = offloaded_data_pop.rs[2];
 
-  assign rs1                            = instr[19:15];
-  assign rs2                            = instr[24:20];
-  assign rs3                            = instr[31:27];
-  assign rd                             = instr[11:7];
+  assign rs1 = instr[19:15];
+  assign rs2 = instr[24:20];
+  assign rs3 = instr[31:27];
+  assign rd = instr[11:7];
 
-  assign c_p_error_o   = 1'b0; // no errors can occur for now
-  assign c_p_dualwb_o  = 1'b0;
+  assign c_p_error_o = 1'b0;  // no errors can occur for now
+  assign c_p_dualwb_o = 1'b0;
   assign c_p_hart_id_o = offloaded_data_pop.hart_id;
   always_comb begin
     c_p_rd_o = '0;
@@ -163,15 +159,15 @@ module fpu_ss #(
   assign cmem_q_hart_id_o = offloaded_data_pop.hart_id;
   assign cmem_q_addr_o    = offloaded_data_pop.addr;
 
-  // load and store have different immediate encoding :(
+  // load and store address calculation
   always_comb begin
     if (cmem_q_req_type_o == acc_pkg::READ) begin
-      offset   = instr[31:20];
+      offset = instr[31:20];
       if (instr[31]) begin
         offset = {20'b1111_1111_1111_1111_1111, instr[31:20]};
       end
     end else begin
-      offset   = {instr[31:25], instr[11:7]};
+      offset = {instr[31:25], instr[11:7]};
       if (instr[31]) begin
         offset = {20'b1111_1111_1111_1111_1111, instr[31:25], instr[11:7]};
       end
@@ -179,12 +175,7 @@ module fpu_ss #(
     cmem_q_laddr_o = int_operands[0] + offset;
   end
 
-
-
-
-
-// assign cmem_q_laddr_o   = int_operands[0] + instr[31:20];
-  // fp register writeback mux
+  // fp register writeback data mux
   always_comb begin
     fpr_wb_data = fpu_result;
     if (cmem_rsp_hs) begin
@@ -192,18 +183,15 @@ module fpu_ss #(
     end
   end
 
-  // int register writeback mux
+  // int register writeback data mux
   always_comb begin
     c_p_data_o = fpu_result;
-    if (~rd_is_fp & ~csr_wb) begin
+    if (~rd_is_fp & ~use_fpu & ~csr_wb) begin
       c_p_data_o = fpu_operands[0];
     end else if (csr_wb) begin
       c_p_data_o = csr_rdata;
     end
   end
-
-
-
 
   // Fifo with built in Handshake protocol
   stream_fifo #(
@@ -216,7 +204,7 @@ module fpu_ss #(
       .rst_ni    (rst_ni),
       .flush_i   (1'b0),
       .testmode_i(1'b0),
-      .usage_o   (fifo_usage),
+      .usage_o   (  /* unused */),
 
       .data_i (offloaded_data_push),
       .valid_i(c_q_valid_i),
@@ -229,55 +217,58 @@ module fpu_ss #(
 
   // "F"-Extension and "xfvec"-Extension Decoder
   fpu_ss_decoder fpu_ss_decoder_i (  // Note: Remove Double Precision Instr form the decoder (not required at the moment --> only contributes to area)
-      .instr_i(instr),
+      .instr_i       (instr),
       .fpu_rnd_mode_i(fpnew_pkg::roundmode_e'(frm)),
-      .fpu_op_o(fpu_op),
-      .op_select_o(op_select),
+      .fpu_op_o      (fpu_op),
+      .op_select_o   (op_select),
       .fpu_rnd_mode_o(fpu_rnd_mode),
-      .set_dyn_rm_o(set_dyn_rm),
-      .src_fmt_o(src_fmt),
-      .dst_fmt_o(dst_fmt),
-      .int_fmt_o(int_fmt),
-      .rd_is_fp_o(rd_is_fp),
+      .set_dyn_rm_o  (set_dyn_rm),
+      .src_fmt_o     (src_fmt),
+      .dst_fmt_o     (dst_fmt),
+      .int_fmt_o     (int_fmt),
+      .rd_is_fp_o    (rd_is_fp),
       .vectorial_op_o(vectorial_op),
-      .op_mode_o(op_mode),
-      .use_fpu_o(use_fpu),
-      .is_store_o(is_store),
-      .is_load_o(is_load),
-      .ls_size_o(ls_size)
+      .op_mode_o     (op_mode),
+      .use_fpu_o     (use_fpu),
+      .is_store_o    (is_store),
+      .is_load_o     (is_load),
+      .ls_size_o     (ls_size)
   );
 
   fpu_ss_csr fpu_ss_csr_i (
-    .clk_i(clk_i),
-    .rst_ni(rst_ni),
-
-    .instr_i(instr),
-    .csr_data_i(int_operands[0]),
-    .csr_rdata_o(csr_rdata),
-    .frm_o(frm),
-    .csr_wb_o(csr_wb),
-    .csr_instr_o(csr_instr)
-    );
-
-  fpu_ss_controller fpu_ss_controller_i (
-      .clk_i(clk_i),
+      .clk_i (clk_i),
       .rst_ni(rst_ni),
+
+      .instr_i    (instr),
+      .csr_data_i (int_operands[0]),
+      .csr_rdata_o(csr_rdata),
+      .frm_o      (frm),
+      .csr_wb_o   (csr_wb),
+      .csr_instr_o(csr_instr)
+  );
+
+  fpu_ss_controller #(
+      .INT_REG_WB_DELAY(INT_REG_WB_DELAY)
+  ) fpu_ss_controller_i (
+      .clk_i (clk_i),
+      .rst_ni(rst_ni),
+
       // Signals for buffer pop handshake
       .fpu_out_valid_i(fpu_out_valid),
-      .fpu_busy_i(fpu_busy),
-      .use_fpu_i(use_fpu),
-      .pop_valid_i(pop_valid),
-      .pop_ready_o(pop_ready),
+      .fpu_busy_i     (fpu_busy),
+      .use_fpu_i      (use_fpu),
+      .pop_valid_i    (pop_valid),
+      .pop_ready_o    (pop_ready),
 
-      // Signals for fpu in handshake
+      // Signal for fpu in handshake
       .fpu_in_valid_o(fpu_in_valid),
 
-      // Signals for fpu out handshake
+      // Signal for fpu out handshake
       .fpu_out_ready_o(fpu_out_ready),
 
       // Register Write enable
       .rd_is_fp_i(rd_is_fp),
-      .fpr_we_o(fpr_we),
+      .fpr_we_o  (fpr_we),
 
       // Signals for C-Response handshake
       .c_p_ready_i(c_p_ready_i),
@@ -285,21 +276,21 @@ module fpu_ss #(
       .c_p_valid_o(c_p_valid_o),
 
       // Memory instruction handling
-      .is_load_i(is_load),
-      .is_store_i(is_store),
-    // Request Handshake
-      .cmem_q_valid_o(cmem_q_valid_o),
-      .cmem_q_ready_i(cmem_q_ready_i),
-      .cmem_q_req_type_o(cmem_q_req_type_o),
-      .cmem_q_mode_o(cmem_q_mode_o),
-      .cmem_q_spec_o(cmem_q_spec_o),
+      .is_load_i                (is_load),
+      .is_store_i               (is_store),
+      // Request Handshake
+      .cmem_q_valid_o           (cmem_q_valid_o),
+      .cmem_q_ready_i           (cmem_q_ready_i),
+      .cmem_q_req_type_o        (cmem_q_req_type_o),
+      .cmem_q_mode_o            (cmem_q_mode_o),
+      .cmem_q_spec_o            (cmem_q_spec_o),
       .cmem_q_endoftransaction_o(cmem_q_endoftransaction_o),
-    // Response Handshake --> assert write enable (and subesquently handle what data gets written to the registerfile)
-      .cmem_p_valid_i(cmem_p_valid_i),
-      .cmem_p_ready_o(cmem_p_ready_o),
-      .cmem_status_i(cmem_status_i),
+      // Response Handshake --> assert write enable (and subesquently handle what data gets written to the registerfile)
+      .cmem_p_valid_i           (cmem_p_valid_i),
+      .cmem_p_ready_o           (cmem_p_ready_o),
+      .cmem_status_i            (cmem_status_i),
 
-      .cmem_rsp_hs_o (cmem_rsp_hs)
+      .cmem_rsp_hs_o(cmem_rsp_hs)
   );
 
   // fp Register File
@@ -374,8 +365,9 @@ module fpu_ss #(
       .Implementation(FPU_IMPLEMENTATION),
       .TagType       (FPU_TAG_TYPE)
   ) i_fpnew_bulk (
-      .clk_i(clk_i),
+      .clk_i (clk_i),
       .rst_ni(rst_ni),
+
       .operands_i(fpu_operands),
       .rnd_mode_i(fpnew_pkg::roundmode_e'(fpu_rnd_mode)),
       .op_i(fpnew_pkg::operation_e'(fpu_op)),
@@ -386,7 +378,7 @@ module fpu_ss #(
       .vectorial_op_i(vectorial_op),
       .tag_i(1'b0),
       .in_valid_i(fpu_in_valid),
-      .in_ready_o(  /* unused */), // Note: unused since its assumed to be high whenever in_valid_i is high
+      .in_ready_o    (  /* unused */), // Note: unused since its assumed to be high whenever in_valid_i is high due to in order execution
       .flush_i(1'b0),
       .result_o(fpu_result),
       .status_o(  /* unused */),  // Note: discuss with supervisor if needed
@@ -396,37 +388,35 @@ module fpu_ss #(
       .busy_o(fpu_busy)
   );
 
-// some measurements
-int offloaded, writebacks, memory, csr;
-initial begin
-  offloaded = 0;
-  writebacks = 0;
-  memory = 0;
-  csr = 0;
-end
+  // some measurements
+  int offloaded, writebacks, memory, csr;
+  initial begin
+    offloaded = 0;
+    writebacks = 0;
+    memory = 0;
+    csr = 0;
+  end
 
 
-cover property (@(posedge clk_i) c_q_valid_i & c_q_ready_o) begin
-  offloaded = offloaded+1;
-  $display("Number of offloaded instructions %d \n", offloaded);
-end;
-cover property (@(posedge clk_i) c_p_valid_o & c_p_ready_i) begin
-  writebacks = writebacks+1;
-  $display("Number of writebacks %d \n", writebacks);
-end;
-cover property (@(posedge clk_i) c_p_valid_o & c_p_ready_i & csr_instr) begin
-  csr = csr+1;
-  $display("Number of csr instructions %d \n", csr);
-end;
-cover property (@(posedge clk_i) cmem_q_valid_o & cmem_q_ready_i) begin
-  memory = memory+1;
-  $display("Number of memory instructions %d \n", memory);
-end;
-
-// final begin
-//   $display("%d", i);
-// end
-
+  cover property (@(posedge clk_i) c_q_valid_i & c_q_ready_o) begin
+    offloaded = offloaded + 1;
+    $display("Number of offloaded instructions %d \n", offloaded);
+  end
+  ;
+  cover property (@(posedge clk_i) c_p_valid_o & c_p_ready_i) begin
+    writebacks = writebacks + 1;
+    $display("Number of writebacks %d \n", writebacks);
+  end
+  ;
+  cover property (@(posedge clk_i) c_p_valid_o & c_p_ready_i & csr_instr) begin
+    csr = csr + 1;
+    $display("Number of csr instructions %d \n", csr);
+  end
+  ;
+  cover property (@(posedge clk_i) cmem_q_valid_o & cmem_q_ready_i) begin
+    memory = memory + 1;
+    $display("Number of memory instructions %d \n", memory);
+  end
+  ;
 
 endmodule  // fpu_ss
-
