@@ -28,7 +28,7 @@ module cv32e40p_x_disp
 
     input logic x_illegal_insn_dec_i,
 
-    // Scoreboard & Dependency Check
+    // Scoreboard & Dependency Check & Stall
     input logic [4:0]      x_waddr_id_i,
     input logic            x_writeback_i,
     input logic [4:0]      x_waddr_ex_i,
@@ -40,6 +40,8 @@ module cv32e40p_x_disp
     input logic [2:0][4:0] x_rs_addr_i,
     input logic [2:0]      x_regs_used_i,
     input logic            x_branch_or_jump_i,
+    input logic            x_load_stall_i,
+    input logic            x_ex_valid_i,
 
     // X-Request and Response Channel Signals
     output logic       x_valid_o,
@@ -89,8 +91,9 @@ module cv32e40p_x_disp
   // core is ready to offload instruction when:
   // - an illegal instruction was decoded
   // - there are no outstanding jumps or branches
+  // - if there is no load stall
   // - the instruction has not already been offloaded
-  assign x_valid_o = x_illegal_insn_dec_i & ~x_branch_or_jump_i & ~instr_offloaded_q;
+  assign x_valid_o = x_illegal_insn_dec_i & ~x_branch_or_jump_i & ~x_load_stall_i & ~instr_offloaded_q;
 
   // core needs to stall when:
   // - there is an outstanding x-interface handshake
@@ -100,17 +103,17 @@ module cv32e40p_x_disp
 
   // Check validity of source registers and cleanness of destination register:
   // - valid if scoreboard at the index of the source register is clean
-  // - valid if there is no active core side instruction currently writing back to the source register
-  // - valid if there is no memory instruction writing back to the source register
-  assign x_rs_valid_o[0] = ~(scoreboard_q[x_rs_addr_i[0]] | ((x_rs_addr_i[0] == x_waddr_ex_i) & x_we_ex_i) | ((x_rs_addr_i[0] == x_waddr_wb_i) & x_we_wb_i));
-  assign x_rs_valid_o[1] = ~(scoreboard_q[x_rs_addr_i[1]] | ((x_rs_addr_i[1] == x_waddr_ex_i) & x_we_ex_i) | ((x_rs_addr_i[1] == x_waddr_wb_i) & x_we_wb_i));
-  assign x_rs_valid_o[2] = ~(scoreboard_q[x_rs_addr_i[2]] | ((x_rs_addr_i[2] == x_waddr_ex_i) & x_we_ex_i) | ((x_rs_addr_i[2] == x_waddr_wb_i) & x_we_wb_i));
+  // - valid if there is no active core side instruction currently writing back to the source register (if x_ex_valid_i is high the instruction is done and the result will be forwarded)
+  // - valid if there is no memory instruction writing back to the source register (if x_ex_valid_i is high the instruction is done and the result will be forwarded)
+  assign x_rs_valid_o[0] = ~(scoreboard_q[x_rs_addr_i[0]] | ((x_rs_addr_i[0] == x_waddr_ex_i) & x_we_ex_i & ~x_ex_valid_i) | ((x_rs_addr_i[0] == x_waddr_wb_i) & x_we_wb_i & ~x_ex_valid_i));
+  assign x_rs_valid_o[1] = ~(scoreboard_q[x_rs_addr_i[1]] | ((x_rs_addr_i[1] == x_waddr_ex_i) & x_we_ex_i & ~x_ex_valid_i) | ((x_rs_addr_i[1] == x_waddr_wb_i) & x_we_wb_i & ~x_ex_valid_i));
+  assign x_rs_valid_o[2] = ~(scoreboard_q[x_rs_addr_i[2]] | ((x_rs_addr_i[2] == x_waddr_ex_i) & x_we_ex_i & ~x_ex_valid_i) | ((x_rs_addr_i[2] == x_waddr_wb_i) & x_we_wb_i & ~x_ex_valid_i));
   assign x_rd_clean_o = ~((scoreboard_q[x_waddr_id_i]) | ((x_waddr_id_i == x_waddr_ex_i) & x_we_ex_i) | ((x_waddr_id_i == x_waddr_wb_i) & x_we_wb_i));
 
   // Dependency check
-  assign dep = ((x_regs_used_i[0] & scoreboard_q[x_rs_addr_i[0]]) | (x_regs_used_i[1] & scoreboard_q[x_rs_addr_i[1]]) | (x_regs_used_i[2] & scoreboard_q[x_rs_addr_i[2]]));
+  assign dep = ~x_illegal_insn_o & ((x_regs_used_i[0] & scoreboard_q[x_rs_addr_i[0]]) | (x_regs_used_i[1] & scoreboard_q[x_rs_addr_i[1]]) | (x_regs_used_i[2] & scoreboard_q[x_rs_addr_i[2]]));
 
-  // Illegal instruction assertion according to x-interface
+  // Illegal instruction assertion according to x-interface specs
   always_comb begin
     x_illegal_insn_o = 1'b0;
     if (x_valid_o & x_ready_i & ~x_accept_i) begin
@@ -122,17 +125,9 @@ module cv32e40p_x_disp
   always_comb begin
     xmem_data_req_o = 1'b0;
     xmem_ready_o    = 1'b0;
-    if (xmem_valid_i & ~data_req_ex_i) begin
+    if (xmem_valid_i) begin
       xmem_data_req_o = 1'b1;
       xmem_ready_o    = 1'b1;
-    end
-  end
-
-  // Memory instruction response handshake
-  always_comb begin
-    xmem_rvalid_o = 1'b0;
-    if (xmem_instr_wb_i & ~mem_wb_complete_q) begin
-      xmem_rvalid_o = 1'b1;
     end
   end
 
@@ -144,6 +139,13 @@ module cv32e40p_x_disp
     end
   end
 
+  // Memory instruction response handshake
+  always_comb begin
+    xmem_rvalid_o = 1'b0;
+    if (xmem_instr_wb_i & ~mem_wb_complete_q) begin
+      xmem_rvalid_o = 1'b1;
+    end
+  end
 
   // Scoreboard update (only destination registers with writeback mark the scoreboard)
   always_comb begin
@@ -188,5 +190,17 @@ module cv32e40p_x_disp
       mem_wb_complete_q <= mem_wb_complete_d;
     end
   end
+
+  // some measurements
+  int memory_stall;
+  initial begin
+    memory_stall = 0;
+  end
+
+  cover property (@(posedge clk_i) (x_is_mem_op_i & ~(xmem_rvalid_o & xmem_rready_i))) begin
+    memory_stall = memory_stall + 1;
+    $display("Number of memory_stall %d \n", memory_stall);
+  end
+  ;
 
 endmodule : cv32e40p_x_disp

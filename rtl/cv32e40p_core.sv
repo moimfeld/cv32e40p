@@ -255,8 +255,6 @@ module cv32e40p_core
   PrivLvl_t           current_priv_lvl;
 
   // Data Memory Control:  From ID stage (id-ex pipe) <--> load store unit
-  logic        [31:0] lsu_operand_a_ex;
-  logic        [31:0] lsu_operand_c_ex;
   logic               data_we_ex;
   logic        [ 5:0] data_atop_ex;
   logic        [ 1:0] data_type_ex;
@@ -669,8 +667,6 @@ module cv32e40p_core
       .csr_hwlp_data_i (csr_hwlp_data),
 
       // LSU
-      .lsu_operand_a_ex_o  (lsu_operand_a_ex),
-      .lsu_operand_c_ex_o  (lsu_operand_c_ex),
       .data_req_ex_o       (data_req_ex),  // to load store unit
       .data_we_ex_o        (data_we_ex),  // to load store unit
       .atop_ex_o           (data_atop_ex),
@@ -871,14 +867,14 @@ module cv32e40p_core
       .data_we_ex_i        (data_we_ex),
       .data_atop_ex_i      (data_atop_ex),
       .data_type_ex_i      (data_type_ex),
-      .data_wdata_ex_i     (lsu_operand_c_ex),
+      .data_wdata_ex_i     (alu_operand_c_ex),
       .data_reg_offset_ex_i(data_reg_offset_ex),
       .data_load_event_ex_i(data_load_event_ex),
       .data_sign_ext_ex_i  (data_sign_ext_ex),  // sign extension
 
       .data_rdata_ex_o  (lsu_rdata),
       .data_req_ex_i    (data_req_ex),
-      .operand_a_ex_i   (lsu_operand_a_ex),
+      .operand_a_ex_i   (alu_operand_a_ex),
       .operand_b_ex_i   (alu_operand_b_ex),
       .addr_useincr_ex_i(useincr_addr_ex),
 

@@ -190,14 +190,12 @@ module cv32e40p_id_stage
     input logic [           31:0] csr_hwlp_data_i,
 
     // Interface to load store unit
-    output logic [31:0] lsu_operand_a_ex_o,
-    output logic [31:0] lsu_operand_c_ex_o,
-    output logic        data_req_ex_o,
-    output logic        data_we_ex_o,
-    output logic [ 1:0] data_type_ex_o,
-    output logic [ 1:0] data_sign_ext_ex_o,
-    output logic [ 1:0] data_reg_offset_ex_o,
-    output logic        data_load_event_ex_o,
+    output logic       data_req_ex_o,
+    output logic       data_we_ex_o,
+    output logic [1:0] data_type_ex_o,
+    output logic [1:0] data_sign_ext_ex_o,
+    output logic [1:0] data_reg_offset_ex_o,
+    output logic       data_load_event_ex_o,
 
     output logic data_misaligned_ex_o,
 
@@ -299,6 +297,9 @@ module cv32e40p_id_stage
   logic        rega_used_dec;
   logic        regb_used_dec;
   logic        regc_used_dec;
+  logic        rega_used;
+  logic        regb_used;
+  logic        regc_used;
 
   logic        branch_taken_ex;
   logic [ 1:0] ctrl_transfer_insn_in_id;
@@ -379,30 +380,35 @@ module cv32e40p_id_stage
 
   // X-Interface
   logic illegal_insn;
+  logic [4:0] x_waddr_id;
   logic [4:0] x_waddr_ex;
   logic [4:0] x_waddr_wb;
+  logic [2:0] x_regs_used;
+  logic x_stall;
+  logic [2:0][4:0] x_rs_addr;
   logic xmem_data_req;
   logic xmem_we;
   logic xmem_valid;
 
   // Register Write Control
   logic regfile_we_id;
+  logic regfile_we_id_dec;
   logic regfile_alu_waddr_mux_sel;
 
   // Data Memory Control
+  logic [1:0] data_type_dec;
+  logic data_we_dec;
+  logic [1:0] data_sign_ext_dec;
+  logic [1:0] data_reg_offset_dec;
+  logic data_req_dec;
+  logic data_load_event_dec;
+
   logic [1:0] data_type_id;
   logic data_we_id;
   logic [1:0] data_sign_ext_id;
   logic [1:0] data_reg_offset_id;
   logic data_req_id;
   logic data_load_event_id;
-
-  logic data_req_ex;
-  logic data_we_ex;
-  logic [1:0] data_type_ex;
-  logic [1:0] data_sign_ext_ex;
-  logic [1:0] data_reg_offset_ex;
-  logic data_load_event_ex;
 
   // Atomic memory instruction
   logic [5:0] atop_id;
@@ -426,8 +432,8 @@ module cv32e40p_id_stage
   csr_opcode_e              csr_op;
   logic                     csr_status;
 
+  logic                     prepost_useincr_dec;
   logic                     prepost_useincr;
-  logic                     prepost_useincr_ex;
 
   // Forwarding
   logic        [       1:0] operand_a_fw_mux_sel;
@@ -440,6 +446,8 @@ module cv32e40p_id_stage
   logic [31:0] operand_b, operand_b_vec;
   logic [31:0] operand_c, operand_c_vec;
 
+  logic [31:0] alu_operand_a_dec;
+  logic [31:0] alu_operand_c_dec;
   logic [31:0] alu_operand_a;
   logic [31:0] alu_operand_b;
   logic [31:0] alu_operand_c;
@@ -539,15 +547,15 @@ module cv32e40p_id_stage
   assign regfile_alu_waddr_id = regfile_alu_waddr_mux_sel ? regfile_waddr_id : regfile_addr_ra_id;
 
   // Forwarding control signals
-  assign reg_d_ex_is_reg_a_id  = (regfile_waddr_ex_o     == regfile_addr_ra_id) && (rega_used_dec == 1'b1) && (regfile_addr_ra_id != '0);
-  assign reg_d_ex_is_reg_b_id  = (regfile_waddr_ex_o     == regfile_addr_rb_id) && (regb_used_dec == 1'b1) && (regfile_addr_rb_id != '0);
-  assign reg_d_ex_is_reg_c_id  = (regfile_waddr_ex_o     == regfile_addr_rc_id) && (regc_used_dec == 1'b1) && (regfile_addr_rc_id != '0);
-  assign reg_d_wb_is_reg_a_id  = (regfile_waddr_wb_i     == regfile_addr_ra_id) && (rega_used_dec == 1'b1) && (regfile_addr_ra_id != '0);
-  assign reg_d_wb_is_reg_b_id  = (regfile_waddr_wb_i     == regfile_addr_rb_id) && (regb_used_dec == 1'b1) && (regfile_addr_rb_id != '0);
-  assign reg_d_wb_is_reg_c_id  = (regfile_waddr_wb_i     == regfile_addr_rc_id) && (regc_used_dec == 1'b1) && (regfile_addr_rc_id != '0);
-  assign reg_d_alu_is_reg_a_id = (regfile_alu_waddr_fw_i == regfile_addr_ra_id) && (rega_used_dec == 1'b1) && (regfile_addr_ra_id != '0);
-  assign reg_d_alu_is_reg_b_id = (regfile_alu_waddr_fw_i == regfile_addr_rb_id) && (regb_used_dec == 1'b1) && (regfile_addr_rb_id != '0);
-  assign reg_d_alu_is_reg_c_id = (regfile_alu_waddr_fw_i == regfile_addr_rc_id) && (regc_used_dec == 1'b1) && (regfile_addr_rc_id != '0);
+  assign reg_d_ex_is_reg_a_id  = (regfile_waddr_ex_o     == regfile_addr_ra_id) && (rega_used == 1'b1) && (regfile_addr_ra_id != '0);
+  assign reg_d_ex_is_reg_b_id  = (regfile_waddr_ex_o     == regfile_addr_rb_id) && (regb_used == 1'b1) && (regfile_addr_rb_id != '0);
+  assign reg_d_ex_is_reg_c_id  = (regfile_waddr_ex_o     == regfile_addr_rc_id) && (regc_used == 1'b1) && (regfile_addr_rc_id != '0);
+  assign reg_d_wb_is_reg_a_id  = (regfile_waddr_wb_i     == regfile_addr_ra_id) && (rega_used == 1'b1) && (regfile_addr_ra_id != '0);
+  assign reg_d_wb_is_reg_b_id  = (regfile_waddr_wb_i     == regfile_addr_rb_id) && (regb_used == 1'b1) && (regfile_addr_rb_id != '0);
+  assign reg_d_wb_is_reg_c_id  = (regfile_waddr_wb_i     == regfile_addr_rc_id) && (regc_used == 1'b1) && (regfile_addr_rc_id != '0);
+  assign reg_d_alu_is_reg_a_id = (regfile_alu_waddr_fw_i == regfile_addr_ra_id) && (rega_used == 1'b1) && (regfile_addr_ra_id != '0);
+  assign reg_d_alu_is_reg_b_id = (regfile_alu_waddr_fw_i == regfile_addr_rb_id) && (regb_used == 1'b1) && (regfile_addr_rb_id != '0);
+  assign reg_d_alu_is_reg_c_id = (regfile_alu_waddr_fw_i == regfile_addr_rc_id) && (regc_used == 1'b1) && (regfile_addr_rc_id != '0);
 
 
   // kill instruction in the IF/ID stage by setting the instr_valid_id control
@@ -595,12 +603,12 @@ module cv32e40p_id_stage
   // ALU_Op_a Mux
   always_comb begin : alu_operand_a_mux
     case (alu_op_a_mux_sel)
-      OP_A_REGA_OR_FWD: alu_operand_a = operand_a_fw_id;
-      OP_A_REGB_OR_FWD: alu_operand_a = operand_b_fw_id;
-      OP_A_REGC_OR_FWD: alu_operand_a = operand_c_fw_id;
-      OP_A_CURRPC:      alu_operand_a = pc_id_i;
-      OP_A_IMM:         alu_operand_a = imm_a;
-      default:          alu_operand_a = operand_a_fw_id;
+      OP_A_REGA_OR_FWD: alu_operand_a_dec = operand_a_fw_id;
+      OP_A_REGB_OR_FWD: alu_operand_a_dec = operand_b_fw_id;
+      OP_A_REGC_OR_FWD: alu_operand_a_dec = operand_c_fw_id;
+      OP_A_CURRPC:      alu_operand_a_dec = pc_id_i;
+      OP_A_IMM:         alu_operand_a_dec = imm_a;
+      default:          alu_operand_a_dec = operand_a_fw_id;
     endcase
     ;  // case (alu_op_a_mux_sel)
   end
@@ -720,7 +728,7 @@ module cv32e40p_id_stage
   end
 
   // choose normal or scalar replicated version of operand b
-  assign alu_operand_c = (scalar_replication_c == 1'b1) ? operand_c_vec : operand_c;
+  assign alu_operand_c_dec = (scalar_replication_c == 1'b1) ? operand_c_vec : operand_c;
 
 
   // Operand c forwarding mux
@@ -903,7 +911,7 @@ module cv32e40p_id_stage
       .mult_dot_signed_o (mult_dot_signed),
 
       // Register file control signals
-      .regfile_mem_we_o       (regfile_we_id),
+      .regfile_mem_we_o       (regfile_we_id_dec),
       .regfile_alu_we_o       (regfile_alu_we_id),
       .regfile_alu_we_dec_o   (regfile_alu_we_dec_id),
       .regfile_alu_waddr_sel_o(regfile_alu_waddr_mux_sel),
@@ -915,13 +923,13 @@ module cv32e40p_id_stage
       .current_priv_lvl_i(current_priv_lvl_i),
 
       // Data bus interface
-      .data_req_o           (data_req_id),
-      .data_we_o            (data_we_id),
-      .prepost_useincr_o    (prepost_useincr),
-      .data_type_o          (data_type_id),
-      .data_sign_extension_o(data_sign_ext_id),
-      .data_reg_offset_o    (data_reg_offset_id),
-      .data_load_event_o    (data_load_event_id),
+      .data_req_o           (data_req_dec),
+      .data_we_o            (data_we_dec),
+      .prepost_useincr_o    (prepost_useincr_dec),
+      .data_type_o          (data_type_dec),
+      .data_sign_extension_o(data_sign_ext_dec),
+      .data_reg_offset_o    (data_reg_offset_dec),
+      .data_load_event_o    (data_load_event_dec),
 
       // Atomic memory access
       .atop_o(atop_id),
@@ -946,13 +954,6 @@ module cv32e40p_id_stage
 
   );
 
-  logic x_illegal_insn;
-  logic x_stall;
-  logic [2:0][4:0] x_rs_addr;
-  logic [4:0] x_waddr_id;
-  logic [2:0] x_regs_used;
-
-
   generate
     if (FPU) begin : gen_x_disp
       ////////////////////////////////////////
@@ -970,7 +971,7 @@ module cv32e40p_id_stage
 
           .x_illegal_insn_dec_i(illegal_insn_dec),
 
-          // Scoreboard
+          // Scoreboard & Dependency Check & Stall
           .x_waddr_id_i      (x_waddr_id),
           .x_writeback_i     (x_writeback_i),
           .x_waddr_ex_i      (x_waddr_ex),
@@ -982,6 +983,8 @@ module cv32e40p_id_stage
           .x_rs_addr_i       (x_rs_addr),
           .x_regs_used_i     (x_regs_used),
           .x_branch_or_jump_i(branch_in_ex_o),
+          .x_load_stall_i    (load_stall),
+          .x_ex_valid_i      (ex_valid_i),
 
           // X-Request and Response Channel Signals
           .x_valid_o       (x_valid_o),
@@ -1016,6 +1019,7 @@ module cv32e40p_id_stage
           .data_req_ex_i(data_req_ex)
       );
 
+      // X-Interface signals for controller
       assign illegal_insn        = x_illegal_insn;
       assign x_rs_addr[0]        = regfile_addr_ra_id[4:0];
       assign x_rs_addr[1]        = regfile_addr_rb_id[4:0];
@@ -1024,58 +1028,77 @@ module cv32e40p_id_stage
       assign x_waddr_ex          = regfile_alu_waddr_ex_o[4:0];
       assign x_waddr_wb          = regfile_waddr_wb_i[4:0];
       assign x_regs_used         = {regc_used_dec, regb_used_dec, rega_used_dec};
-      assign x_rs_o[0]           = regfile_data_ra_id;
-      assign x_rs_o[1]           = regfile_data_rb_id;
-      assign x_rs_o[2]           = regfile_data_rc_id;
+      assign x_rs_o[0]           = operand_a_fw_id;
+      assign x_rs_o[1]           = operand_b_fw_id;
+      assign x_rs_o[2]           = operand_c_fw_id;
       assign x_instr_data_o      = instr;
       assign x_rvalid_assigned_o = x_rvalid_i;
       assign xmem_valid          = xmem_valid_i;
 
-      // LSU Signal Mux
+
+      // reg_used assignment (needed for forwarding)
+      // -> all regs are assigned as used for instructions that get offload, since
+      //    the core does not know which regs will be used by the instruction. This
+      //    can lead to unwanted stalls
       always_comb begin
-        data_req_ex_o        = data_req_ex;
-        data_we_ex_o         = data_we_ex;
-        lsu_operand_a_ex_o   = alu_operand_a_ex_o;
-        lsu_operand_c_ex_o   = alu_operand_c_ex_o;
-        data_type_ex_o       = data_type_ex;
-        data_sign_ext_ex_o   = data_sign_ext_ex;
-        data_reg_offset_ex_o = data_reg_offset_ex;
-        data_load_event_ex_o = data_load_event_ex;
-        prepost_useincr_ex_o = prepost_useincr_ex;
+        rega_used = rega_used_dec;
+        regb_used = regb_used_dec;
+        regc_used = regc_used_dec;
+        if (x_valid_o) begin
+          rega_used = 1'b1;
+          regb_used = 1'b1;
+          regc_used = 1'b1;
+        end
+      end
+
+      // LSU Signal assignment/MUX
+      assign regfile_we_id = regfile_we_id_dec & ~xmem_data_req;
+      assign data_req_id   = data_req_dec | xmem_data_req;
+      assign data_we_id    = data_we_dec | xmem_we;
+      always_comb begin
+        data_type_id       = data_type_dec;
+        data_sign_ext_id   = data_sign_ext_dec;
+        data_reg_offset_id = data_reg_offset_dec;
+        data_load_event_id = data_load_event_dec;
+        alu_operand_a      = alu_operand_a_dec;
+        alu_operand_c      = alu_operand_c_dec;
+        prepost_useincr    = prepost_useincr_dec;
         if (xmem_data_req) begin
-          data_req_ex_o        = xmem_data_req;
-          data_we_ex_o         = xmem_we;
-          lsu_operand_a_ex_o   = xmem_laddr_i;
-          lsu_operand_c_ex_o   = xmem_wdata_i;
-          data_type_ex_o       = 2'b00;  //xmem_width_i[1:0]; // NOTE: NOT AGNOSTIC
-          data_sign_ext_ex_o   = 2'b00;
-          data_reg_offset_ex_o = 2'b00;
-          data_load_event_ex_o = 1'b0;
-          prepost_useincr_ex_o = 1'b0;
-          xmem_instr_ex_o      = 1'b1;
+          data_type_id       = 2'b00;  //xmem_width_i[1:0]; // NOTE: NOT AGNOSTIC
+          data_sign_ext_id   = 2'b00;
+          data_reg_offset_id = 2'b00;
+          data_load_event_id = 1'b0;
+          alu_operand_a      = xmem_laddr_i;
+          alu_operand_c      = xmem_wdata_i;
+          prepost_useincr    = 1'b0;
         end
       end
 
     end else begin : gen_no_x_disp
-      assign illegal_insn         = illegal_insn_dec;
-      assign x_rs_addr[2:0]       = 5'b0;
-      assign x_rs_o[2:0]          = 31'b0;
-      assign x_stall              = 1'b0;
-      assign x_rvalid_assigned_o  = 1'b0;
+      // Default assignment for x-interface core side controll signals
+      assign x_stall             = 1'b0;
+      assign x_rvalid_assigned_o = 1'b0;
+      assign xmem_valid          = 1'b0;
 
-      assign data_req_ex_o        = data_req_ex;
-      assign data_we_ex_o         = data_we_ex;
-      assign data_type_ex_o       = data_type_ex;
-      assign data_sign_ext_ex_o   = data_sign_ext_ex;
-      assign data_reg_offset_ex_o = data_reg_offset_ex;
-      assign data_load_event_ex_o = data_load_event_ex;
-      assign prepost_useincr_ex_o = prepost_useincr_ex;
+      // Default illegal instruction assignment
+      assign illegal_insn        = illegal_insn_dec;
 
-      assign xmem_valid           = 1'b0;
-      assign xmem_data_req        = 1'b0;
-      assign lsu_operand_a_ex_o   = alu_operand_a_ex_o;
-      assign lsu_operand_c_ex_o   = alu_operand_c_ex_o;
-      assign xmem_instr_ex_o      = 1'b0;
+      // Default assignment for rega/b/c_used signals
+      assign rega_used           = rega_used_dec;
+      assign regb_used           = regb_used_dec;
+      assign regc_used           = regc_used_dec;
+
+      // Default assignment for lsu signals
+      assign data_req_id         = data_req_dec;
+      assign data_we_id          = data_we_dec;
+      assign data_type_id        = data_type_dec;
+      assign data_sign_ext_id    = data_sign_ext_dec;
+      assign data_reg_offset_id  = data_reg_offset_dec;
+      assign data_load_event_id  = data_load_event_dec;
+      assign alu_operand_a       = alu_operand_a_dec;
+      assign alu_operand_c       = alu_operand_c_dec;
+      assign prepost_useincr     = prepost_useincr_dec;
+      assign regfile_we_id       = regfile_we_id_dec;
     end : gen_no_x_disp
   endgenerate
 
@@ -1436,22 +1459,24 @@ module cv32e40p_id_stage
       apu_en_ex_o            <= 1'b0;
       apu_lat_ex_o           <= 2'b0;
 
+      xmem_instr_ex_o        <= 1'b0;
+
       regfile_waddr_ex_o     <= 6'b0;
       regfile_we_ex_o        <= 1'b0;
 
       regfile_alu_waddr_ex_o <= 6'b0;
       regfile_alu_we_ex_o    <= 1'b0;
-      prepost_useincr_ex     <= 1'b0;
+      prepost_useincr_ex_o   <= 1'b0;
 
       csr_access_ex_o        <= 1'b0;
       csr_op_ex_o            <= CSR_OP_READ;
 
-      data_we_ex             <= 1'b0;
-      data_type_ex           <= 2'b0;
-      data_sign_ext_ex       <= 2'b0;
-      data_reg_offset_ex     <= 2'b0;
-      data_req_ex            <= 1'b0;
-      data_load_event_ex     <= 1'b0;
+      data_we_ex_o           <= 1'b0;
+      data_type_ex_o         <= 2'b0;
+      data_sign_ext_ex_o     <= 2'b0;
+      data_reg_offset_ex_o   <= 2'b0;
+      data_req_ex_o          <= 1'b0;
+      data_load_event_ex_o   <= 1'b0;
       atop_ex_o              <= 5'b0;
 
       data_misaligned_ex_o   <= 1'b0;
@@ -1467,13 +1492,13 @@ module cv32e40p_id_stage
         // if we are using post increments, then we have to use the
         // original value of the register for the second memory access
         // => keep it stalled
-        if (prepost_useincr_ex == 1'b1) begin
+        if (prepost_useincr_ex_o == 1'b1) begin
           alu_operand_a_ex_o <= operand_a_fw_id;
         end
 
         alu_operand_b_ex_o   <= 32'h4;
         regfile_alu_we_ex_o  <= 1'b0;
-        prepost_useincr_ex   <= 1'b1;
+        prepost_useincr_ex_o <= 1'b1;
 
         data_misaligned_ex_o <= 1'b1;
       end
@@ -1526,26 +1551,28 @@ module cv32e40p_id_stage
           regfile_waddr_ex_o <= regfile_waddr_id;
         end
 
+        xmem_instr_ex_o     <= xmem_valid;
+
         regfile_alu_we_ex_o <= regfile_alu_we_id;
         if (regfile_alu_we_id) begin
           regfile_alu_waddr_ex_o <= regfile_alu_waddr_id;
         end
 
-        prepost_useincr_ex <= prepost_useincr;
+        prepost_useincr_ex_o <= prepost_useincr;
 
-        csr_access_ex_o    <= csr_access;
-        csr_op_ex_o        <= csr_op;
+        csr_access_ex_o      <= csr_access;
+        csr_op_ex_o          <= csr_op;
 
-        data_req_ex        <= data_req_id;
+        data_req_ex_o        <= data_req_id;
         if (data_req_id) begin  // only needed for LSU when there is an active request
-          data_we_ex         <= data_we_id;
-          data_type_ex       <= data_type_id;
-          data_sign_ext_ex   <= data_sign_ext_id;
-          data_reg_offset_ex <= data_reg_offset_id;
-          data_load_event_ex <= data_load_event_id;
-          atop_ex_o          <= atop_id;
+          data_we_ex_o         <= data_we_id;
+          data_type_ex_o       <= data_type_id;
+          data_sign_ext_ex_o   <= data_sign_ext_id;
+          data_reg_offset_ex_o <= data_reg_offset_id;
+          data_load_event_ex_o <= data_load_event_id;
+          atop_ex_o            <= atop_id;
         end else begin
-          data_load_event_ex <= 1'b0;
+          data_load_event_ex_o <= 1'b0;
         end
 
         data_misaligned_ex_o <= 1'b0;
@@ -1565,9 +1592,9 @@ module cv32e40p_id_stage
 
         csr_op_ex_o          <= CSR_OP_READ;
 
-        data_req_ex          <= 1'b0;
+        data_req_ex_o        <= 1'b0;
 
-        data_load_event_ex   <= 1'b0;
+        data_load_event_ex_o <= 1'b0;
 
         data_misaligned_ex_o <= 1'b0;
 
