@@ -76,7 +76,7 @@ module fpu_ss_controller #(
   assign cmem_p_ready_o = 1'b1;  // always accept writebacks from the core (e.g. loads)
   assign cmem_req_hs = cmem_q_valid_o & cmem_q_ready_i;
   assign cmem_rsp_hs_o = cmem_p_valid_i & cmem_p_ready_o;
-  assign delay_reg_q[0] = pop_valid_i & (csr_instr_i | (~rd_is_fp_i & ~is_load_i & ~is_store_i));
+  assign delay_reg_q[0] = pop_valid_i & (csr_instr_i | (~rd_is_fp_i & ~use_fpu_i & ~is_load_i & ~is_store_i));
 
   // Pop Instruction
   always_comb begin
