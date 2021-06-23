@@ -40,8 +40,10 @@ module cv32e40p_x_disp
     input logic [2:0][4:0] x_rs_addr_i,
     input logic [2:0]      x_regs_used_i,
     input logic            x_branch_or_jump_i,
+    input logic            x_branch_taken_ex_i,
     input logic            x_load_stall_i,
     input logic            x_ex_valid_i,
+    input logic            x_data_req_dec_i,
 
     // X-Request and Response Channel Signals
     output logic       x_valid_o,
@@ -80,7 +82,9 @@ module cv32e40p_x_disp
   logic [31:0] scoreboard_q, scoreboard_d;
   logic instr_offloaded_q, instr_offloaded_d;
   logic mem_wb_complete_q, mem_wb_complete_d;
+  logic [3:0] mem_cnt_q, mem_cnt_d;
   logic dep;
+  logic outstanding_mem_op;
 
   // Core is always ready to receive returning fp instruction results
   assign x_rready_o = 1'b1;
@@ -91,15 +95,19 @@ module cv32e40p_x_disp
   // core is ready to offload instruction when:
   // - an illegal instruction was decoded
   // - there are no outstanding jumps or branches
+  // - the branch was not taken
   // - if there is no load stall
   // - the instruction has not already been offloaded
-  assign x_valid_o = x_illegal_insn_dec_i & ~x_branch_or_jump_i & ~x_load_stall_i & ~instr_offloaded_q;
+  assign x_valid_o = x_illegal_insn_dec_i & ~x_branch_or_jump_i & ~x_branch_taken_ex_i & ~x_load_stall_i & ~instr_offloaded_q;
 
   // core needs to stall when:
   // - there is an outstanding x-interface handshake
   // - a dependency is detected
   // - when a offloaded memory instruction is ongoing
-  assign x_stall_o = (x_valid_o & ~x_ready_i) | dep | (x_is_mem_op_i & ~(xmem_rvalid_o & xmem_rready_i));
+  // - an illegal instruction was decoded and:
+  //     - there are outstanding jumps or branches
+  //     - if there is a load stall
+  assign x_stall_o = (x_valid_o & ~x_ready_i) | dep | outstanding_mem_op | (x_illegal_insn_dec_i & (x_branch_or_jump_i | x_load_stall_i));// | (xmem_valid_i & ~(x_valid_o & x_ready_i));// | (x_is_mem_op_i & ~(xmem_rvalid_o & xmem_rready_i));
 
   // Check validity of source registers and cleanness of destination register:
   // - valid if scoreboard at the index of the source register is clean
@@ -112,6 +120,13 @@ module cv32e40p_x_disp
 
   // Dependency check
   assign dep = ~x_illegal_insn_o & ((x_regs_used_i[0] & scoreboard_q[x_rs_addr_i[0]]) | (x_regs_used_i[1] & scoreboard_q[x_rs_addr_i[1]]) | (x_regs_used_i[2] & scoreboard_q[x_rs_addr_i[2]]));
+
+  always_comb begin
+    outstanding_mem_op = 1'b0;
+    if (x_data_req_dec_i & (mem_cnt_q != 4'b0000)) begin
+      outstanding_mem_op = 1'b1;
+    end
+  end
 
   // Illegal instruction assertion according to x-interface specs
   always_comb begin
@@ -150,7 +165,7 @@ module cv32e40p_x_disp
   // Scoreboard update (only destination registers with writeback mark the scoreboard)
   always_comb begin
     scoreboard_d = scoreboard_q;
-    if (x_writeback_i & x_illegal_insn_dec_i & (x_valid_o & x_ready_i) & x_waddr_id_i != x_rwaddr_i) begin  // Update rule for outgoing instructions
+    if (x_writeback_i & (x_valid_o & x_ready_i) & ~((x_waddr_id_i == x_rwaddr_i) & x_rvalid_i)) begin  // Update rule for outgoing instructions
       scoreboard_d[x_waddr_id_i] = 1'b1;
     end
     if(x_rvalid_i | (~x_writeback_i & ~x_illegal_insn_dec_i)) begin // Update rule for successful writebacks
@@ -178,28 +193,40 @@ module cv32e40p_x_disp
     end
   end
 
+  // Count of outstanding memory instructions
+  always_comb begin
+    mem_cnt_d = mem_cnt_q;
+    if (x_valid_o & x_ready_i & x_is_mem_op_i & ~xmem_valid_i) begin
+      mem_cnt_d = mem_cnt_q + 4'b0001;
+    end else if (~(x_valid_o & x_ready_i & x_is_mem_op_i) & xmem_valid_i) begin
+      mem_cnt_d = mem_cnt_q - 4'b0001;
+    end
+  end
+
   // Scoreboard and status signal register
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (~rst_ni) begin
       scoreboard_q      <= 32'b0;
       instr_offloaded_q <= 1'b0;
       mem_wb_complete_q <= 1'b0;
+      mem_cnt_q         <= 4'b0;
     end else begin
       scoreboard_q      <= scoreboard_d;
       instr_offloaded_q <= instr_offloaded_d;
       mem_wb_complete_q <= mem_wb_complete_d;
+      mem_cnt_q         <= mem_cnt_d;
     end
   end
 
   // some measurements
-  int memory_stall;
+  int outstanding_mem_op_stall;
   initial begin
-    memory_stall = 0;
+    outstanding_mem_op_stall = 0;
   end
 
-  cover property (@(posedge clk_i) (x_is_mem_op_i & ~(xmem_rvalid_o & xmem_rready_i))) begin
-    memory_stall = memory_stall + 1;
-    $display("Number of memory_stall %d \n", memory_stall);
+  cover property (@(posedge clk_i) outstanding_mem_op) begin
+    outstanding_mem_op_stall = outstanding_mem_op_stall + 1;
+    $display("Number of outstanding_mem_op_stall %d \n", outstanding_mem_op_stall);
   end
   ;
 
