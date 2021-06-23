@@ -972,19 +972,21 @@ module cv32e40p_id_stage
           .x_illegal_insn_dec_i(illegal_insn_dec),
 
           // Scoreboard & Dependency Check & Stall
-          .x_waddr_id_i      (x_waddr_id),
-          .x_writeback_i     (x_writeback_i),
-          .x_waddr_ex_i      (x_waddr_ex),
-          .x_we_ex_i         (regfile_alu_we_ex_o),
-          .x_waddr_wb_i      (x_waddr_wb),
-          .x_we_wb_i         (regfile_we_wb_i),
-          .x_rwaddr_i        (x_rd_i),
-          .x_rvalid_i        (x_rvalid_i),
-          .x_rs_addr_i       (x_rs_addr),
-          .x_regs_used_i     (x_regs_used),
-          .x_branch_or_jump_i(branch_in_ex_o),
-          .x_load_stall_i    (load_stall),
-          .x_ex_valid_i      (ex_valid_i),
+          .x_waddr_id_i       (x_waddr_id),
+          .x_writeback_i      (x_writeback_i),
+          .x_waddr_ex_i       (x_waddr_ex),
+          .x_we_ex_i          (regfile_alu_we_ex_o),
+          .x_waddr_wb_i       (x_waddr_wb),
+          .x_we_wb_i          (regfile_we_wb_i),
+          .x_rwaddr_i         (x_rd_i),
+          .x_rvalid_i         (x_rvalid_i),
+          .x_rs_addr_i        (x_rs_addr),
+          .x_regs_used_i      (x_regs_used),
+          .x_branch_or_jump_i (branch_in_ex_o),
+          .x_branch_taken_ex_i(branch_taken_ex),
+          .x_load_stall_i     (load_stall),
+          .x_ex_valid_i       (ex_valid_i),
+          .x_data_req_dec_i   (data_req_dec),
 
           // X-Request and Response Channel Signals
           .x_valid_o       (x_valid_o),
@@ -1053,8 +1055,8 @@ module cv32e40p_id_stage
 
       // LSU Signal assignment/MUX
       assign regfile_we_id = regfile_we_id_dec & ~xmem_data_req;
-      assign data_req_id   = data_req_dec | xmem_data_req;
-      assign data_we_id    = data_we_dec | xmem_we;
+      assign data_req_id   = data_req_dec & ~xmem_valid_i | xmem_data_req;
+      assign data_we_id    = data_we_dec & ~xmem_valid_i | xmem_we;
       always_comb begin
         data_type_id       = data_type_dec;
         data_sign_ext_id   = data_sign_ext_dec;
@@ -1505,6 +1507,8 @@ module cv32e40p_id_stage
     end else if (mult_multicycle_i) begin
       mult_operand_c_ex_o <= operand_c_fw_id;
     end else begin
+      xmem_instr_ex_o     <= xmem_valid;
+
       // normal pipeline unstall case
 
       if (id_valid_o) begin  // unstall the whole pipeline
@@ -1551,7 +1555,6 @@ module cv32e40p_id_stage
           regfile_waddr_ex_o <= regfile_waddr_id;
         end
 
-        xmem_instr_ex_o     <= xmem_valid;
 
         regfile_alu_we_ex_o <= regfile_alu_we_id;
         if (regfile_alu_we_id) begin
