@@ -294,9 +294,6 @@ module cv32e40p_id_stage
 
   logic        fencei_insn_dec;
 
-  logic        rega_used_dec;
-  logic        regb_used_dec;
-  logic        regc_used_dec;
   logic        rega_used;
   logic        regb_used;
   logic        regc_used;
@@ -873,9 +870,9 @@ module cv32e40p_id_stage
 
       .fencei_insn_o(fencei_insn_dec),
 
-      .rega_used_o(rega_used_dec),
-      .regb_used_o(regb_used_dec),
-      .regc_used_o(regc_used_dec),
+      .rega_used_o(rega_used),
+      .regb_used_o(regb_used),
+      .regc_used_o(regc_used),
 
       .bmask_a_mux_o        (bmask_a_mux),
       .bmask_b_mux_o        (bmask_b_mux),
@@ -983,9 +980,6 @@ module cv32e40p_id_stage
           .x_rs_addr_i        (x_rs_addr),
           .x_regs_used_i      (x_regs_used),
           .x_branch_or_jump_i (branch_in_ex_o),
-          .x_branch_taken_ex_i(branch_taken_ex),
-          .x_load_stall_i     (load_stall),
-          .x_ex_valid_i       (ex_valid_i),
           .x_data_req_dec_i   (data_req_dec),
 
           // X-Request and Response Channel Signals
@@ -1017,8 +1011,7 @@ module cv32e40p_id_stage
           .xmem_rready_i(xmem_rready_i),
           .xmem_status_o(xmem_status_o),
 
-          .id_ready_i   (id_ready_o),
-          .data_req_ex_i(data_req_ex)
+          .id_ready_i   (id_ready_o)
       );
 
       // X-Interface signals for controller
@@ -1029,29 +1022,13 @@ module cv32e40p_id_stage
       assign x_waddr_id          = instr[REG_D_MSB:REG_D_LSB];
       assign x_waddr_ex          = regfile_alu_waddr_ex_o[4:0];
       assign x_waddr_wb          = regfile_waddr_wb_i[4:0];
-      assign x_regs_used         = {regc_used_dec, regb_used_dec, rega_used_dec};
-      assign x_rs_o[0]           = operand_a_fw_id;
-      assign x_rs_o[1]           = operand_b_fw_id;
-      assign x_rs_o[2]           = operand_c_fw_id;
+      assign x_regs_used         = {regc_used, regb_used, rega_used};
+      assign x_rs_o[0]           = regfile_data_ra_id;
+      assign x_rs_o[1]           = regfile_data_rb_id;
+      assign x_rs_o[2]           = regfile_data_rc_id;
       assign x_instr_data_o      = instr;
       assign x_rvalid_assigned_o = x_rvalid_i;
       assign xmem_valid          = xmem_valid_i;
-
-
-      // reg_used assignment (needed for forwarding)
-      // -> all regs are assigned as used for instructions that get offload, since
-      //    the core does not know which regs will be used by the instruction. This
-      //    can lead to unwanted stalls
-      always_comb begin
-        rega_used = rega_used_dec;
-        regb_used = regb_used_dec;
-        regc_used = regc_used_dec;
-        if (x_valid_o) begin
-          rega_used = 1'b1;
-          regb_used = 1'b1;
-          regc_used = 1'b1;
-        end
-      end
 
       // LSU Signal assignment/MUX
       assign regfile_we_id = regfile_we_id_dec & ~xmem_data_req;
@@ -1084,11 +1061,6 @@ module cv32e40p_id_stage
 
       // Default illegal instruction assignment
       assign illegal_insn        = illegal_insn_dec;
-
-      // Default assignment for rega/b/c_used signals
-      assign rega_used           = rega_used_dec;
-      assign regb_used           = regb_used_dec;
-      assign regc_used           = regc_used_dec;
 
       // Default assignment for lsu signals
       assign data_req_id         = data_req_dec;
