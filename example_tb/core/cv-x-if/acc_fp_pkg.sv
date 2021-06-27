@@ -8,7 +8,7 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
-// Package for the FPU predecoder
+// FPU predecoder Package
 // Contributor: Moritz Imfeld <moimfeld@student.ethz.ch>
 
 package acc_fp_pkg;
