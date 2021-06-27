@@ -180,11 +180,11 @@ module cv32e40p_cv_x_if_wrapper
 
 
   fpu_ss #(
-      .BUFFER_DEPTH(4),
+      .BUFFER_DEPTH(1),
       .INT_REG_WB_DELAY(1),
+      .FORWARDING(1),
       .FPU_FEATURES(cv32e40p_fpu_pkg::FPU_FEATURES),
-      .FPU_IMPLEMENTATION(cv32e40p_fpu_pkg::FPU_IMPLEMENTATION),
-      .FPU_TAG_TYPE(logic)
+      .FPU_IMPLEMENTATION(cv32e40p_fpu_pkg::FPU_IMPLEMENTATION)
   ) fpu_ss_i (
       .clk_i (clk_i),
       .rst_ni(rst_ni),

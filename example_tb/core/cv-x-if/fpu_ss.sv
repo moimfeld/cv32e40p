@@ -13,11 +13,11 @@
 //              Davide Schiavone <davide@openhwgroup.org>
 
 module fpu_ss #(
-    parameter                                 BUFFER_DEPTH       = 4,
+    parameter                                 BUFFER_DEPTH       = 1,
     parameter                                 INT_REG_WB_DELAY   = 1,
+    parameter                                 FORWARDING         = 1,
     parameter fpnew_pkg::fpu_features_t       FPU_FEATURES       = fpnew_pkg::RV64D_Xsflt,
-    parameter fpnew_pkg::fpu_implementation_t FPU_IMPLEMENTATION = fpnew_pkg::DEFAULT_NOREGS,
-    parameter type                            FPU_TAG_TYPE       = logic
+    parameter fpnew_pkg::fpu_implementation_t FPU_IMPLEMENTATION = fpnew_pkg::DEFAULT_NOREGS
 ) (
     // Clock and Reset
     input logic clk_i,
@@ -70,8 +70,17 @@ module fpu_ss #(
     logic [31:0] hart_id;
   } offloaded_data_t;
 
+  typedef struct packed {
+    logic [ 4:0] addr;
+    logic        rd_is_fp;
+    logic [31:0] hart_id;
+  } fpu_tag_t;
+
   offloaded_data_t                           offloaded_data_push;
   offloaded_data_t                           offloaded_data_pop;
+
+  fpu_tag_t                                  fpu_tag_in;
+  fpu_tag_t                                  fpu_tag_out;
 
   logic                     [31:0]           instr;
   logic                     [ 2:0]   [31:0]  fpu_operands;
@@ -80,6 +89,7 @@ module fpu_ss #(
   // Register Operands and Adresses
   logic                     [ 2:0]   [31:0]  fpr_operands;
   logic                     [ 2:0]   [ 4:0]  fpr_raddr;
+  logic                     [ 4:0]           fpr_wb_addr;
   logic                     [31:0]           fpr_wb_data;
   logic                     [ 4:0]           wb_address;
   logic                                      fpr_we;
@@ -93,6 +103,7 @@ module fpu_ss #(
 
   // FPU Result
   logic                     [31:0]           fpu_result;
+  logic                     [ 2:0]           fwd;
 
   // Decoder Signals
   fpnew_pkg::operation_e                     fpu_op;
@@ -117,6 +128,7 @@ module fpu_ss #(
   logic                                      pop_valid;
   logic                                      pop_ready;
   logic                                      fpu_in_valid;
+  logic                                      fpu_in_ready;
   logic                                      fpu_out_ready;
   logic                                      cmem_rsp_hs;
 
@@ -143,21 +155,35 @@ module fpu_ss #(
   assign rs3 = instr[31:27];
   assign rd = instr[11:7];
 
+  assign fpu_tag_in.addr     = rd;
+  assign fpu_tag_in.rd_is_fp = rd_is_fp;
+  assign fpu_tag_in.hart_id  = offloaded_data_pop.hart_id;
+
   assign c_p_error_o = 1'b0;  // no errors can occur for now
   assign c_p_dualwb_o = 1'b0;
-  assign c_p_hart_id_o = offloaded_data_pop.hart_id;
+  // assign c_p_hart_id_o = offloaded_data_pop.hart_id;
   always_comb begin
-    c_p_rd_o = '0;
-    if (c_p_valid_o) begin
-      c_p_rd_o = rd;
+      c_p_rd_o      = '0;
+      c_p_hart_id_o = '0;
+    if (c_p_valid_o & c_p_ready_i & ~fpu_out_valid) begin
+      c_p_rd_o      = rd;
+      c_p_hart_id_o = offloaded_data_pop.hart_id;
+    end else if (fpu_out_valid & c_p_valid_o & c_p_ready_i) begin
+      c_p_rd_o      = fpu_tag_out.addr;
+      c_p_hart_id_o = fpu_tag_out.hart_id;
     end
   end
 
   // cmem-request channel assignements
-  assign cmem_q_wdata_o   = fpu_operands[1];
   assign cmem_q_width_o   = instr[14:12];
   assign cmem_q_hart_id_o = offloaded_data_pop.hart_id;
   assign cmem_q_addr_o    = offloaded_data_pop.addr;
+  always_comb begin
+    cmem_q_wdata_o   = fpu_operands[1];
+    if (fwd[0]) begin
+      cmem_q_wdata_o = fpu_result;
+    end
+  end
 
   // load and store address calculation
   always_comb begin
@@ -183,10 +209,18 @@ module fpu_ss #(
     end
   end
 
+  // fp reg addr writeback mux
+  always_comb begin
+    fpr_wb_addr = fpu_tag_out.addr;
+    if (~use_fpu & ~fpu_out_valid) begin
+      fpr_wb_addr = rd;
+    end
+  end
+
   // int register writeback data mux
   always_comb begin
     c_p_data_o = fpu_result;
-    if (~rd_is_fp & ~use_fpu & ~csr_wb) begin
+    if (~rd_is_fp & ~use_fpu & ~csr_wb & ~fpu_out_valid) begin
       c_p_data_o = fpu_operands[0];
     end else if (csr_wb) begin
       c_p_data_o = csr_rdata;
@@ -248,7 +282,8 @@ module fpu_ss #(
   );
 
   fpu_ss_controller #(
-      .INT_REG_WB_DELAY(INT_REG_WB_DELAY)
+      .INT_REG_WB_DELAY(INT_REG_WB_DELAY),
+      .FORWARDING(FORWARDING)
   ) fpu_ss_controller_i (
       .clk_i (clk_i),
       .rst_ni(rst_ni),
@@ -262,18 +297,29 @@ module fpu_ss #(
 
       // Signal for fpu in handshake
       .fpu_in_valid_o(fpu_in_valid),
+      .fpu_in_ready_i(fpu_in_ready),
 
       // Signal for fpu out handshake
       .fpu_out_ready_o(fpu_out_ready),
 
       // Register Write enable
-      .rd_is_fp_i(rd_is_fp),
+      .rd_is_fp_i(fpu_tag_out.rd_is_fp),
+      .fpr_wb_addr_i(fpr_wb_addr),
+      .rd_i(rd),
       .fpr_we_o  (fpr_we),
 
       // Signals for C-Response handshake
       .c_p_ready_i(c_p_ready_i),
       .csr_instr_i(csr_instr),
       .c_p_valid_o(c_p_valid_o),
+
+      // Dependency check
+      .rd_in_is_fp_i(rd_is_fp),
+      .rs1_i(rs1),
+      .rs2_i(rs2),
+      .rs3_i(rs3),
+      .fwd_o(fwd),
+      .op_select_i(op_select),
 
       // Memory instruction handling
       .is_load_i                (is_load),
@@ -300,7 +346,7 @@ module fpu_ss #(
       .raddr_i(fpr_raddr),
       .rdata_o(fpr_operands),
 
-      .waddr_i(rd),
+      .waddr_i(fpr_wb_addr),
       .wdata_i(fpr_wb_data),
       .we_i   (fpr_we)
   );
@@ -341,6 +387,9 @@ module fpu_ss #(
         end
         fpu_ss_pkg::RegA, fpu_ss_pkg::RegB, fpu_ss_pkg::RegBRep, fpu_ss_pkg::RegC, fpu_ss_pkg::RegDest: begin
           fpu_operands[i] = fpr_operands[i];
+          if (fwd[i]) begin
+            fpu_operands[i] = fpu_result;
+          end
           // Replicate if needed
           if (op_select[i] == fpu_ss_pkg::RegBRep) begin
             unique case (src_fmt)
@@ -363,7 +412,7 @@ module fpu_ss #(
   fpnew_top #(
       .Features      (FPU_FEATURES),
       .Implementation(FPU_IMPLEMENTATION),
-      .TagType       (FPU_TAG_TYPE)
+      .TagType       (fpu_tag_t)
   ) i_fpnew_bulk (
       .clk_i (clk_i),
       .rst_ni(rst_ni),
@@ -376,13 +425,13 @@ module fpu_ss #(
       .dst_fmt_i(fpnew_pkg::fp_format_e'(dst_fmt)),
       .int_fmt_i(fpnew_pkg::int_format_e'(int_fmt)),
       .vectorial_op_i(vectorial_op),
-      .tag_i(1'b0),
+      .tag_i(fpu_tag_in),
       .in_valid_i(fpu_in_valid),
-      .in_ready_o    (  /* unused */), // Note: unused since its assumed to be high whenever in_valid_i is high due to in order execution
+      .in_ready_o    (fpu_in_ready), // Note: unused since its assumed to be high whenever in_valid_i is high due to in order execution
       .flush_i(1'b0),
       .result_o(fpu_result),
       .status_o(  /* unused */),  // Note: discuss with supervisor if needed
-      .tag_o(  /* unused */),
+      .tag_o(fpu_tag_out),
       .out_valid_o(fpu_out_valid),
       .out_ready_i(fpu_out_ready),  // Note: always high at the moment
       .busy_o(fpu_busy)
