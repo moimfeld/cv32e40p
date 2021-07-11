@@ -139,6 +139,7 @@ module fpu_ss #(
   logic                     [31:0]           csr_rdata;
   logic                     [ 2:0]           frm;
   logic                                      csr_wb;
+  fpnew_pkg::status_t                        fpu_status;
 
   assign offloaded_data_push.addr = c_q_addr_i;
   assign offloaded_data_push.rs = c_q_rs_i;
@@ -273,12 +274,14 @@ module fpu_ss #(
       .clk_i (clk_i),
       .rst_ni(rst_ni),
 
-      .instr_i    (instr),
-      .csr_data_i (int_operands[0]),
-      .csr_rdata_o(csr_rdata),
-      .frm_o      (frm),
-      .csr_wb_o   (csr_wb),
-      .csr_instr_o(csr_instr)
+      .instr_i        (instr),
+      .csr_data_i     (int_operands[0]),
+      .fpu_status_i   (fpu_status),
+      .fpu_out_valid_i(fpu_out_valid),
+      .csr_rdata_o    (csr_rdata),
+      .frm_o          (frm),
+      .csr_wb_o       (csr_wb),
+      .csr_instr_o    (csr_instr)
   );
 
   fpu_ss_controller #(
@@ -430,7 +433,7 @@ module fpu_ss #(
       .in_ready_o    (fpu_in_ready), // Note: unused since its assumed to be high whenever in_valid_i is high due to in order execution
       .flush_i(1'b0),
       .result_o(fpu_result),
-      .status_o(  /* unused */),  // Note: discuss with supervisor if needed
+      .status_o(fpu_status),  // Note: discuss with supervisor if needed
       .tag_o(fpu_tag_out),
       .out_valid_o(fpu_out_valid),
       .out_ready_i(fpu_out_ready),  // Note: always high at the moment
