@@ -96,7 +96,7 @@ module fpu_ss_controller #(
   assign cmem_q_spec_o = 1'b0;  // no speculative memory operations -> hardwire to 0
   assign cmem_p_ready_o = 1'b1;  // always accept writebacks from the core (e.g. loads)
 
-  assign fpu_out_ready_o = rd_is_fp_i | (c_p_valid_o & c_p_ready_i);  // accept writebacks when there is
+  assign fpu_out_ready_o = ~cmem_rsp_hs_o;  // only don't accept writebacks from the FPnew when a memory instruction writes back to the fp register file
   assign cmem_req_hs = cmem_q_valid_o & cmem_q_ready_i;
   assign cmem_rsp_hs_o = cmem_p_valid_i & cmem_p_ready_o;
 
