@@ -182,6 +182,7 @@ module cv32e40p_cv_x_if_wrapper
   fpu_ss #(
       .BUFFER_DEPTH(1),
       .INT_REG_WB_DELAY(1),
+      .OUT_OF_ORDER(1),
       .FORWARDING(1),
       .FPU_FEATURES(cv32e40p_fpu_pkg::FPU_FEATURES),
       .FPU_IMPLEMENTATION(cv32e40p_fpu_pkg::FPU_IMPLEMENTATION)
