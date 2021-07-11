@@ -15,6 +15,7 @@
 module fpu_ss #(
     parameter                                 BUFFER_DEPTH       = 1,
     parameter                                 INT_REG_WB_DELAY   = 1,
+    parameter                                 OUT_OF_ORDER       = 1,
     parameter                                 FORWARDING         = 1,
     parameter fpnew_pkg::fpu_features_t       FPU_FEATURES       = fpnew_pkg::RV64D_Xsflt,
     parameter fpnew_pkg::fpu_implementation_t FPU_IMPLEMENTATION = fpnew_pkg::DEFAULT_NOREGS
@@ -286,6 +287,7 @@ module fpu_ss #(
 
   fpu_ss_controller #(
       .INT_REG_WB_DELAY(INT_REG_WB_DELAY),
+      .OUT_OF_ORDER(OUT_OF_ORDER),
       .FORWARDING(FORWARDING)
   ) fpu_ss_controller_i (
       .clk_i (clk_i),

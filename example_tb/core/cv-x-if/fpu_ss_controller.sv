@@ -13,6 +13,7 @@
 
 module fpu_ss_controller #(
     parameter INT_REG_WB_DELAY = 1,
+    parameter OUT_OF_ORDER = 1,
     parameter FORWARDING = 1
 ) (
     input logic clk_i,
@@ -140,7 +141,9 @@ module fpu_ss_controller #(
   //   the fifo will expose a valid instruction after a pop (even if the fifo is empty) (pop_valid_i == 0 is equivalent to saying fifo is empty))
   always_comb begin
     fpu_in_valid_o = 1'b0;
-    if (use_fpu_i  & pop_valid_i & ~dep_rs & ~dep_rd) begin
+    if (use_fpu_i  & pop_valid_i & ~dep_rs & ~dep_rd & OUT_OF_ORDER) begin
+      fpu_in_valid_o = 1'b1;
+    end else if (use_fpu_i  & pop_valid_i & ~dep_rs & ~dep_rd & (fpu_out_valid_i | ~instr_inflight_q)) begin
       fpu_in_valid_o = 1'b1;
     end
   end
@@ -199,7 +202,7 @@ module fpu_ss_controller #(
   // Update rules for instr_inflight
   always_comb begin
     instr_inflight_d = instr_inflight_q;
-    if (fpu_out_ready_o & ~fpu_in_valid_o) begin
+    if ((fpu_out_valid_i & fpu_out_ready_o) & ~fpu_in_valid_o) begin
       instr_inflight_d = 1'b0;
     end else if (fpu_in_valid_o) begin
       instr_inflight_d = 1'b1;
