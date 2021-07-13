@@ -213,6 +213,8 @@ module cv32e40p_x_disp
     end
   end
 
+
+`ifdef COREVXIF_COVER_ON
   // some measurements
   int outstanding_mem_op_stall;
   initial begin
@@ -224,5 +226,5 @@ module cv32e40p_x_disp
     $display("Number of outstanding_mem_op_stall %d \n", outstanding_mem_op_stall);
   end
   ;
-
+`endif
 endmodule : cv32e40p_x_disp
