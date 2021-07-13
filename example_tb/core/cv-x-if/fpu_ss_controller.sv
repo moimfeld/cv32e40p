@@ -26,6 +26,9 @@ module fpu_ss_controller #(
     input  logic pop_valid_i,
     output logic pop_ready_o,
 
+    input  logic c_q_valid_i,
+    input  logic c_q_ready_i,
+
     // Signals for fpu in handshake
     output logic fpu_in_valid_o,
     input  logic fpu_in_ready_i,
@@ -41,8 +44,11 @@ module fpu_ss_controller #(
 
     // Signals for C-Response Channel Handshake
     input  logic c_p_ready_i,
+    input  logic csr_wb_i,
     input  logic csr_instr_i,
     output logic c_p_valid_o,
+
+    output logic int_wb_o,
 
     // Dependency check
     input  logic                         rd_in_is_fp_i,
@@ -85,7 +91,6 @@ module fpu_ss_controller #(
   logic dep_rs;
   logic dep_rd;
 
-  logic int_wb;
   logic [INT_REG_WB_DELAY:0] delay_reg_d;
   logic [INT_REG_WB_DELAY:0] delay_reg_q;
 
@@ -122,14 +127,19 @@ module fpu_ss_controller #(
   // Start integer delay when:
   // - When there is a csr instruction
   // - When there is an instruction that does not use the fpu, does write back to an integer register and is not a load or store
-  assign delay_reg_q[0] = pop_valid_i & (csr_instr_i | (~rd_is_fp_i & ~use_fpu_i & ~is_load_i & ~is_store_i));
+  always_comb begin
+    delay_reg_q[0] = 1'b0;
+    if (pop_valid_i & (csr_instr_i | (~use_fpu_i & ~is_load_i & ~is_store_i))) begin
+      delay_reg_q[0] = 1'b1;
+    end
+  end
 
 
   // Pop Instruction
   always_comb begin
     pop_ready_o = 1'b0;
     // if ((fpu_out_valid_i & pop_valid_i) | cmem_rsp_hs_o | c_rsp_hs) begin
-    if ((fpu_in_valid_o & fpu_in_ready_i) | (c_rsp_hs & int_wb) | cmem_rsp_hs_o) begin
+    if ((fpu_in_valid_o & fpu_in_ready_i) | (c_rsp_hs & int_wb_o) | cmem_rsp_hs_o) begin
       pop_ready_o = 1'b1;
     end
   end
@@ -143,7 +153,7 @@ module fpu_ss_controller #(
     fpu_in_valid_o = 1'b0;
     if (use_fpu_i  & pop_valid_i & ~dep_rs & ~dep_rd & OUT_OF_ORDER) begin
       fpu_in_valid_o = 1'b1;
-    end else if (use_fpu_i  & pop_valid_i & ~dep_rs & ~dep_rd & (fpu_out_valid_i | ~instr_inflight_q)) begin
+    end else if (use_fpu_i  & pop_valid_i & ~dep_rs & ~dep_rd & (fpu_out_valid_i | ~instr_inflight_q) & ~OUT_OF_ORDER) begin
       fpu_in_valid_o = 1'b1;
     end
   end
@@ -173,7 +183,7 @@ module fpu_ss_controller #(
   // - When int_wb is high (int_wb controlls integer register writebacks of instructions that do not go though the fpu (e.g. csr))
   always_comb begin
     c_p_valid_o = 1'b0;
-    if ((fpu_out_valid_i & ~rd_is_fp_i) | (pop_valid_i & int_wb)) begin
+    if ((fpu_out_valid_i & ~rd_is_fp_i) | (int_wb_o)) begin
       c_p_valid_o = 1'b1;
     end
   end
@@ -248,19 +258,20 @@ module fpu_ss_controller #(
   for (genvar i = 0; i < INT_REG_WB_DELAY; i++) begin
     always_comb begin
       delay_reg_d[i+1] = delay_reg_q[i];
-      if (~delay_reg_q[0] | (pop_ready_o & ~use_fpu_i) | fpu_out_valid_i) begin
+      if (~delay_reg_q[0] | pop_ready_o | fpu_busy_i | fpu_out_valid_i | is_load_i | is_store_i | ~pop_valid_i) begin
         delay_reg_d[i+1] = 1'b0;
       end
     end
     always_ff @(posedge clk_i, negedge rst_ni) begin
       if (~rst_ni) begin
-        delay_reg_q[i+1] = 0;
+        delay_reg_q[i+1] <= '0;
       end else begin
-        delay_reg_q[i+1] = delay_reg_d[i+1];
+        delay_reg_q[i+1] <= delay_reg_d[i+1];
       end
     end
   end
 
-  assign int_wb = delay_reg_q[INT_REG_WB_DELAY];
+
+  assign int_wb_o = delay_reg_q[INT_REG_WB_DELAY];
 
 endmodule : fpu_ss_controller

@@ -133,6 +133,11 @@ module fpu_ss #(
   logic                                      fpu_out_ready;
   logic                                      cmem_rsp_hs;
 
+  // Writeback to Core
+  logic [4:0]     wb_rd;
+  logic [31:0]    wb_hart_id;
+  logic [31:0]    wb_csr_rdata;
+
   // FPU signals
   logic                                      fpu_busy;
 
@@ -141,6 +146,7 @@ module fpu_ss #(
   logic                     [ 2:0]           frm;
   logic                                      csr_wb;
   fpnew_pkg::status_t                        fpu_status;
+  logic                                      int_wb;
 
   assign offloaded_data_push.addr = c_q_addr_i;
   assign offloaded_data_push.rs = c_q_rs_i;
@@ -162,17 +168,29 @@ module fpu_ss #(
   assign fpu_tag_in.hart_id  = offloaded_data_pop.hart_id;
 
   assign c_p_error_o = 1'b0;  // no errors can occur for now
-  assign c_p_dualwb_o = 1'b0;
-  // assign c_p_hart_id_o = offloaded_data_pop.hart_id;
+  assign c_p_dualwb_o = 1'b0; // no dual writeback
+
+
+  // int register writeback data mux
+  always_comb begin
+    c_p_data_o = fpu_result;
+    if (~rd_is_fp & ~use_fpu & ~csr_wb & ~fpu_out_valid & int_wb) begin
+      c_p_data_o = fpu_operands[0];
+    end else if (csr_wb & ~fpu_out_valid & int_wb & ~fpu_out_valid) begin
+      c_p_data_o = wb_csr_rdata;
+    end
+  end
+
+  // core and hart.id mux for int writeback
   always_comb begin
       c_p_rd_o      = '0;
       c_p_hart_id_o = '0;
-    if (c_p_valid_o & c_p_ready_i & ~fpu_out_valid) begin
-      c_p_rd_o      = rd;
-      c_p_hart_id_o = offloaded_data_pop.hart_id;
-    end else if (fpu_out_valid & c_p_valid_o & c_p_ready_i) begin
+    if (fpu_out_valid & c_p_valid_o & c_p_ready_i) begin
       c_p_rd_o      = fpu_tag_out.addr;
       c_p_hart_id_o = fpu_tag_out.hart_id;
+    end else if (c_p_valid_o & c_p_ready_i & ~fpu_out_valid) begin
+      c_p_rd_o      = wb_rd;
+      c_p_hart_id_o = wb_hart_id;
     end
   end
 
@@ -216,16 +234,6 @@ module fpu_ss #(
     fpr_wb_addr = fpu_tag_out.addr;
     if (~use_fpu & ~fpu_out_valid) begin
       fpr_wb_addr = rd;
-    end
-  end
-
-  // int register writeback data mux
-  always_comb begin
-    c_p_data_o = fpu_result;
-    if (~rd_is_fp & ~use_fpu & ~csr_wb & ~fpu_out_valid) begin
-      c_p_data_o = fpu_operands[0];
-    end else if (csr_wb) begin
-      c_p_data_o = csr_rdata;
     end
   end
 
@@ -278,7 +286,7 @@ module fpu_ss #(
       .instr_i        (instr),
       .csr_data_i     (int_operands[0]),
       .fpu_status_i   (fpu_status),
-      .fpu_out_valid_i(fpu_out_valid),
+      .fpu_busy_i     (fpu_busy),
       .csr_rdata_o    (csr_rdata),
       .frm_o          (frm),
       .csr_wb_o       (csr_wb),
@@ -300,6 +308,9 @@ module fpu_ss #(
       .pop_valid_i    (pop_valid),
       .pop_ready_o    (pop_ready),
 
+      .c_q_valid_i(c_q_valid_i),
+      .c_q_ready_i(c_q_ready_o),
+
       // Signal for fpu in handshake
       .fpu_in_valid_o(fpu_in_valid),
       .fpu_in_ready_i(fpu_in_ready),
@@ -315,6 +326,7 @@ module fpu_ss #(
 
       // Signals for C-Response handshake
       .c_p_ready_i(c_p_ready_i),
+      .csr_wb_i(csr_wb),
       .csr_instr_i(csr_instr),
       .c_p_valid_o(c_p_valid_o),
 
@@ -325,6 +337,8 @@ module fpu_ss #(
       .rs3_i(rs3),
       .fwd_o(fwd),
       .op_select_i(op_select),
+
+      .int_wb_o(int_wb),
 
       // Memory instruction handling
       .is_load_i                (is_load),
@@ -421,7 +435,6 @@ module fpu_ss #(
   ) i_fpnew_bulk (
       .clk_i (clk_i),
       .rst_ni(rst_ni),
-
       .operands_i(fpu_operands),
       .rnd_mode_i(fpnew_pkg::roundmode_e'(fpu_rnd_mode)),
       .op_i(fpnew_pkg::operation_e'(fpu_op)),
@@ -432,15 +445,39 @@ module fpu_ss #(
       .vectorial_op_i(vectorial_op),
       .tag_i(fpu_tag_in),
       .in_valid_i(fpu_in_valid),
-      .in_ready_o    (fpu_in_ready), // Note: unused since its assumed to be high whenever in_valid_i is high due to in order execution
+      .in_ready_o    (fpu_in_ready),
       .flush_i(1'b0),
       .result_o(fpu_result),
-      .status_o(fpu_status),  // Note: discuss with supervisor if needed
+      .status_o(fpu_status),
       .tag_o(fpu_tag_out),
       .out_valid_o(fpu_out_valid),
-      .out_ready_i(fpu_out_ready),  // Note: always high at the moment
+      .out_ready_i(fpu_out_ready),
       .busy_o(fpu_busy)
   );
+
+// with this generate block combinational paths of instructions that do not go through the fpnew are cut
+// It had to be added, because timing arcs were formed at synthesis time
+// --> Re-Implementing the c_p_valid_o signal in the fpu_ss_controller could make this generate block obsolete
+  generate
+    if (INT_REG_WB_DELAY > 0) begin : gen_wb_delay
+      always_ff @(posedge clk_i, negedge rst_ni) begin
+        if(~rst_ni) begin
+          wb_csr_rdata <= '0;
+          wb_rd        <= '0;
+          wb_hart_id   <= '0;
+        end else begin
+          wb_csr_rdata <= csr_rdata;
+          wb_rd       <= rd;
+          wb_hart_id  <= offloaded_data_pop.hart_id;
+        end
+      end
+    end else begin : gen_no_wb_delay
+      assign wb_csr_rdata = csr_rdata;
+      assign wb_rd        = rd;
+      assign wb_hart_id   = offloaded_data_pop.hart_id;
+    end : gen_no_wb_delay
+  endgenerate
+
 
   // some measurements
   int offloaded, writebacks, memory, csr;

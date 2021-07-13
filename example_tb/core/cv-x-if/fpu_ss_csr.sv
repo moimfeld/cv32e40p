@@ -18,7 +18,7 @@ module fpu_ss_csr (
     input  logic [31:0]        instr_i,
     input  logic [31:0]        csr_data_i,
     input  fpnew_pkg::status_t fpu_status_i,
-    input  logic               fpu_out_valid_i,
+    input  logic               fpu_busy_i,
     output logic [31:0]        csr_rdata_o,
     output logic [ 2:0]        frm_o,
     output logic               csr_wb_o,
@@ -35,7 +35,7 @@ module fpu_ss_csr (
       csr_wb_o    = 1'b0;
       csr_rdata_o = '0;
       csr_instr_o = 1'b1;
-      if(~fpu_out_valid_i) begin
+      if(~fpu_busy_i) begin
         unique casez (instr_i)
           fpu_ss_instr_pkg::CSRRW_FSCSR: begin // Swap value in fcsr with the one in rs1
             fcsr_d      = csr_data_i;
