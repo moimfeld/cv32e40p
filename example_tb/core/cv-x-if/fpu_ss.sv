@@ -488,7 +488,7 @@ module fpu_ss #(
     csr = 0;
   end
 
-
+`ifdef COREVXIF_COVER_ON
   cover property (@(posedge clk_i) c_q_valid_i & c_q_ready_o) begin
     offloaded = offloaded + 1;
     $display("Number of offloaded instructions %d \n", offloaded);
@@ -509,5 +509,5 @@ module fpu_ss #(
     $display("Number of memory instructions %d \n", memory);
   end
   ;
-
+`endif
 endmodule  // fpu_ss
