@@ -54,11 +54,30 @@ RTLSRC_TB		:= $(filter-out cv32e40p_fp_wrapper.sv,\
 				$(wildcard *.sv))
 
 RTLSRC_FPNEW_TB		:= $(wildcard *.sv)
-RTLSRC_FPNEW_INCDIR	:= $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/include
-RTLSRC_FPNEW_PKG	:= $(RTLSRC_HOME)/rtl/fpnew/src/fpu_div_sqrt_mvp/hdl/defs_div_sqrt_mvp.sv $(RTLSRC_HOME)/rtl/fpnew/src/fpnew_pkg.sv $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/cf_math_pkg.sv
+RTLSRC_FPNEW_PKG	:= $(RTLSRC_HOME)/rtl/fpnew/src/fpu_div_sqrt_mvp/hdl/defs_div_sqrt_mvp.sv $(RTLSRC_HOME)/rtl/fpnew/src/fpnew_pkg.sv
 RTLSRC_FPNEW		:= $(filter-out $(RTLSRC_HOME)/rtl/fpnew/src/fpnew_pkg.sv, $(wildcard $(RTLSRC_HOME)/rtl/fpnew/src/*.sv)) \
-				$(filter-out $(RTLSRC_HOME)/rtl/fpnew/src/fpu_div_sqrt_mvp/hdl/defs_div_sqrt_mvp.sv, $(wildcard $(RTLSRC_HOME)/rtl/fpnew/src/fpu_div_sqrt_mvp/hdl/*.sv)) \
-				 $(RTLSRC_HOME)/rtl/fpnew/src//common_cells/src/rr_arb_tree.sv  $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/lzc.sv
+				$(filter-out $(RTLSRC_HOME)/rtl/fpnew/src/fpu_div_sqrt_mvp/hdl/defs_div_sqrt_mvp.sv, $(wildcard $(RTLSRC_HOME)/rtl/fpnew/src/fpu_div_sqrt_mvp/hdl/*.sv))
+
+RTLSRC_CV_X_IF_TB			:= $(wildcard cv-x-if/*.sv)
+RTLSRC_CV_X_IF_INCDIR		:= $(RTLSRC_HOME)/rtl/core-v-xif/include
+RTLSRC_CV_X_IF_PKG			:= $(RTLSRC_HOME)/rtl/core-v-xif/src/acc_pkg.sv $(RTLSRC_HOME)/example_tb/core/cv-x-if/acc_fp_pkg.sv\
+							   $(RTLSRC_HOME)/example_tb/core/cv-x-if/fpu_ss_pkg.sv $(RTLSRC_HOME)/example_tb/core/cv-x-if/fpu_ss_instr_pkg.sv\
+							   $(RTLSRC_HOME)/example_tb/core/cv-x-if/cv32e40p_fpu_pkg.sv $(RTLSRC_HOME)/rtl/include/cv32e40p_x_if_pkg.sv
+RTLSRC_CV_X_IF 				:= $(filter-out $(RTLSRC_HOME)/rtl/core-v-xif/src/acc_pkg.sv  $(RTLSRC_HOME)/rtl/core-v-xif/src/acc_test.sv \
+							   $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/cb_filter.sv $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/ecc_decode.sv $(RTLSRC_HOME)/example_tb/core/fp_subsystem_pkg.sv,\
+						       $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/deprecated/fifo_v2.sv $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/fifo_v3.sv \
+						       $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/stream_register.sv $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/onehot_to_bin.sv \
+						       $(wildcard $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/*.sv) $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/stream_fifo.sv $(wildcard $(RTLSRC_HOME)/rtl/core-v-xif/src/*.sv) )
+
+
+RTLSRC_COMMON_CELLS_INCDIR	:= $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/include
+RTLSRC_COMMON_CELLS_PKG	:= $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/cf_math_pkg.sv $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/ecc_pkg.sv $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/cb_filter_pkg.sv
+RTLSRC_COMMON_CELLS		:= $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/deprecated/fifo_v2.sv \
+							$(filter-out $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/ecc_decode.sv,  $(wildcard $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/*.sv) )
+
+
+
+
 
 RTLSRC_VLOG_TB_TOP	:= $(basename $(notdir $(RTLSRC_TB_TOP)))
 RTLSRC_VOPT_TB_TOP	:= $(addsuffix _vopt, $(RTLSRC_VLOG_TB_TOP))
@@ -96,19 +115,26 @@ vsim-all: .opt-rtl
 	touch .opt-rtl
 
 # fpnew dependencies
-check_fpnew_deps:
+check_deps:
 	@if [ ! -d ../../rtl/fpnew ]; then echo Please run \'make fpnew_deps\' first to clone the required fpnew repos; exit 1; fi
+	@if [ ! -d ../../rtl/core-v-xif ]; then echo Please run \'make xif_deps\' first to clone the required core-v-xif repos; exit 1; fi
 
 fpnew_deps:
 	if [ ! -d ../../rtl/fpnew ]; then git clone https://github.com/pulp-platform/fpnew ../../rtl/fpnew --recurse; fi
 
+xif_deps:
+	if [ ! -d ../../rtl/core-v-xif ]; then git clone https://github.com/openhwgroup/core-v-xif ../../rtl/core-v-xif; fi
+
+
+
+
 # rebuild if we change some sourcefile
-.build-rtl-fp: .lib-rtl $(RTLSRC_FPNEW_PKG) $(RTLSRC_FPNEW) $(CV_CORE_MANIFEST) $(RTLSRC_TB_PKG) $(RTLSRC_FPNEW_TB)
-	$(VLOG) -work $(VWORK) +incdir+$(RTLSRC_FPNEW_INCDIR) $(VLOG_FLAGS) \
-	 $(RTLSRC_FPNEW_PKG) $(RTLSRC_FPNEW) -f $(CV_CORE_MANIFEST) $(RTLSRC_TB_PKG) $(RTLSRC_FPNEW_TB)
+.build-rtl-fp: .lib-rtl $(RTLSRC_FPNEW_PKG) $(RTLSRC_FPNEW) $(RTLSRC_COMMON_CELLS_PKG) $(RTLSRC_COMMON_CELLS) $(RTLSRC_CV_X_IF_PKG) $(RTLSRC_CV_X_IF_TB) $(RTLSRC_CV_X_IF) $(CV_CORE_MANIFEST) $(RTLSRC_TB_PKG) $(RTLSRC_FPNEW_TB)
+	$(VLOG) -work $(VWORK) +incdir+$(RTLSRC_COMMON_CELLS_INCDIR)+$(RTLSRC_CV_X_IF_INCDIR) $(VLOG_FLAGS) \
+	 $(RTLSRC_FPNEW_PKG) $(RTLSRC_COMMON_CELLS_PKG) $(RTLSRC_CV_X_IF_PKG) $(RTLSRC_FPNEW) $(RTLSRC_COMMON_CELLS) $(RTLSRC_CV_X_IF) $(RTLSRC_CV_X_IF_TB) -f $(CV_CORE_MANIFEST) $(RTLSRC_TB_PKG) $(RTLSRC_FPNEW_TB)
 	touch .build-rtl-fp
 
-vsim-all-fp: check_fpnew_deps .opt-rtl-fp
+vsim-all-fp: check_deps .opt-rtl-fp
 
 .opt-rtl-fp: .build-rtl-fp
 	$(VOPT) -work $(VWORK) $(VOPT_FLAGS) -g FPU=1 $(RTLSRC_VLOG_TB_TOP) -o \
@@ -233,7 +259,7 @@ custom-vsim-run-gui: vsim-run-gui
 # We link with our custom crt0.s and syscalls.c against newlib so that we can
 # use the c standard library
 custom_fp/main.elf: custom_fp/matmulNxN.c custom_fp/main.c
-	$(RISCV_EXE_PREFIX)gcc -march=rv32imfc -mabi=ilp32f -o $@ -w -g -nostdlib \
+	$(RISCV_EXE_PREFIX)gcc -march=rv32imf -mabi=ilp32f -o $@ -w -g -nostdlib \
 		$(CUSTOM_GCC_FLAGS) \
 		-T custom/link.ld  \
 		-static \
