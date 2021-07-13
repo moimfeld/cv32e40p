@@ -19,7 +19,7 @@ module tb_top #(
     parameter BOOT_ADDR = 'h180,
     parameter PULP_XPULP = 0,
     parameter PULP_CLUSTER = 0,
-    parameter FPU = 1,
+    parameter FPU = 0,
     parameter PULP_ZFINX = 0,
     parameter NUM_MHPMCOUNTERS = 1,
     parameter DM_HALTADDRESS = 32'h1A110800
