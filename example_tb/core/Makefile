@@ -123,7 +123,10 @@ fpnew_deps:
 	if [ ! -d ../../rtl/fpnew ]; then git clone https://github.com/pulp-platform/fpnew ../../rtl/fpnew --recurse; fi
 
 xif_deps:
-	if [ ! -d ../../rtl/core-v-xif ]; then git clone https://github.com/openhwgroup/core-v-xif ../../rtl/core-v-xif; fi
+	if [ ! -d ../../rtl/core-v-xif ]; then \
+		git clone https://github.com/openhwgroup/core-v-xif ../../rtl/core-v-xif; \
+		(cd ../../rtl/core-v-xif && git apply ../../example_tb/core/core-v-xif.patch) \
+	fi
 
 
 
