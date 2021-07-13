@@ -30,7 +30,7 @@
 
 # add fc
 set rvcores [find instances -recursive -bydu cv32e40p_core -nodu]
-set fpuprivate [find instances -recursive -bydu fpu_private]
+set x_disp  [find instances -recursive -bydu cv32e40p_x_disp]
 set tb_top [find instances -recursive -bydu tb_top -nod]
 set mm_ram [find instances -recursive -bydu mm_ram -nod]
 set dp_ram [find instances -recursive -bydu dp_ram -nod]
@@ -78,8 +78,9 @@ if {$rvcores ne ""} {
 
   add wave -group "ID Stage"                                                $rvcores/id_stage_i/*
   add wave -group "RF"                                                      $rvcores/id_stage_i/register_file_i/mem
-  add wave -group "RF_FP"                                                   $rvcores/id_stage_i/register_file_i/mem_fp
-
+  if {$x_disp ne ""} {
+    add wave -group "X_DISP"                                                $rvcores/id_stage_i/gen_x_disp/x_disp_i/*
+  }
   add wave -group "Decoder"                                                 $rvcores/id_stage_i/decoder_i/*
   add wave -group "Controller"                                              $rvcores/id_stage_i/controller_i/*
   add wave -group "Int Ctrl"                                                $rvcores/id_stage_i/int_controller_i/*
@@ -92,10 +93,7 @@ if {$rvcores ne ""} {
   add wave -group "EX Stage" -group "ALU"                                   $rvcores/ex_stage_i/alu_i/*
   add wave -group "EX Stage" -group "ALU_DIV"                               $rvcores/ex_stage_i/alu_i/alu_div_i/*
   add wave -group "EX Stage" -group "MUL"                                   $rvcores/ex_stage_i/mult_i/*
-  if {$fpuprivate ne ""} {
-    add wave -group "EX Stage" -group "APU_DISP"                            $rvcores/ex_stage_i/genblk1/apu_disp_i/*
-    add wave -group "EX Stage" -group "FPU"                                 $rvcores/ex_stage_i/genblk1/genblk1/fpu_i/*
-  }
+
   add wave -group "EX Stage"                                                $rvcores/ex_stage_i/*
   add wave -group "LSU"                                                     $rvcores/load_store_unit_i/*
   add wave -group "LSU" -group "OBI"                                        $rvcores/load_store_unit_i/data_obi_i/*
