@@ -14,7 +14,9 @@
 module cv32e40p_cv_x_if_wrapper
   import acc_pkg::*;
   import cv32e40p_x_if_pkg::*;
-(
+#(
+    parameter         PULP_ZFINX         = 0
+)(
     input logic clk_i,
     input logic rst_ni,
 
@@ -180,6 +182,7 @@ module cv32e40p_cv_x_if_wrapper
 
 
   fpu_ss #(
+      .PULP_ZFINX(PULP_ZFINX),
       .BUFFER_DEPTH(1),
       .INT_REG_WB_DELAY(1),
       .OUT_OF_ORDER(1),
