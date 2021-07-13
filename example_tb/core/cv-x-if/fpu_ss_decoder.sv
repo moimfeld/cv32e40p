@@ -11,7 +11,9 @@
 // FPU Subsystem Decoder
 // Contributor: Moritz Imfeld <moimfeld@student.ethz.ch>
 
-module fpu_ss_decoder (
+module fpu_ss_decoder #(
+  parameter                      PULP_ZFINX         = 0
+) (
     input  logic                         [31:0] instr_i,
     input  fpnew_pkg::roundmode_e        fpu_rnd_mode_i,
     output fpnew_pkg::operation_e        fpu_op_o,

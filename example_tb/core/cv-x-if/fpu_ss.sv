@@ -13,6 +13,7 @@
 //              Davide Schiavone <davide@openhwgroup.org>
 
 module fpu_ss #(
+    parameter                                 PULP_ZFINX         = 0,
     parameter                                 BUFFER_DEPTH       = 1,
     parameter                                 INT_REG_WB_DELAY   = 1,
     parameter                                 OUT_OF_ORDER       = 1,
@@ -260,7 +261,9 @@ module fpu_ss #(
   );
 
   // "F"-Extension and "xfvec"-Extension Decoder
-  fpu_ss_decoder fpu_ss_decoder_i (  // Note: Remove Double Precision Instr form the decoder (not required at the moment --> only contributes to area)
+  fpu_ss_decoder  #(
+      .PULP_ZFINX(PULP_ZFINX)
+  ) fpu_ss_decoder_i (  // Note: Remove Double Precision Instr form the decoder (not required at the moment --> only contributes to area)
       .instr_i       (instr),
       .fpu_rnd_mode_i(fpnew_pkg::roundmode_e'(frm)),
       .fpu_op_o      (fpu_op),

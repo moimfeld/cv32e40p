@@ -164,7 +164,9 @@ module cv32e40p_core_and_coprocessor_wrapper
 
   generate
     if (FPU) begin : gen_cv_x_if_wrapper
-      cv32e40p_cv_x_if_wrapper cv_x_if_wrapper_i (
+      cv32e40p_cv_x_if_wrapper #(
+        .PULP_ZFINX(PULP_ZFINX)
+      ) cv_x_if_wrapper_i (
         .clk_i (clk_i),
         .rst_ni(rst_ni),
 
