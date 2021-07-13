@@ -140,7 +140,7 @@ module cv32e40p_wrapper
   ) core_log_i (
       .clk_i             (core_i.id_stage_i.clk),
       .is_decoding_i     (core_i.id_stage_i.is_decoding_o),
-      .illegal_insn_dec_i(core_i.id_stage_i.illegal_insn_dec),
+      .illegal_insn_dec_i(core_i.id_stage_i.illegal_insn),
       .hart_id_i         (core_i.hart_id_i),
       .pc_id_i           (core_i.pc_id)
   );
