@@ -10,6 +10,7 @@
 
 // FPU Subsystem Register File
 // Contributor: Moritz Imfeld <moimfeld@student.ethz.ch>
+// Based on: https://github.com/pulp-platform/snitch/blob/master/hw/ip/snitch/src/snitch_regfile_ff.sv
 
 module fpu_ss_regfile (
     // clock and reset
@@ -39,8 +40,8 @@ module fpu_ss_regfile (
   // loop from 1 to NumWords-1 as R0 is nil
   always_ff @(posedge clk_i) begin : register_write_behavioral
     for (int unsigned i = 0; i < NumWords; i++) begin
-      if (we_dec[i]) begin // NOTE: JUST AN EXAMPLE
-        mem[i] <= wdata_i;// 32'b0000_0000_0000_0000_0000_0000_0000_1111;// NOTE: JUST AN EXAMPLE
+      if (we_dec[i]) begin
+        mem[i] <= wdata_i;
       end
     end
   end

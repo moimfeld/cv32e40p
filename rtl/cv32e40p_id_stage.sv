@@ -963,37 +963,35 @@ module cv32e40p_id_stage
       ////////////////////////////////////////
 
       cv32e40p_x_disp x_disp_i (
+          // clock and reset
           .clk_i (clk),
           .rst_ni(rst_n),
 
-          .x_illegal_insn_dec_i(illegal_insn_dec),
+          // scoreboard and dependency check/stall
+          .x_waddr_id_i      (x_waddr_id),
+          .x_writeback_i     (x_writeback_i),
+          .x_waddr_ex_i      (x_waddr_ex),
+          .x_we_ex_i         (regfile_alu_we_ex_o),
+          .x_waddr_wb_i      (x_waddr_wb),
+          .x_we_wb_i         (regfile_we_wb_i),
+          .x_rwaddr_i        (x_rd_i),
+          .x_rvalid_i        (x_rvalid_i),
+          .x_rs_addr_i       (x_rs_addr),
+          .x_regs_used_i     (x_regs_used),
+          .x_branch_or_jump_i(branch_in_ex_o),
+          .x_data_req_dec_i  (data_req_dec),
 
-          // Scoreboard & Dependency Check & Stall
-          .x_waddr_id_i       (x_waddr_id),
-          .x_writeback_i      (x_writeback_i),
-          .x_waddr_ex_i       (x_waddr_ex),
-          .x_we_ex_i          (regfile_alu_we_ex_o),
-          .x_waddr_wb_i       (x_waddr_wb),
-          .x_we_wb_i          (regfile_we_wb_i),
-          .x_rwaddr_i         (x_rd_i),
-          .x_rvalid_i         (x_rvalid_i),
-          .x_rs_addr_i        (x_rs_addr),
-          .x_regs_used_i      (x_regs_used),
-          .x_branch_or_jump_i (branch_in_ex_o),
-          .x_data_req_dec_i   (data_req_dec),
+          // x-request and response channel signals
+          .x_valid_o    (x_valid_o),
+          .x_ready_i    (x_ready_i),
+          .x_accept_i   (x_accept_i),
+          .x_is_mem_op_i(x_is_mem_op_i),
+          .x_rs_valid_o (x_rs_valid_o),
+          .x_rd_clean_o (x_rd_clean_o),
+          .x_stall_o    (x_stall),
+          .x_rready_o   (x_rready_o),
 
-          // X-Request and Response Channel Signals
-          .x_valid_o       (x_valid_o),
-          .x_ready_i       (x_ready_i),
-          .x_accept_i      (x_accept_i),
-          .x_is_mem_op_i   (x_is_mem_op_i),
-          .x_rs_valid_o    (x_rs_valid_o),
-          .x_rd_clean_o    (x_rd_clean_o),
-          .x_stall_o       (x_stall),
-          .x_illegal_insn_o(x_illegal_insn),
-          .x_rready_o      (x_rready_o),
-
-          // Xmem-Request signals
+          // xmem-request signals
           .xmem_valid_i           (xmem_valid),
           .xmem_ready_o           (xmem_ready_o),
           .xmem_req_type_i        (xmem_req_type_i),
@@ -1001,21 +999,24 @@ module cv32e40p_id_stage
           .xmem_spec_i            (xmem_spec_i),
           .xmem_endoftransaction_i(xmem_endoftransaction_i),
 
-          // Memory instruction status signals
+          // memory request core-internal status signals
           .xmem_data_req_o(xmem_data_req),
           .xmem_we_o      (xmem_we),
           .xmem_instr_wb_i(xmem_instr_wb_i),
 
-          // Xmem-Response signals
+          // xmem-response signals
           .xmem_rvalid_o(xmem_rvalid_o),
           .xmem_rready_i(xmem_rready_i),
           .xmem_status_o(xmem_status_o),
 
-          .id_ready_i   (id_ready_o)
+          // additional status signals
+          .x_illegal_insn_dec_i(illegal_insn_dec),
+          .x_illegal_insn_o    (x_illegal_insn),
+          .id_ready_i          (id_ready_o)
       );
 
-      // X-Interface signals for controller
-      assign illegal_insn        = x_illegal_insn;
+      // x-dispatcher signal assignments
+      assign x_instr_data_o      = instr;
       assign x_rs_addr[0]        = regfile_addr_ra_id[4:0];
       assign x_rs_addr[1]        = regfile_addr_rb_id[4:0];
       assign x_rs_addr[2]        = regfile_addr_rc_id[4:0];
@@ -1023,17 +1024,21 @@ module cv32e40p_id_stage
       assign x_waddr_ex          = regfile_alu_waddr_ex_o[4:0];
       assign x_waddr_wb          = regfile_waddr_wb_i[4:0];
       assign x_regs_used         = {regc_used, regb_used, rega_used};
-      assign x_rs_o[0]           = regfile_data_ra_id;
-      assign x_rs_o[1]           = regfile_data_rb_id;
-      assign x_rs_o[2]           = regfile_data_rc_id;
-      assign x_instr_data_o      = instr;
       assign x_rvalid_assigned_o = x_rvalid_i;
       assign xmem_valid          = xmem_valid_i;
 
-      // LSU Signal assignment/MUX
-      assign regfile_we_id = regfile_we_id_dec & ~xmem_data_req;
-      assign data_req_id   = data_req_dec & ~xmem_valid_i | xmem_data_req;
-      assign data_we_id    = data_we_dec & ~xmem_valid_i | xmem_we;
+      // x-interface signal assignment
+      assign x_rs_o[0]           = regfile_data_ra_id;
+      assign x_rs_o[1]           = regfile_data_rb_id;
+      assign x_rs_o[2]           = regfile_data_rc_id;
+
+      // illegal instruction signal
+      assign illegal_insn        = x_illegal_insn;
+
+      // LSU signal assignment/MUX
+      assign regfile_we_id       = regfile_we_id_dec & ~xmem_data_req;
+      assign data_req_id         = data_req_dec & ~xmem_valid_i | xmem_data_req;
+      assign data_we_id          = data_we_dec & ~xmem_valid_i | xmem_we;
       always_comb begin
         data_type_id       = data_type_dec;
         data_sign_ext_id   = data_sign_ext_dec;
@@ -1052,17 +1057,17 @@ module cv32e40p_id_stage
           prepost_useincr    = 1'b0;
         end
       end
-
     end else begin : gen_no_x_disp
-      // Default assignment for x-interface core side controll signals
+
+      // default assignment for x-interface control signals
       assign x_stall             = 1'b0;
       assign x_rvalid_assigned_o = 1'b0;
       assign xmem_valid          = 1'b0;
 
-      // Default illegal instruction assignment
+      // default illegal instruction assignment
       assign illegal_insn        = illegal_insn_dec;
 
-      // Default assignment for lsu signals
+      // default assignment for LSU signals
       assign data_req_id         = data_req_dec;
       assign data_we_id          = data_we_dec;
       assign data_type_id        = data_type_dec;
@@ -1479,7 +1484,7 @@ module cv32e40p_id_stage
     end else if (mult_multicycle_i) begin
       mult_operand_c_ex_o <= operand_c_fw_id;
     end else begin
-      xmem_instr_ex_o     <= xmem_valid;
+      xmem_instr_ex_o <= xmem_valid;
 
       // normal pipeline unstall case
 
