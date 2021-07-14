@@ -906,6 +906,7 @@ module cv32e40p_core
 
   cv32e40p_cs_registers #(
       .A_EXTENSION     (A_EXTENSION),
+      .FPU             (FPU),
       .PULP_SECURE     (PULP_SECURE),
       .USE_PMP         (USE_PMP),
       .N_PMP_ENTRIES   (N_PMP_ENTRIES),
