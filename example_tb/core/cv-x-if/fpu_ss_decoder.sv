@@ -10,26 +10,27 @@
 
 // FPU Subsystem Decoder
 // Contributor: Moritz Imfeld <moimfeld@student.ethz.ch>
+// Based on: https://github.com/pulp-platform/snitch/blob/master/hw/ip/snitch_cluster/src/snitch_fp_ss.sv
 
 module fpu_ss_decoder #(
-  parameter                      PULP_ZFINX         = 0
+    parameter PULP_ZFINX = 0
 ) (
-    input  logic                         [31:0] instr_i,
-    input  fpnew_pkg::roundmode_e        fpu_rnd_mode_i,
-    output fpnew_pkg::operation_e        fpu_op_o,
-    output fpu_ss_pkg::op_select_e [2:0] op_select_o,
-    output fpnew_pkg::roundmode_e        fpu_rnd_mode_o,
-    output logic                         set_dyn_rm_o,
-    output fpnew_pkg::fp_format_e        src_fmt_o,
-    output fpnew_pkg::fp_format_e        dst_fmt_o,
-    output fpnew_pkg::int_format_e       int_fmt_o,
-    output logic                         rd_is_fp_o,
-    output logic                         vectorial_op_o,
-    output logic                         op_mode_o,
-    output logic                         use_fpu_o,
-    output logic                         is_store_o,
-    output logic                         is_load_o,
-    output fpu_ss_pkg::ls_size_e         ls_size_o
+    input  logic                   [31:0] instr_i,
+    input  fpnew_pkg::roundmode_e         fpu_rnd_mode_i,
+    output fpnew_pkg::operation_e         fpu_op_o,
+    output fpu_ss_pkg::op_select_e [ 2:0] op_select_o,
+    output fpnew_pkg::roundmode_e         fpu_rnd_mode_o,
+    output logic                          set_dyn_rm_o,
+    output fpnew_pkg::fp_format_e         src_fmt_o,
+    output fpnew_pkg::fp_format_e         dst_fmt_o,
+    output fpnew_pkg::int_format_e        int_fmt_o,
+    output logic                          rd_is_fp_o,
+    output logic                          vectorial_op_o,
+    output logic                          op_mode_o,
+    output logic                          use_fpu_o,
+    output logic                          is_store_o,
+    output logic                          is_load_o,
+    output fpu_ss_pkg::ls_size_e          ls_size_o
 );
 
   always_comb begin
@@ -2017,8 +2018,8 @@ module fpu_ss_decoder #(
         rd_is_fp_o = 1'b0;
       end
       default: begin
-        use_fpu_o   = 1'b0;
-        rd_is_fp_o  = 1'b0;
+        use_fpu_o  = 1'b0;
+        rd_is_fp_o = 1'b0;
       end
     endcase
     // fix round mode for vectors and fp16alt
