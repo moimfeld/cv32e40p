@@ -7,8 +7,49 @@
 // this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
-
-// FPU Subsystem
+//
+// Description: Top level Module of the FPU subsystem
+//
+// Parameters:  PULP_ZFINX:       Unused at the moment
+//
+//              BUFFER_DEPTH:     This parameter can be used to set the depth of the stream_fifo buffer.
+//                                Minimum value is 0
+//
+//              INT_REG_WB_DELAY: INTeger REGister WriteBack DELAY can be used to cut combinational
+//                                paths of instructions that do not go through the FPnew.
+//                                Instructions that cause such paths are for example the CSR instructions.
+//                                Setting this parameter to 0 can lead to writebacks to the core
+//                                in the same cycle as an instruction was offloaded.
+//                                Minimum value is 0
+//
+//              OUT_OF_ORDER:     Enable or diable out-of-order execution for instructions that go through
+//                                the FPnew.
+//                                For example with OUT_OF_ORDER = 1
+//                                    fdiv.s fa1, fa2, fa3 // supporse takes 3 cycles
+//                                    fmul.s fa4, fa5, fa6 // supporse takes 1 cycles
+//                                    fmul.s fa2, fa5, fa6 // supporse takes 1 cycles
+//                                    fmul.s fa3, fa5, fa6 // supporse takes 1 cycles
+//                                --> This sequence takes 4 clock cycles
+//                                With OUT_OF_ORDER this instruction sequence would take 5 clock cycles
+//                                Possible values for this parameter are 0 and 1
+//
+//             FORWARDING:        With this parameter forwarding of floating-point results in the subsystem
+//                                can be enabled/disabled.
+//                                For examle take this sequence:
+//                                    fmul.s fa4, fa5, fa6 // supporse takes 1 cycles
+//                                    fmul.s fa1, fa4, fa6 // supporse takes 1 cycles
+//                                There is a source register dependency for the second instruction on the
+//                                first instruction. With FORWARDING = 1 this sequence takes 2 clock cycles
+//                                while with FORWARDING = 0 this sequence takes 3 clock cycles.
+//
+//             FPU_FEATURES:      Parameter to configure the FPnew, the subsystem was designed for the configuration found here:
+//                                https://github.com/moimfeld/cv32e40p/blob/x-interface/example_tb/core/cv-x-if/cv32e40p_fpu_pkg.sv
+//                                Other configurations might not work
+//
+//             FPU_IMPLEMENTATION:Parameter to configure the FPnew, the subsystem was designed for the configuration found here:
+//                                https://github.com/moimfeld/cv32e40p/blob/x-interface/example_tb/core/cv-x-if/cv32e40p_fpu_pkg.sv
+//                                Other configurations might not work
+//
 // Contributor: Moritz Imfeld <moimfeld@student.ethz.ch>
 //              Davide Schiavone <davide@openhwgroup.org>
 
