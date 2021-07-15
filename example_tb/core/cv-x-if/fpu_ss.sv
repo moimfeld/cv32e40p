@@ -392,6 +392,7 @@ module fpu_ss #(
   // FPU subsystem dedicated floating-point register file
   fpu_ss_regfile fpu_ss_regfile_i (
       .clk_i(clk_i),
+      .rst_ni(rst_ni),
 
       .raddr_i(fpr_raddr),
       .rdata_o(fpr_operands),
