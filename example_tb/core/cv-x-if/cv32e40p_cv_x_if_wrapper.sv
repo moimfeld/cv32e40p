@@ -8,19 +8,19 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
-// Wrapper for the RISC-V Extention Interface and all its accelerators
+// Wrapper for the Core-V X-Interface and its Accelerators
 // Contributor: Moritz Imfeld <moimfeld@student.ethz.ch>
 
 module cv32e40p_cv_x_if_wrapper
   import acc_pkg::*;
   import cv32e40p_x_if_pkg::*;
 #(
-    parameter         PULP_ZFINX         = 0
-)(
+    parameter PULP_ZFINX = 0
+) (
     input logic clk_i,
     input logic rst_ni,
 
-    // X-Request Channel
+    // x-request channel
     input  logic              x_q_valid_i,
     output logic              x_q_ready_o,
     input  logic [31:0]       x_q_instr_data_i,
@@ -31,7 +31,7 @@ module cv32e40p_cv_x_if_wrapper
     output logic              x_k_is_mem_op_o,
     output logic              x_k_writeback_o,
 
-    // X-Response Channel
+    // x-response channel
     output logic        x_p_valid_o,
     input  logic        x_p_ready_i,
     output logic [ 4:0] x_p_rd_o,
@@ -39,7 +39,7 @@ module cv32e40p_cv_x_if_wrapper
     output logic        x_p_dualwb_o,
     output logic        x_p_error_o,
 
-    // Xmem-Request channel
+    // xmem-request channel
     output logic                                    xmem_q_valid_o,
     input  logic                                    xmem_q_ready_i,
     output logic                             [31:0] xmem_q_laddr_o,
@@ -50,7 +50,7 @@ module cv32e40p_cv_x_if_wrapper
     output logic                                    xmem_q_spec_o,
     output logic                                    xmem_q_endoftransaction_o,
 
-    // Xmem-Response channel
+    // xmem-response channel
     input  logic                  xmem_p_valid_i,
     output logic                  xmem_p_ready_o,
     input  logic [          31:0] xmem_p_rdata_i,
@@ -87,7 +87,7 @@ module cv32e40p_cv_x_if_wrapper
   acc_c_req_t    c_req_o;
   acc_cmem_rsp_t cmem_rsp_o;
 
-  // X-Request Channel assignment
+  // x-request channel assignment
   assign x_req.q_valid = x_q_valid_i;
   assign x_q_ready_o = x_rsp.q_ready;
   assign x_req.q.instr_data = x_q_instr_data_i;
@@ -98,7 +98,7 @@ module cv32e40p_cv_x_if_wrapper
   assign x_k_is_mem_op_o = x_rsp.k.is_mem_op;
   assign x_k_writeback_o = x_rsp.k.writeback;
 
-  // X-Response Channel assignment
+  // x-response channel assignment
   assign x_p_valid_o = x_rsp.p_valid;
   assign x_req.p_ready = x_p_ready_i;
   assign x_p_rd_o = x_rsp.p.rd;
@@ -106,7 +106,7 @@ module cv32e40p_cv_x_if_wrapper
   assign x_p_dualwb_o = x_rsp.p.dualwb;
   assign x_p_error_o = x_rsp.p.error;
 
-  // Xmem-Request Channel assignment
+  // xmem-request channel assignment
   assign xmem_q_valid_o = xmem_req.q_valid;
   assign xmem_rsp.q_ready = xmem_q_ready_i;
   assign xmem_q_laddr_o = xmem_req.q.laddr;
@@ -117,7 +117,7 @@ module cv32e40p_cv_x_if_wrapper
   assign xmem_q_spec_o = xmem_req.q.spec;
   assign xmem_q_endoftransaction_o = xmem_req.q.endoftransaction;
 
-  // Xmem-Response Channel assignment
+  // xmem-response channel assignment
   assign xmem_rsp.p_valid = xmem_p_valid_i;
   assign xmem_p_ready_o = xmem_req.p_ready;
   assign xmem_rsp.p.rdata = xmem_p_rdata_i;
@@ -190,9 +190,11 @@ module cv32e40p_cv_x_if_wrapper
       .FPU_FEATURES(cv32e40p_fpu_pkg::FPU_FEATURES),
       .FPU_IMPLEMENTATION(cv32e40p_fpu_pkg::FPU_IMPLEMENTATION)
   ) fpu_ss_i (
+      // clock and reset
       .clk_i (clk_i),
       .rst_ni(rst_ni),
 
+      // c-request channel
       .c_q_valid_i     (c_req[0].q_valid),
       .c_q_ready_o     (c_rsp[0].q_ready),
       .c_q_addr_i      (c_req[0].q.addr),
@@ -200,6 +202,7 @@ module cv32e40p_cv_x_if_wrapper
       .c_q_instr_data_i(c_req[0].q.instr_data),
       .c_q_hart_id_i   (c_req[0].q.hart_id),
 
+      // c-response channel
       .c_p_valid_o  (c_rsp[0].p_valid),
       .c_p_ready_i  (c_req[0].p_ready),
       .c_p_data_o   (c_rsp[0].p.data),
@@ -208,6 +211,7 @@ module cv32e40p_cv_x_if_wrapper
       .c_p_hart_id_o(c_rsp[0].p.hart_id),
       .c_p_rd_o     (c_rsp[0].p.rd),
 
+      // cmem-request channel
       .cmem_q_valid_o           (cmem_req[0].q_valid),
       .cmem_q_ready_i           (cmem_rsp[0].q_ready),
       .cmem_q_laddr_o           (cmem_req[0].q.laddr),
@@ -220,6 +224,7 @@ module cv32e40p_cv_x_if_wrapper
       .cmem_q_hart_id_o         (cmem_req[0].q.hart_id),
       .cmem_q_addr_o            (cmem_req[0].q.addr),
 
+      // cmem-Response Channel
       .cmem_p_valid_i  (cmem_rsp[0].p_valid),
       .cmem_p_ready_o  (cmem_req[0].p_ready),
       .cmem_p_rdata_i  (cmem_rsp[0].p.rdata),
