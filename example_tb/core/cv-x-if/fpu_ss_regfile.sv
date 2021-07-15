@@ -15,6 +15,7 @@
 module fpu_ss_regfile (
     // clock and reset
     input  logic              clk_i,
+    input  logic              rst_ni,
     // read port
     input  logic [ 2:0][ 4:0] raddr_i,
     output logic [ 2:0][31:0] rdata_o,
@@ -38,9 +39,11 @@ module fpu_ss_regfile (
   end
 
   // loop from 1 to NumWords-1 as R0 is nil
-  always_ff @(posedge clk_i) begin : register_write_behavioral
+  always_ff @(posedge clk_i, negedge rst_ni) begin : register_write_behavioral
     for (int unsigned i = 0; i < NumWords; i++) begin
-      if (we_dec[i]) begin
+      if (~rst_ni) begin
+        mem[i] <= '0;
+      end else if (we_dec[i]) begin
         mem[i] <= wdata_i;
       end
     end
