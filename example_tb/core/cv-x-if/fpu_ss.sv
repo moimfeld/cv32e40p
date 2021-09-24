@@ -74,6 +74,13 @@ module fpu_ss #(
     input logic [31:0] c_q_instr_data_i,
     input logic [31:0] c_q_hart_id_i,
 
+    // predecoder responses
+    input logic  rd_clean_i,
+    input logic [2:0]  rs_valid_i,
+    output logic c_k_accept_o,
+    output logic c_k_is_mem_op_o,
+    output logic c_k_writeback_o,
+
     // c-response channel
     output logic c_p_valid_o,
     input  logic        c_p_ready_i, // signal belongs to the c-req channel typedef but is part of the response handshake
@@ -105,6 +112,12 @@ module fpu_ss #(
     input logic [acc_pkg::AddrWidth-1:0] cmem_p_addr_i,
     input logic [31:0] cmem_p_hart_id_i
 );
+
+  // predecoder signals
+  acc_pkg::acc_prd_req_t  prd_req;
+  acc_pkg::acc_prd_rsp_t  prd_rsp;
+  logic buffer_ready;
+
 
   // stream_fifo input and output data
   fpu_ss_pkg::offloaded_data_t                    offloaded_data_push;
@@ -172,6 +185,24 @@ module fpu_ss #(
   // additional signals
   logic                                           cmem_rsp_hs;
   logic                                           int_wb;
+
+  // predecoder signal assignments
+  assign prd_req.q_instr_data = c_q_instr_data_i;
+  assign c_k_accept_o = prd_rsp.p_accept;
+  assign c_k_writeback_o = prd_rsp.p_writeback;
+  assign c_k_is_mem_op_o = prd_rsp.p_is_mem_op;
+
+  always_comb begin
+    c_q_ready_o = 1'b0;
+    if (((prd_rsp.p_writeback & rd_clean_i) | !prd_rsp.p_writeback)
+        & ((prd_rsp.p_use_rs[0] & rs_valid_i[0]) | !prd_rsp.p_use_rs[0])
+        & ((prd_rsp.p_use_rs[1] & rs_valid_i[1]) | !prd_rsp.p_use_rs[1])
+        & ((prd_rsp.p_use_rs[2] & rs_valid_i[2]) | !prd_rsp.p_use_rs[2])
+        & buffer_ready) begin
+      c_q_ready_o = 1'b1;
+    end
+  end
+
 
   // default assignment for unused x-interface signals
   assign c_p_error_o = 1'b0;  // no errors can occur for now
@@ -264,6 +295,16 @@ module fpu_ss #(
     end
   end
 
+  // Predecoder, that checks validity of source registers and cleanness of source/destination register before accepting an instruction
+  fpu_ss_predecoder #(
+      .NumInstr(acc_fp_pkg::NumInstr),
+      .OffloadInstr(acc_fp_pkg::OffloadInstr)
+  ) fpu_ss_predecoder_i (
+      .prd_req_i(prd_req),
+      .prd_rsp_o(prd_rsp)
+  );
+
+
   // FIFO with built in Handshake protocol (FALL_THROUGH enabled)
   stream_fifo #(
       .FALL_THROUGH(1),
@@ -279,7 +320,7 @@ module fpu_ss #(
 
       .data_i (offloaded_data_push),
       .valid_i(c_q_valid_i),
-      .ready_o(c_q_ready_o),
+      .ready_o(buffer_ready),
 
       .data_o (offloaded_data_pop),
       .valid_o(pop_valid),
