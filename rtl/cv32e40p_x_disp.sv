@@ -193,7 +193,7 @@ module cv32e40p_x_disp
     mem_cnt_d = mem_cnt_q;
     if (x_valid_o & x_ready_i & x_is_mem_op_i & ~xmem_valid_i) begin
       mem_cnt_d = mem_cnt_q + 4'b0001;
-    end else if (~(x_valid_o & x_ready_i & x_is_mem_op_i) & xmem_valid_i) begin
+    end else if (~(x_valid_o & x_ready_i & x_is_mem_op_i) & xmem_valid_i & mem_cnt_q != 4'b0000) begin
       mem_cnt_d = mem_cnt_q - 4'b0001;
     end
   end
