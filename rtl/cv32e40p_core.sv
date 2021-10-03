@@ -29,11 +29,12 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 module cv32e40p_core
-  import cv32e40p_x_if_pkg::*;
+  import cv32e40p_pkg::*;
+  import cv32e40p_core_v_xif_pkg::*;
 #(
     parameter PULP_XPULP          =  0,                   // PULP ISA Extension (incl. custom CSRs and hardware loop, excl. p.elw)
     parameter PULP_CLUSTER = 0,  // PULP Cluster interface (incl. p.elw)
-    parameter FPU = 0,  // Floating Point Unit (interfaced via APU interface)
+    parameter FPU = 0,  // Floating Point Unit
     parameter PULP_ZFINX = 0,  // Float-in-General Purpose registers
     parameter NUM_MHPMCOUNTERS = 1
 ) (
@@ -68,40 +69,72 @@ module cv32e40p_core
     output logic [31:0] data_wdata_o,
     input  logic [31:0] data_rdata_i,
 
-    // X-Interface
-    // X-Request Channel
-    output logic                                 x_valid_o,
-    input  logic                                 x_ready_i,
-    output logic          [          31:0]       x_instr_data_o,
-    output logic          [           2:0][31:0] x_rs_o,
-    output logic          [           2:0]       x_rs_valid_o,
-    output logic                                 x_rd_clean_o,
-    input  logic                                 x_accept_i,
-    input  logic                                 x_is_mem_op_i,
-    input  logic                                 x_writeback_i,
-    // X-Response Channel
-    input  logic                                 x_rvalid_i,
-    output logic                                 x_rready_o,
-    input  logic          [           4:0]       x_rd_i,
-    input  logic          [          31:0]       x_data_i,
-    input  logic                                 x_dualwb_i,
-    input  logic                                 x_error_i,
-    // XMem-Request Channel
-    input  logic                                 xmem_valid_i,
-    output logic                                 xmem_ready_o,
-    input  logic          [          31:0]       xmem_laddr_i,
-    input  logic          [          31:0]       xmem_wdata_i,
-    input  logic          [           2:0]       xmem_width_i,
-    input  mem_req_type_e                        xmem_req_type_i,
-    input  logic                                 xmem_mode_i,
-    input  logic                                 xmem_spec_i,
-    input  logic                                 xmem_endoftransaction_i,
-    // XMem-Response Channel
-    output logic                                 xmem_rvalid_o,
-    input  logic                                 xmem_rready_i,
-    output logic          [          31:0]       xmem_rdata_o,
-    output logic          [$clog2(32)-1:0]       xmem_range_o,
-    output logic                                 xmem_status_o,
+    // CORE-V-XIF
+
+    // Compressed interface (unused at the moment)
+    output logic x_compressed_valid_o,
+    input  logic x_compressed_ready_i,
+    output x_compressed_req_t x_compressed_req_o,
+    input  x_compressed_resp_t x_compressed_resp_i,
+
+    // Issue Interface
+    output logic x_issue_valid_o,
+    input  logic x_issue_ready_i,
+    output x_issue_req_t x_issue_req_o,
+    input  x_issue_resp_t x_issue_resp_i,
+
+    // Commit Interface
+    output logic x_commit_valid_o,
+    output x_commit_t x_commit_o,
+
+    // Memory request/response Interface
+    input  logic x_mem_valid_i,
+    output logic x_mem_ready_o,
+    input  x_mem_req_t x_mem_req_i,
+    output x_mem_resp_t x_mem_resp_o,
+
+    // Memory Result Interface
+    output logic x_mem_result_valid_o,
+    output x_mem_result_t x_mem_result_o,
+
+    // Result Interface
+    input  logic x_result_valid_i,
+    output logic x_result_ready_o,
+    input  x_result_t x_result_i,
+
+    // // X-Request Channel
+    // output logic                                 x_valid_o,
+    // input  logic                                 x_ready_i,
+    // output logic          [          31:0]       x_instr_data_o,
+    // output logic          [           2:0][31:0] x_rs_o,
+    // output logic          [           2:0]       x_rs_valid_o,
+    // output logic                                 x_rd_clean_o,
+    // input  logic                                 x_accept_i,
+    // input  logic                                 x_is_mem_op_i,
+    // input  logic                                 x_writeback_i,
+    // // X-Response Channel
+    // input  logic                                 x_rvalid_i,
+    // output logic                                 x_rready_o,
+    // input  logic          [           4:0]       x_rd_i,
+    // input  logic          [          31:0]       x_data_i,
+    // input  logic                                 x_dualwb_i,
+    // input  logic                                 x_error_i,
+    // // XMem-Request Channel
+    // input  logic                                 xmem_valid_i,
+    // output logic                                 xmem_ready_o,
+    // input  logic          [          31:0]       xmem_laddr_i,
+    // input  logic          [          31:0]       xmem_wdata_i,
+    // input  logic          [           2:0]       xmem_width_i,
+    // input  mem_req_type_e                        xmem_req_type_i,
+    // input  logic                                 xmem_mode_i,
+    // input  logic                                 xmem_spec_i,
+    // input  logic                                 xmem_endoftransaction_i,
+    // // XMem-Response Channel
+    // output logic                                 xmem_rvalid_o,
+    // input  logic                                 xmem_rready_i,
+    // output logic          [          31:0]       xmem_rdata_o,
+    // output logic          [$clog2(32)-1:0]       xmem_range_o,
+    // output logic                                 xmem_status_o,
 
     // Interrupt inputs
     input  logic [31:0] irq_i,  // CLINT interrupts + CLINT extension interrupts
@@ -220,9 +253,10 @@ module cv32e40p_core
   logic               apu_en_ex;
 
   // X-Interface
-  logic               x_rvalid;
-  logic               xmem_instr;
-  logic               xmem_instr_wb;
+  logic               x_result_valid_assigned;
+  logic               x_mem_instr;
+  logic        [ 3:0] x_mem_id_ex;
+  logic               x_mem_instr_wb;
 
   // Register Write Control
   logic        [ 5:0] regfile_waddr_ex;
@@ -604,37 +638,71 @@ module cv32e40p_core
       // APU
       .apu_en_ex_o(apu_en_ex),
 
-      // X-Interface
-      .x_valid_o          (x_valid_o),
-      .x_ready_i          (x_ready_i),
-      .x_instr_data_o     (x_instr_data_o),
-      .x_rs_o             (x_rs_o),
-      .x_rs_valid_o       (x_rs_valid_o),
-      .x_rd_clean_o       (x_rd_clean_o),
-      .x_accept_i         (x_accept_i),
-      .x_is_mem_op_i      (x_is_mem_op_i),
-      .x_writeback_i      (x_writeback_i),
-      .x_rvalid_i         (x_rvalid_i),
-      .x_rd_i             (x_rd_i),
-      .x_rvalid_assigned_o(x_rvalid),  // hardwired to ground if FPU = 0
-      .x_rready_o         (x_rready_o),
+      // CORE-V-XIF
+      // Compressed interface (unused at the moment)
+      .x_compressed_valid_o (x_compressed_valid_o),
+      .x_compressed_ready_i (x_compressed_ready_i),
+      .x_compressed_req_o (x_compressed_req_o),
+      .x_compressed_resp_i (x_compressed_resp_i),
 
-      .xmem_valid_i           (xmem_valid_i),
-      .xmem_ready_o           (xmem_ready_o),
-      .xmem_laddr_i           (xmem_laddr_i),
-      .xmem_wdata_i           (xmem_wdata_i),
-      .xmem_width_i           (xmem_width_i),
-      .xmem_req_type_i        (xmem_req_type_i),
-      .xmem_mode_i            (xmem_mode_i),
-      .xmem_spec_i            (xmem_spec_i),
-      .xmem_endoftransaction_i(xmem_endoftransaction_i),
+      // Issue Interface
+      .x_issue_valid_o (x_issue_valid_o),
+      .x_issue_ready_i (x_issue_ready_i),
+      .x_issue_req_o (x_issue_req_o),
+      .x_issue_resp_i (x_issue_resp_i),
 
-      .xmem_instr_ex_o(xmem_instr),
-      .xmem_instr_wb_i(xmem_instr_wb),
+      // Commit Interface
+      .x_commit_valid_o (x_commit_valid_o),
+      .x_commit_o (x_commit_o),
 
-      .xmem_rvalid_o(xmem_rvalid_o),
-      .xmem_rready_i(xmem_rready_i),
-      .xmem_status_o(xmem_status_o),
+      // Memory request/response Interface
+      .x_mem_valid_i (x_mem_valid_i),
+      .x_mem_ready_o (x_mem_ready_o),
+      .x_mem_req_i (x_mem_req_i),
+      .x_mem_resp_o (x_mem_resp_o),
+
+      // Memory Result Interface
+      .x_mem_result_valid_o (x_mem_result_valid_o),
+      .x_mem_result_o (x_mem_result_o),
+
+      // Result Interface
+      .x_result_valid_i (x_result_valid_i),
+      .x_result_ready_o (x_result_ready_o),
+      .x_result_i (x_result_i),
+      .x_result_valid_assigned_o (x_result_valid_assigned),
+
+      // // X-Interface
+      // .x_valid_o          (x_valid_o),
+      // .x_ready_i          (x_ready_i),
+      // .x_instr_data_o     (x_instr_data_o),
+      // .x_rs_o             (x_rs_o),
+      // .x_rs_valid_o       (x_rs_valid_o),
+      // .x_rd_clean_o       (x_rd_clean_o),
+      // .x_accept_i         (x_accept_i),
+      // .x_is_mem_op_i      (x_is_mem_op_i),
+      // .x_writeback_i      (x_writeback_i),
+      // .x_rvalid_i         (x_rvalid_i),
+      // .x_rd_i             (x_rd_i),
+      // .x_rvalid_assigned_o(x_rvalid),  // hardwired to ground if FPU = 0
+      // .x_rready_o         (x_rready_o),
+
+      // .xmem_valid_i           (xmem_valid_i),
+      // .xmem_ready_o           (xmem_ready_o),
+      // .xmem_laddr_i           (xmem_laddr_i),
+      // .xmem_wdata_i           (xmem_wdata_i),
+      // .xmem_width_i           (xmem_width_i),
+      // .xmem_req_type_i        (xmem_req_type_i),
+      // .xmem_mode_i            (xmem_mode_i),
+      // .xmem_spec_i            (xmem_spec_i),
+      // .xmem_endoftransaction_i(xmem_endoftransaction_i),
+
+      .x_mem_instr_ex_o(x_mem_instr),
+      .x_mem_id_ex_o   (x_mem_id_ex),
+      .x_mem_instr_wb_i(x_mem_instr_wb),
+
+      // .xmem_rvalid_o(xmem_rvalid_o),
+      // .xmem_rready_i(xmem_rready_i),
+      // .xmem_status_o(xmem_status_o),
 
       // CSR ID/EX
       .csr_access_ex_o      (csr_access_ex),
@@ -788,13 +856,16 @@ module cv32e40p_core
       .apu_en_i(apu_en_ex),
 
       // X-Interface
-      .x_rvalid_i     (x_rvalid),
-      .x_rd_i         (x_rd_i),
-      .x_data_i       (x_data_i),
-      .xmem_instr_i   (xmem_instr),
-      .xmem_rdata_o   (xmem_rdata_o),
-      .xmem_instr_wb_o(xmem_instr_wb),
-
+      .x_result_valid_assigned_i (x_result_valid_assigned),
+      .x_result_rd_i             (x_result_i.rd),
+      .x_result_data_i           (x_result_i.data),
+      .x_result_we_i             (x_result_i.we),
+      .x_mem_instr_i             (x_mem_instr),
+      .x_mem_id_ex_i             (x_mem_id_ex),
+      .x_mem_result_rdata_o      (x_mem_result_o.rdata),
+      .x_mem_instr_wb_o          (x_mem_instr_wb),
+      .x_mem_result_id_o         (x_mem_result_o.id),
+     
       .lsu_en_i   (data_req_ex),
       .lsu_rdata_i(lsu_rdata),
 

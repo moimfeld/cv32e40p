@@ -31,6 +31,7 @@
 
 module cv32e40p_ex_stage
   import cv32e40p_pkg::*;
+  import cv32e40p_core_v_xif_pkg::*;
 (
     input logic clk,
     input logic rst_n,
@@ -73,12 +74,15 @@ module cv32e40p_ex_stage
     input logic apu_en_i,
 
     // X-Interface
-    input  logic        x_rvalid_i,
-    input  logic [ 4:0] x_rd_i,
-    input  logic [31:0] x_data_i,
-    input  logic        xmem_instr_i,
-    output logic [31:0] xmem_rdata_o,
-    output logic        xmem_instr_wb_o,
+    input  logic        x_result_valid_assigned_i,
+    input  logic [ 4:0] x_result_rd_i,
+    input  logic [31:0] x_result_data_i,
+    input  logic        x_result_we_i,
+    input  logic        x_mem_instr_i,
+    input  logic [ 3:0] x_mem_id_ex_i,
+    output logic [31:0] x_mem_result_rdata_o,
+    output logic        x_mem_instr_wb_o,
+    output logic [ 3:0] x_mem_result_id_o,
 
     input logic        lsu_en_i,
     input logic [31:0] lsu_rdata_i,
@@ -137,10 +141,10 @@ module cv32e40p_ex_stage
     wb_contention          = 1'b0;
     regfile_alu_we_fw_o    = '0;
     regfile_alu_waddr_fw_o = '0;
-    if (x_rvalid_i & (x_rd_i != 5'b00000)) begin // CSR instructions could send a writeback to x0 register, which is not allowed
+    if (x_result_valid_assigned_i & x_result_we_i & (x_result_rd_i != 5'b00000)) begin // CSR instructions could send a writeback to x0 register, which is not allowed
       regfile_alu_we_fw_o    = 1'b1;
-      regfile_alu_waddr_fw_o = {1'b0, x_rd_i};
-      regfile_alu_wdata_fw_o = x_data_i;
+      regfile_alu_waddr_fw_o = {1'b0, x_result_rd_i};
+      regfile_alu_wdata_fw_o = x_result_data_i;
       wb_contention          = 1'b1;
     end else begin
       regfile_alu_we_fw_o    = regfile_alu_we_i & ~apu_en_i;
@@ -163,7 +167,7 @@ module cv32e40p_ex_stage
   end
 
   // X-Interface writeback
-  assign xmem_rdata_o      = lsu_rdata_i;
+  assign x_mem_result_rdata_o = lsu_rdata_i;
 
   // branch handling
   assign branch_decision_o = alu_cmp_result;
@@ -249,14 +253,16 @@ module cv32e40p_ex_stage
   ///////////////////////////////////////
   always_ff @(posedge clk, negedge rst_n) begin : EX_WB_Pipeline_Register
     if (~rst_n) begin
-      regfile_waddr_lsu <= '0;
-      regfile_we_lsu    <= 1'b0;
-      xmem_instr_wb_o   <= 1'b0;
+      regfile_waddr_lsu  <= '0;
+      regfile_we_lsu     <= 1'b0;
+      x_mem_instr_wb_o   <= 1'b0;
+      x_mem_result_id_o  <= '0;
     end else begin
       if (ex_valid_o) // wb_ready_i is implied
       begin
-        regfile_we_lsu  <= regfile_we_i & ~lsu_err_i;
-        xmem_instr_wb_o <= xmem_instr_i;
+        regfile_we_lsu    <= regfile_we_i & ~lsu_err_i;
+        x_mem_instr_wb_o  <= x_mem_instr_i;
+        x_mem_result_id_o <= x_mem_id_ex_i;
         if (regfile_we_i & ~lsu_err_i) begin
           regfile_waddr_lsu <= regfile_waddr_i;
         end
