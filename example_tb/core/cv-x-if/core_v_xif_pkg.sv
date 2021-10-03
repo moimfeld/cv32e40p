@@ -59,7 +59,7 @@ package core_v_xif_pkg;
 
   typedef struct packed {
     logic [X_ID_WIDTH-1:0] id;
-    logic x_commit_kill;
+    logic commit_kill;
   } x_commit_t;
 
   typedef struct packed {
