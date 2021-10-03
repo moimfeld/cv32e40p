@@ -170,35 +170,6 @@ module cv32e40p_id_stage
     input  x_result_t x_result_i,
     output logic x_result_valid_assigned_o,
 
-    // output logic              x_valid_o,
-    // input  logic              x_ready_i,
-    // output logic [31:0]       x_instr_data_o,
-    // output logic [ 2:0][31:0] x_rs_o,
-    // output logic [ 2:0]       x_rs_valid_o,
-    // output logic              x_rd_clean_o,
-    // input  logic              x_accept_i,
-    // input  logic              x_is_mem_op_i,
-    // input  logic              x_writeback_i,
-    // input  logic              x_rvalid_i,
-    // input  logic [ 4:0]       x_rd_i,
-    // output logic              x_rvalid_assigned_o,
-    // output logic              x_rready_o,
-
-    // input  logic                 xmem_valid_i,
-    // output logic                 xmem_ready_o,
-    // input  logic          [31:0] xmem_laddr_i,
-    // input  logic          [31:0] xmem_wdata_i,
-    // input  logic          [ 2:0] xmem_width_i,
-    // input  mem_req_type_e        xmem_req_type_i,
-    // input  logic                 xmem_mode_i,
-    // input  logic                 xmem_spec_i,
-    // input  logic                 xmem_endoftransaction_i,
-
-
-    // output logic xmem_rvalid_o,
-    // input  logic xmem_rready_i,
-    // output logic xmem_status_o,
-
     // CSR ID/EX
     output logic              csr_access_ex_o,
     output csr_opcode_e       csr_op_ex_o,
@@ -420,7 +391,7 @@ module cv32e40p_id_stage
   logic x_stall;
   logic [2:0][4:0] x_rs_addr;
   logic x_mem_data_req;
-  logic xmem_valid;
+  logic x_mem_valid;
 
   // Register Write Control
   logic regfile_we_id;
@@ -1067,7 +1038,7 @@ module cv32e40p_id_stage
       assign x_waddr_wb                = regfile_waddr_wb_i[4:0];
       assign x_regs_used               = {regc_used, regb_used, rega_used};
       assign x_result_valid_assigned_o = x_result_valid_i;
-      assign xmem_valid                = x_mem_valid_i;
+      assign x_mem_valid                = x_mem_valid_i;
 
       // x-interface integer souce register assignment
       assign x_issue_req_o.rs[0] = regfile_data_ra_id;
@@ -1109,7 +1080,7 @@ module cv32e40p_id_stage
       // default assignment for x-interface control signals
       assign x_stall                   = 1'b0;
       assign x_result_valid_assigned_o = 1'b0;
-      assign xmem_valid                = 1'b0;
+      assign x_mem_valid                = 1'b0;
 
       // default illegal instruction assignment
       assign illegal_insn        = illegal_insn_dec;
@@ -1532,7 +1503,7 @@ module cv32e40p_id_stage
     end else if (mult_multicycle_i) begin
       mult_operand_c_ex_o <= operand_c_fw_id;
     end else begin
-      x_mem_instr_ex_o <= xmem_valid;
+      x_mem_instr_ex_o <= x_mem_valid;
       x_mem_id_ex_o    <= x_mem_req_i.id;
 
       // normal pipeline unstall case
@@ -1692,7 +1663,7 @@ module cv32e40p_id_stage
 
   // stall control
   assign id_ready_o = ((~misaligned_stall) & (~jr_stall) & (~load_stall) & (~csr_apu_stall) & (~x_stall) & ex_ready_i);
-  assign id_valid_o = (~halt_id) & id_ready_o | xmem_valid;
+  assign id_valid_o = (~halt_id) & id_ready_o | x_mem_valid;
   assign halt_if_o = halt_if;
 
 

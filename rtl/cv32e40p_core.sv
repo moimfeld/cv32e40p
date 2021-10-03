@@ -102,40 +102,6 @@ module cv32e40p_core
     output logic x_result_ready_o,
     input  x_result_t x_result_i,
 
-    // // X-Request Channel
-    // output logic                                 x_valid_o,
-    // input  logic                                 x_ready_i,
-    // output logic          [          31:0]       x_instr_data_o,
-    // output logic          [           2:0][31:0] x_rs_o,
-    // output logic          [           2:0]       x_rs_valid_o,
-    // output logic                                 x_rd_clean_o,
-    // input  logic                                 x_accept_i,
-    // input  logic                                 x_is_mem_op_i,
-    // input  logic                                 x_writeback_i,
-    // // X-Response Channel
-    // input  logic                                 x_rvalid_i,
-    // output logic                                 x_rready_o,
-    // input  logic          [           4:0]       x_rd_i,
-    // input  logic          [          31:0]       x_data_i,
-    // input  logic                                 x_dualwb_i,
-    // input  logic                                 x_error_i,
-    // // XMem-Request Channel
-    // input  logic                                 xmem_valid_i,
-    // output logic                                 xmem_ready_o,
-    // input  logic          [          31:0]       xmem_laddr_i,
-    // input  logic          [          31:0]       xmem_wdata_i,
-    // input  logic          [           2:0]       xmem_width_i,
-    // input  mem_req_type_e                        xmem_req_type_i,
-    // input  logic                                 xmem_mode_i,
-    // input  logic                                 xmem_spec_i,
-    // input  logic                                 xmem_endoftransaction_i,
-    // // XMem-Response Channel
-    // output logic                                 xmem_rvalid_o,
-    // input  logic                                 xmem_rready_i,
-    // output logic          [          31:0]       xmem_rdata_o,
-    // output logic          [$clog2(32)-1:0]       xmem_range_o,
-    // output logic                                 xmem_status_o,
-
     // Interrupt inputs
     input  logic [31:0] irq_i,  // CLINT interrupts + CLINT extension interrupts
     output logic        irq_ack_o,
@@ -671,38 +637,9 @@ module cv32e40p_core
       .x_result_i (x_result_i),
       .x_result_valid_assigned_o (x_result_valid_assigned),
 
-      // // X-Interface
-      // .x_valid_o          (x_valid_o),
-      // .x_ready_i          (x_ready_i),
-      // .x_instr_data_o     (x_instr_data_o),
-      // .x_rs_o             (x_rs_o),
-      // .x_rs_valid_o       (x_rs_valid_o),
-      // .x_rd_clean_o       (x_rd_clean_o),
-      // .x_accept_i         (x_accept_i),
-      // .x_is_mem_op_i      (x_is_mem_op_i),
-      // .x_writeback_i      (x_writeback_i),
-      // .x_rvalid_i         (x_rvalid_i),
-      // .x_rd_i             (x_rd_i),
-      // .x_rvalid_assigned_o(x_rvalid),  // hardwired to ground if FPU = 0
-      // .x_rready_o         (x_rready_o),
-
-      // .xmem_valid_i           (xmem_valid_i),
-      // .xmem_ready_o           (xmem_ready_o),
-      // .xmem_laddr_i           (xmem_laddr_i),
-      // .xmem_wdata_i           (xmem_wdata_i),
-      // .xmem_width_i           (xmem_width_i),
-      // .xmem_req_type_i        (xmem_req_type_i),
-      // .xmem_mode_i            (xmem_mode_i),
-      // .xmem_spec_i            (xmem_spec_i),
-      // .xmem_endoftransaction_i(xmem_endoftransaction_i),
-
       .x_mem_instr_ex_o(x_mem_instr),
       .x_mem_id_ex_o   (x_mem_id_ex),
       .x_mem_instr_wb_i(x_mem_instr_wb),
-
-      // .xmem_rvalid_o(xmem_rvalid_o),
-      // .xmem_rready_i(xmem_rready_i),
-      // .xmem_status_o(xmem_status_o),
 
       // CSR ID/EX
       .csr_access_ex_o      (csr_access_ex),
