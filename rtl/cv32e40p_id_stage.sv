@@ -29,7 +29,7 @@
 
 module cv32e40p_id_stage
   import cv32e40p_pkg::*;
-  import cv32e40p_x_if_pkg::*;
+  import cv32e40p_core_v_xif_pkg::*;
 #(
     parameter PULP_XPULP        =  1,                     // PULP ISA Extension (including PULP specific CSRs and hardware loop, excluding p.elw)
     parameter PULP_CLUSTER = 0,
@@ -131,37 +131,73 @@ module cv32e40p_id_stage
     // APU
     output logic apu_en_ex_o,
 
-    //X-Interface
-    output logic              x_valid_o,
-    input  logic              x_ready_i,
-    output logic [31:0]       x_instr_data_o,
-    output logic [ 2:0][31:0] x_rs_o,
-    output logic [ 2:0]       x_rs_valid_o,
-    output logic              x_rd_clean_o,
-    input  logic              x_accept_i,
-    input  logic              x_is_mem_op_i,
-    input  logic              x_writeback_i,
-    input  logic              x_rvalid_i,
-    input  logic [ 4:0]       x_rd_i,
-    output logic              x_rvalid_assigned_o,
-    output logic              x_rready_o,
+    // CORE-V-XIF
 
-    input  logic                 xmem_valid_i,
-    output logic                 xmem_ready_o,
-    input  logic          [31:0] xmem_laddr_i,
-    input  logic          [31:0] xmem_wdata_i,
-    input  logic          [ 2:0] xmem_width_i,
-    input  mem_req_type_e        xmem_req_type_i,
-    input  logic                 xmem_mode_i,
-    input  logic                 xmem_spec_i,
-    input  logic                 xmem_endoftransaction_i,
+    // Compressed interface (unused at the moment)
+    output logic x_compressed_valid_o,
+    input  logic x_compressed_ready_i,
+    output x_compressed_req_t x_compressed_req_o,
+    input  x_compressed_resp_t x_compressed_resp_i,
 
-    output logic xmem_instr_ex_o,
-    input  logic xmem_instr_wb_i,
+    // Issue Interface
+    output logic x_issue_valid_o,
+    input  logic x_issue_ready_i,
+    output x_issue_req_t x_issue_req_o,
+    input  x_issue_resp_t x_issue_resp_i,
 
-    output logic xmem_rvalid_o,
-    input  logic xmem_rready_i,
-    output logic xmem_status_o,
+    // Commit Interface
+    output logic x_commit_valid_o,
+    output x_commit_t x_commit_o,
+
+    // Memory request/response Interface
+    input  logic x_mem_valid_i,
+    output logic x_mem_ready_o,
+    input  x_mem_req_t x_mem_req_i,
+    output x_mem_resp_t x_mem_resp_o,
+
+    // Memory Result Interface
+    output logic x_mem_result_valid_o,
+    output x_mem_result_t x_mem_result_o,
+
+    // Core internal xif memory signals
+    output logic       x_mem_instr_ex_o,
+    output logic [3:0] x_mem_id_ex_o,
+    input  logic       x_mem_instr_wb_i,
+
+    // Result Interface
+    input  logic x_result_valid_i,
+    output logic x_result_ready_o,
+    input  x_result_t x_result_i,
+    output logic x_result_valid_assigned_o,
+
+    // output logic              x_valid_o,
+    // input  logic              x_ready_i,
+    // output logic [31:0]       x_instr_data_o,
+    // output logic [ 2:0][31:0] x_rs_o,
+    // output logic [ 2:0]       x_rs_valid_o,
+    // output logic              x_rd_clean_o,
+    // input  logic              x_accept_i,
+    // input  logic              x_is_mem_op_i,
+    // input  logic              x_writeback_i,
+    // input  logic              x_rvalid_i,
+    // input  logic [ 4:0]       x_rd_i,
+    // output logic              x_rvalid_assigned_o,
+    // output logic              x_rready_o,
+
+    // input  logic                 xmem_valid_i,
+    // output logic                 xmem_ready_o,
+    // input  logic          [31:0] xmem_laddr_i,
+    // input  logic          [31:0] xmem_wdata_i,
+    // input  logic          [ 2:0] xmem_width_i,
+    // input  mem_req_type_e        xmem_req_type_i,
+    // input  logic                 xmem_mode_i,
+    // input  logic                 xmem_spec_i,
+    // input  logic                 xmem_endoftransaction_i,
+
+
+    // output logic xmem_rvalid_o,
+    // input  logic xmem_rready_i,
+    // output logic xmem_status_o,
 
     // CSR ID/EX
     output logic              csr_access_ex_o,
@@ -383,8 +419,7 @@ module cv32e40p_id_stage
   logic [2:0] x_regs_used;
   logic x_stall;
   logic [2:0][4:0] x_rs_addr;
-  logic xmem_data_req;
-  logic xmem_we;
+  logic x_mem_data_req;
   logic xmem_valid;
 
   // Register Write Control
@@ -968,77 +1003,89 @@ module cv32e40p_id_stage
           .rst_ni(rst_n),
 
           // scoreboard and dependency check/stall
-          .x_waddr_id_i      (x_waddr_id),
-          .x_writeback_i     (x_writeback_i),
-          .x_waddr_ex_i      (x_waddr_ex),
-          .x_we_ex_i         (regfile_alu_we_ex_o),
-          .x_waddr_wb_i      (x_waddr_wb),
-          .x_we_wb_i         (regfile_we_wb_i),
-          .x_rwaddr_i        (x_rd_i),
-          .x_rvalid_i        (x_rvalid_i),
-          .x_rs_addr_i       (x_rs_addr),
-          .x_regs_used_i     (x_regs_used),
-          .x_branch_or_jump_i(branch_in_ex_o),
-          .x_data_req_dec_i  (data_req_dec),
+          .x_waddr_id_i             (x_waddr_id),
+          .x_issue_resp_writeback_i (x_issue_resp_i.writeback),
+          .x_waddr_ex_i             (x_waddr_ex),
+          .x_we_ex_i                (regfile_alu_we_ex_o),
+          .x_waddr_wb_i             (x_waddr_wb),
+          .x_we_wb_i                (regfile_we_wb_i),
+          .x_result_rd_i            (x_result_i.rd),
+          .x_result_valid_i         (x_result_valid_i),
+          .x_rs_addr_i              (x_rs_addr),
+          .x_regs_used_i            (x_regs_used),
+          .x_branch_or_jump_i       (branch_in_ex_o),
+          .x_data_req_dec_i         (data_req_dec),
 
           // x-request and response channel signals
-          .x_valid_o    (x_valid_o),
-          .x_ready_i    (x_ready_i),
-          .x_accept_i   (x_accept_i),
-          .x_is_mem_op_i(x_is_mem_op_i),
-          .x_rs_valid_o (x_rs_valid_o),
-          .x_rd_clean_o (x_rd_clean_o),
-          .x_stall_o    (x_stall),
-          .x_rready_o   (x_rready_o),
+          .x_issue_valid_o          (x_issue_valid_o),
+          .x_issue_ready_i          (x_issue_ready_i),
+          .x_issue_resp_accept_i    (x_issue_resp_i.accept),
+          .x_issue_resp_loadstore_i (x_issue_resp_i.loadstore),
+          .x_issue_req_rs_valid_o   (x_issue_req_o.rs_valid),
+          .x_issue_req_id_o         (x_issue_req_o.id),
+          .x_issue_req_frs_valid_o  (x_issue_req_o.frs_valid),
+          .x_issue_req_mode_o       (x_issue_req_o.mode),
+          .x_stall_o                (x_stall),
+          .x_result_ready_o         (x_result_ready_o),
+
+          // commit interface
+          .x_commit_valid_o         (x_commit_valid_o),
+          .x_commit_id_o            (x_commit_o.id),
+          .x_commit_commit_kill     (x_commit_o.commit_kill),
 
           // xmem-request signals
-          .xmem_valid_i           (xmem_valid),
-          .xmem_ready_o           (xmem_ready_o),
-          .xmem_req_type_i        (xmem_req_type_i),
-          .xmem_mode_i            (xmem_mode_i),
-          .xmem_spec_i            (xmem_spec_i),
-          .xmem_endoftransaction_i(xmem_endoftransaction_i),
+          .x_mem_valid_i            (x_mem_valid_i),
+          .x_mem_ready_o            (x_mem_ready_o),
+          .x_mem_req_mode_i         (x_mem_req_i.mode),
+          .x_mem_req_spec_i         (x_mem_req_i.spec),
+          .x_mem_req_last_i         (x_mem_req_i.last),
+          .x_mem_resp_exc_o         (x_mem_resp_o.exc),
+          .x_mem_resp_exccode_o     (x_mem_resp_o.exccode),
 
           // memory request core-internal status signals
-          .xmem_data_req_o(xmem_data_req),
-          .xmem_we_o      (xmem_we),
-          .xmem_instr_wb_i(xmem_instr_wb_i),
+          .x_mem_data_req_o(x_mem_data_req),
+          .x_mem_instr_wb_i(x_mem_instr_wb_i),
 
           // xmem-response signals
-          .xmem_rvalid_o(xmem_rvalid_o),
-          .xmem_rready_i(xmem_rready_i),
-          .xmem_status_o(xmem_status_o),
+          .x_mem_result_valid_o (x_mem_result_valid_o),
+          .x_mem_result_err_o   (x_mem_result_o.err),
 
           // additional status signals
           .x_illegal_insn_dec_i(illegal_insn_dec),
           .x_illegal_insn_o    (x_illegal_insn),
-          .id_ready_i          (id_ready_o)
+          .id_ready_i          (id_ready_o),
+          .current_priv_lvl_i  (current_priv_lvl_i)
       );
 
       // x-dispatcher signal assignments
-      assign x_instr_data_o      = instr;
-      assign x_rs_addr[0]        = regfile_addr_ra_id[4:0];
-      assign x_rs_addr[1]        = regfile_addr_rb_id[4:0];
-      assign x_rs_addr[2]        = regfile_addr_rc_id[4:0];
-      assign x_waddr_id          = instr[REG_D_MSB:REG_D_LSB];
-      assign x_waddr_ex          = regfile_alu_waddr_ex_o[4:0];
-      assign x_waddr_wb          = regfile_waddr_wb_i[4:0];
-      assign x_regs_used         = {regc_used, regb_used, rega_used};
-      assign x_rvalid_assigned_o = x_rvalid_i;
-      assign xmem_valid          = xmem_valid_i;
+      assign x_issue_req_o.instr       = instr;
+      assign x_rs_addr[0]              = regfile_addr_ra_id[4:0];
+      assign x_rs_addr[1]              = regfile_addr_rb_id[4:0];
+      assign x_rs_addr[2]              = regfile_addr_rc_id[4:0];
+      assign x_waddr_id                = instr[REG_D_MSB:REG_D_LSB];
+      assign x_waddr_ex                = regfile_alu_waddr_ex_o[4:0];
+      assign x_waddr_wb                = regfile_waddr_wb_i[4:0];
+      assign x_regs_used               = {regc_used, regb_used, rega_used};
+      assign x_result_valid_assigned_o = x_result_valid_i;
+      assign xmem_valid                = x_mem_valid_i;
 
-      // x-interface signal assignment
-      assign x_rs_o[0]           = regfile_data_ra_id;
-      assign x_rs_o[1]           = regfile_data_rb_id;
-      assign x_rs_o[2]           = regfile_data_rc_id;
+      // x-interface integer souce register assignment
+      assign x_issue_req_o.rs[0] = regfile_data_ra_id;
+      assign x_issue_req_o.rs[1] = regfile_data_rb_id;
+      assign x_issue_req_o.rs[2] = regfile_data_rc_id;
+
+      // x-interface floating-point register assignment (hardwired to 0 according to specifications)
+      assign x_isse_req_o.frs[0] = '0;
+      assign x_isse_req_o.frs[1] = '0;
+      assign x_isse_req_o.frs[2] = '0;
 
       // illegal instruction signal
       assign illegal_insn        = x_illegal_insn;
 
       // LSU signal assignment/MUX
-      assign regfile_we_id       = regfile_we_id_dec & ~xmem_data_req;
-      assign data_req_id         = data_req_dec & ~xmem_valid_i | xmem_data_req;
-      assign data_we_id          = data_we_dec & ~xmem_valid_i | xmem_we;
+      assign regfile_we_id       = regfile_we_id_dec & ~x_mem_data_req;
+      assign data_req_id         = data_req_dec & ~x_mem_valid_i | x_mem_data_req;
+      assign data_we_id          = data_we_dec & ~x_mem_valid_i | x_mem_req_i.we;
       always_comb begin
         data_type_id       = data_type_dec;
         data_sign_ext_id   = data_sign_ext_dec;
@@ -1047,22 +1094,22 @@ module cv32e40p_id_stage
         alu_operand_a      = alu_operand_a_dec;
         alu_operand_c      = alu_operand_c_dec;
         prepost_useincr    = prepost_useincr_dec;
-        if (xmem_data_req) begin
+        if (x_mem_data_req) begin
           data_type_id       = 2'b00;  //xmem_width_i[1:0]; // NOTE: NOT AGNOSTIC
           data_sign_ext_id   = 2'b00;
           data_reg_offset_id = 2'b00;
           data_load_event_id = 1'b0;
-          alu_operand_a      = xmem_laddr_i;
-          alu_operand_c      = xmem_wdata_i;
+          alu_operand_a      = x_mem_req_i.addr;
+          alu_operand_c      = x_mem_req_i.wdata;
           prepost_useincr    = 1'b0;
         end
       end
     end else begin : gen_no_x_disp
 
       // default assignment for x-interface control signals
-      assign x_stall             = 1'b0;
-      assign x_rvalid_assigned_o = 1'b0;
-      assign xmem_valid          = 1'b0;
+      assign x_stall                   = 1'b0;
+      assign x_result_valid_assigned_o = 1'b0;
+      assign xmem_valid                = 1'b0;
 
       // default illegal instruction assignment
       assign illegal_insn        = illegal_insn_dec;
@@ -1438,7 +1485,8 @@ module cv32e40p_id_stage
       apu_en_ex_o            <= 1'b0;
       apu_lat_ex_o           <= 2'b0;
 
-      xmem_instr_ex_o        <= 1'b0;
+      x_mem_instr_ex_o       <= 1'b0;
+      x_mem_id_ex_o          <= '0;
 
       regfile_waddr_ex_o     <= 6'b0;
       regfile_we_ex_o        <= 1'b0;
@@ -1484,7 +1532,8 @@ module cv32e40p_id_stage
     end else if (mult_multicycle_i) begin
       mult_operand_c_ex_o <= operand_c_fw_id;
     end else begin
-      xmem_instr_ex_o <= xmem_valid;
+      x_mem_instr_ex_o <= xmem_valid;
+      x_mem_id_ex_o    <= x_mem_req_i.id;
 
       // normal pipeline unstall case
 
