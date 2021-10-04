@@ -64,41 +64,37 @@ module cv32e40p_wrapper
     output logic [31:0] data_wdata_o,
     input  logic [31:0] data_rdata_i,
 
-    // X-Interface
-    // X-Request Channel
-    output logic              x_valid_o,
-    input  logic              x_ready_i,
-    output logic [31:0]       x_instr_data_o,
-    output logic [ 2:0][31:0] x_rs_o,
-    output logic [ 2:0]       x_rs_valid_o,
-    output logic              x_rd_clean_o,
-    input  logic              x_accept_i,
-    input  logic              x_is_mem_op_i,
-    input  logic              x_writeback_i,
-    // X-Response Channel
-    input  logic              x_rvalid_i,
-    output logic              x_rready_o,
-    input  logic [ 4:0]       x_rd_i,
-    input  logic [31:0]       x_data_i,
-    input  logic              x_dualwb_i,
-    input  logic              x_error_i,
-    // XMem-Request Channel
-    input  logic                             xmem_valid_i,
-    output logic                             xmem_ready_o,
-    input  logic                      [31:0] xmem_laddr_i,
-    input  logic                      [31:0] xmem_wdata_i,
-    input  logic                      [ 2:0] xmem_width_i,
-    input  cv32e40p_x_if_pkg::mem_req_type_e xmem_req_type_i,
-    input  logic                             xmem_mode_i,
-    input  logic                             xmem_spec_i,
-    input  logic                             xmem_endoftransaction_i,
-    // XMem-Response Channel
-    output logic                  xmem_rvalid_o,
-    input  logic                  xmem_rready_i,
-    output logic [          31:0] xmem_rdata_o,
-    output logic [$clog2(32)-1:0] xmem_range_o,
-    output logic                  xmem_status_o,
+    // CORE-V-XIF
+    // Compressed interface
+    output logic x_compressed_valid_o, // not implemented
+    input  logic x_compressed_ready_i, // not implemented
+    output x_compressed_req_t x_compressed_req_o, // not implemented
+    input  x_compressed_resp_t x_compressed_resp_i, // not implemented
 
+    // Issue Interface
+    output logic x_issue_valid_o,
+    input  logic x_issue_ready_i,
+    output x_issue_req_t x_issue_req_o,
+    input  x_issue_resp_t x_issue_resp_i,
+
+    // Commit Interface
+    output logic x_commit_valid_o,
+    output x_commit_t x_commit_o,
+
+    // Memory request/response Interface
+    input  logic x_mem_valid_i,
+    output logic x_mem_ready_o,
+    input  x_mem_req_t x_mem_req_i,
+    output x_mem_resp_t x_mem_resp_o,
+
+    // Memory Result Interface
+    output logic x_mem_result_valid_o,
+    output x_mem_result_t x_mem_result_o,
+
+    // Result Interface
+    input  logic x_result_valid_i,
+    output logic x_result_ready_o,
+    input  x_result_t x_result_i,
 
     // Interrupt inputs
     input  logic [31:0] irq_i,  // CLINT interrupts + CLINT extension interrupts
