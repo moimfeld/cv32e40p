@@ -25,7 +25,6 @@
 // Description:    Execution stage: Hosts ALU and MAC unit                    //
 //                 ALU: computes additions/subtractions/comparisons           //
 //                 MULT: computes normal multiplications                      //
-//                 APU_DISP: offloads instructions to the shared unit.        //
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
