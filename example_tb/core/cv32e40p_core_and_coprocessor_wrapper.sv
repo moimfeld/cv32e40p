@@ -1,5 +1,6 @@
 module cv32e40p_core_and_coprocessor_wrapper
     import cv32e40p_x_if_pkg::*;
+    import cv32e30p_core_v_xif_pkg::*;
   #(
     parameter INSTR_RDATA_WIDTH = 32,
     parameter BOOT_ADDR = 'h180,
@@ -45,41 +46,41 @@ module cv32e40p_core_and_coprocessor_wrapper
 
   logic                               core_sleep;
 
+  // Compressed interface
+  logic x_compressed_valid, // not implemented
+  logic x_compressed_ready, // not implemented
+  x_compressed_req_t x_compressed_req, // not implemented
+  x_compressed_resp_t x_compressed_resp, // not implemented
 
+  // Issue Interface
+  logic x_issue_valid,
+  logic x_issue_ready,
+  x_issue_req_t x_issue_req,
+  x_issue_resp_t x_issue_resp,
 
-  // X-Interface
-  logic                               x_valid;
-  logic                               x_ready;
-  logic [                 31:0]       x_instr_data;
-  logic [                  2:0][31:0] x_rs;
-  logic [                  2:0]       x_rs_valid;
-  logic                               x_rd_clean;
-  logic                               x_accept;
-  logic                               x_is_mem_op;
-  logic                               x_writeback;
+  // Commit Interface
+  logic x_commit_valid,
+  x_commit_t x_commit,
 
-  logic                               x_rvalid;
-  logic                               x_rready;
-  logic [                  4:0]       x_rd;
-  logic [                 31:0]       x_data;
-  logic                               x_dualwb;
-  logic                               x_error;
+  // Memory request/response Interface
+  logic x_mem_valid,
+  logic x_mem_ready,
+  x_mem_req_t x_mem_req,
+  x_mem_resp_t x_mem_resp,
 
-  logic                               xmem_valid;
-  logic                               xmem_ready;
-  logic [                 31:0]       xmem_laddr;
-  logic [                 31:0]       xmem_wdata;
-  logic [                  2:0]       xmem_width;
-  mem_req_type_e                      xmem_req_type;
-  logic                               xmem_mode;
-  logic                               xmem_spec;
-  logic                               xmem_endoftransaction;
+  // Memory Result Interface
+  logic x_mem_result_valid,
+  x_mem_result_t x_mem_result,
 
-  logic                               xmem_rvalid;
-  logic                               xmem_rready;
-  logic [                 31:0]       xmem_rdata;
-  logic [       $clog2(32)-1:0]       xmem_range;
-  logic                               xmem_status;
+  // Result Interface
+  logic x_result_valid,
+  logic x_result_ready,
+  x_result_t x_result,
+
+  assign x_compressed_ready       = '0;
+  assign x_compressed_resp.instr  = '0;
+  assign x_compressed_resp.accept = '0;
+
 
 
   cv32e40p_wrapper #(
@@ -116,38 +117,38 @@ module cv32e40p_core_and_coprocessor_wrapper
     .data_gnt_i   (data_gnt_i),
     .data_rvalid_i(data_rvalid_i),
 
-    .x_valid_o     (x_valid),
-    .x_ready_i     (x_ready),
-    .x_instr_data_o(x_instr_data),
-    .x_rs_o        (x_rs),
-    .x_rs_valid_o  (x_rs_valid),
-    .x_rd_clean_o  (x_rd_clean),
-    .x_accept_i    (x_accept),
-    .x_is_mem_op_i (x_is_mem_op),
-    .x_writeback_i (x_writeback),
+    // CORE-V-XIF
 
-    .x_rvalid_i    (x_rvalid),
-    .x_rready_o    (x_rready),
-    .x_rd_i        (x_rd),
-    .x_data_i      (x_data),
-    .x_dualwb_i    (x_dualwb),
-    .x_error_i     (x_error),
+    // Compressed interface
+    .x_compressed_valid_o(x_compressed_valid), // not implemented
+    .x_compressed_ready_i(x_compressed_ready), // not implemented
+    .x_compressed_req_o(x_compressed_req), // not implemented
+    .x_compressed_resp_i(x_compressed_resp), // not implemented
 
-    .xmem_valid_i            (xmem_valid),
-    .xmem_ready_o            (xmem_ready),
-    .xmem_laddr_i            (xmem_laddr),
-    .xmem_wdata_i            (xmem_wdata),
-    .xmem_width_i            (xmem_width),
-    .xmem_req_type_i         (xmem_req_type),
-    .xmem_mode_i             (xmem_mode),
-    .xmem_spec_i             (xmem_spec),
-    .xmem_endoftransaction_i (xmem_endoftransaction),
+    // Issue Interface
+    .x_issue_valid_o(x_issue_valid),
+    .x_issue_ready_i(x_issue_ready),
+    .x_issue_req_o(x_issue_req),
+    .x_issue_resp_i(x_issue_resp),
 
-    .xmem_rvalid_o (xmem_rvalid),
-    .xmem_rready_i (xmem_rready),
-    .xmem_rdata_o  (xmem_rdata),
-    .xmem_range_o  (xmem_range),
-    .xmem_status_o (xmem_status),
+    // Commit Interface
+    .x_commit_valid_o(x_commit_valid),
+    .x_commit_o(x_commit),
+
+    // Memory request/response Interface
+    .x_mem_valid_i(x_mem_valid),
+    .x_mem_ready_o(x_mem_ready),
+    .x_mem_req_i(x_mem_req),
+    .x_mem_resp_o(x_mem_resp),
+
+    // Memory Result Interface
+    .x_mem_result_valid_o(x_mem_result_valid),
+    .x_mem_result_o(x_mem_result),
+
+    // Result Interface
+    .x_result_valid_i(x_result_valid),
+    .x_result_ready_o(x_result_ready),
+    .x_result_i(x_result),
 
     .irq_i    ({irq_fast_i, 4'b0, irq_external_i, 3'b0, irq_timer_i, 3'b0, irq_software_i, 3'b0}),
     .irq_ack_o(irq_ack_o),
@@ -163,60 +164,72 @@ module cv32e40p_core_and_coprocessor_wrapper
   );
 
   generate
-    if (FPU) begin : gen_cv_x_if_wrapper
-      cv32e40p_cv_x_if_wrapper #(
-        .PULP_ZFINX(PULP_ZFINX)
-      ) cv_x_if_wrapper_i (
-        .clk_i (clk_i),
-        .rst_ni(rst_ni),
+    if (FPU) begin : gen_fpu_ss
+      fpu_ss #(
+      .PULP_ZFINX(PULP_ZFINX),
+      .BUFFER_DEPTH(1),
+      .INT_REG_WB_DELAY(1),
+      .OUT_OF_ORDER(1),
+      .FORWARDING(1),
+      .FPU_FEATURES(cv32e40p_fpu_pkg::FPU_FEATURES),
+      .FPU_IMPLEMENTATION(cv32e40p_fpu_pkg::FPU_IMPLEMENTATION)
+  ) fpu_ss_i (
+    // clock and reset
+    .clk_i(clk_i),
+    .rst_ni(rst_ni),
 
-        // X-Request Channel
-        .x_q_valid_i     (x_valid ),
-        .x_q_ready_o     (x_ready),
-        .x_q_instr_data_i(x_instr_data),
-        .x_q_rs_i        (x_rs),
-        .x_q_rs_valid_i  (x_rs_valid),
-        .x_q_rd_clean_i  (x_rd_clean),
-        .x_k_accept_o    (x_accept),
-        .x_k_is_mem_op_o (x_is_mem_op),
-        .x_k_writeback_o (x_writeback),
+    // Issue Interface
+    .x_issue_valid_i(x_issue_valid),
+    .x_issue_ready_o(x_issue_ready),
+    .x_issue_req_i(x_issue_req),
+    .x_issue_resp_o(x_issue_resp),
 
-        // X-Response Channel
-        .x_p_valid_o (x_rvalid),
-        .x_p_ready_i (x_rready),
-        .x_p_rd_o    (x_rd),
-        .x_p_data_o  (x_data),
-        .x_p_dualwb_o(x_dualwb),
-        .x_p_error_o (x_error),
+    // Commit Interface
+    .x_commit_valid_i(x_commit_valid),
+    .x_commit_i(x_commit),
 
-        // Xmem-Request channel
-        .xmem_q_valid_o            (xmem_valid),
-        .xmem_q_ready_i            (xmem_ready),
-        .xmem_q_laddr_o            (xmem_laddr),
-        .xmem_q_wdata_o            (xmem_wdata),
-        .xmem_q_width_o            (xmem_width),
-        .xmem_q_req_type_o         (xmem_req_type),
-        .xmem_q_mode_o             (xmem_mode),
-        .xmem_q_spec_o             (xmem_spec),
-        .xmem_q_endoftransaction_o (xmem_endoftransaction),
+    // Memory request/response Interface
+    .x_mem_valid_o(x_mem_valid),
+    .x_mem_ready_i(x_mem_ready),
+    .x_mem_req_o(x_mem_req),
+    .x_mem_resp_i(x_mem_resp),
 
-        // Xmem-Response channel
-        .xmem_p_valid_i  (xmem_rvalid),
-        .xmem_p_ready_o  (xmem_rready),
-        .xmem_p_rdata_i  (xmem_rdata),
-        .xmem_p_range_i  (xmem_range),
-        .xmem_p_status_i (xmem_status)
-      );
+    // Memory Result Interface
+    .x_mem_result_valid_i(x_mem_result_valid),
+    .x_mem_result_i(x_mem_result),
+
+    // Result Interface
+    .x_result_valid_o(x_result_valid),
+    .x_result_ready_i(x_result_ready),
+    .x_result_o(x_result)
+  );
     end else begin : no_gen_cv_x_if_wrapper
-      assign x_ready     = '0;
-      assign x_accept    = '0;
-      assign x_is_mem_op = '0;
-      assign x_writeback = '0;
-      assign x_rvalid    = '0;
-      assign x_rd        = '0;
-      assign x_data      = '0;
-      assign x_dualwb    = '0;
-      assign x_error     = '0;
+      assign x_issue_ready          = '0;
+      assign x_issue_resp.accept    = '0;
+      assign x_issue_resp.writeback = '0;
+      assign x_issue_resp.float     = '0;
+      assign x_issue_resp.dualwrite = '0;
+      assign x_issue_resp.dualread  = '0;
+      assign x_issue_resp.loadstore = '0;
+      assign x_issue_resp.exc       = '0;
+
+      assign x_mem_valid_o          = '0;
+      assign x_mem_req.id           = '0;
+      assign x_mem_req.addr         = '0;
+      assign x_mem_req.mode         = '0;
+      assign x_mem_req.we           = '0;
+      assign x_mem_req.wdata        = '0;
+      assign x_mem_req.last         = '0;
+      assign x_mem_req.spec         = '0;
+
+      assign x_result_valid         = '0;
+      assign x_result.id            = '0;
+      assign x_result.data          = '0;
+      assign x_result.rd            = '0;
+      assign x_result.we            = '0;
+      assign x_result.float         = '0;
+      assign x_result.exc           = '0;
+      assign x_result.exccode       = '0;
     end
   endgenerate
 
