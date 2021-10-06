@@ -11,7 +11,9 @@
 // FPU Subsystem Controller
 // Contributor: Moritz Imfeld <moimfeld@student.ethz.ch>
 
-module fpu_ss_controller #(
+module fpu_ss_controller
+    import cv32e40p_core_v_xif_pkg::*;
+#(
     parameter INT_REG_WB_DELAY = 1,
     parameter OUT_OF_ORDER = 1,
     parameter FORWARDING = 1
@@ -20,6 +22,10 @@ module fpu_ss_controller #(
     input logic clk_i,
     input logic rst_ni,
 
+    // commit interface
+    input  logic       x_commit_valid_i,
+    input  x_commit_t  x_commit_i,
+
     // buffer pop handshake
     input  logic pop_valid_i,
     output logic pop_ready_o,
@@ -27,18 +33,20 @@ module fpu_ss_controller #(
     input  logic use_fpu_i,
 
     // FPnew input handshake
-    output logic fpu_in_valid_o,
-    input  logic fpu_in_ready_i,
+    output logic       fpu_in_valid_o,
+    input  logic       fpu_in_ready_i,
+    input  logic [3:0] fpu_in_id_i,
 
     // FPnew output handshake
     input  logic fpu_out_valid_i,
     output logic fpu_out_ready_o,
 
-    // register Write enable
+    // register Write enable and id
     input  logic       rd_is_fp_i,
     input  logic [4:0] fpr_wb_addr_i,
     input  logic [4:0] rd_i,
     output logic       fpr_we_o,
+    input  logic [3:0] fpu_out_id_i,
 
     // c-response handshake
     input  logic c_p_ready_i,
@@ -59,16 +67,15 @@ module fpu_ss_controller #(
     input logic is_store_i,
 
     // request Handshake
-    output logic                   cmem_q_valid_o,
-    input  logic                   cmem_q_ready_i,
-    output acc_pkg::mem_req_type_e cmem_q_req_type_o,
-    output logic                   cmem_q_mode_o,
-    output logic                   cmem_q_spec_o,
-    output logic                   cmem_q_endoftransaction_o,
+    output logic cmem_q_valid_o,
+    input  logic cmem_q_ready_i,
+    output logic x_mem_req_we_o,
+    output logic cmem_q_mode_o,
+    output logic cmem_q_spec_o,
+    output logic cmem_q_endoftransaction_o,
 
     // response handshake
     input  logic cmem_p_valid_i,
-    output logic cmem_p_ready_o,
     input  logic cmem_status_i,
 
     // additional signals
@@ -82,9 +89,13 @@ module fpu_ss_controller #(
   logic instr_offloaded_d;
   logic instr_offloaded_q;
 
-  // scoreboard
-  logic [31:0] scoreboard_d;
-  logic [31:0] scoreboard_q;
+  // rd scoreboard
+  logic [31:0] rd_scoreboard_d;
+  logic [31:0] rd_scoreboard_q;
+
+  // id scoreboard
+  logic [31:0] id_scoreboard_d;
+  logic [31:0] id_scoreboard_q;
 
   // dependencies
   logic dep_rs1;
@@ -102,20 +113,18 @@ module fpu_ss_controller #(
   logic cmem_req_hs;
 
   assign c_rsp_hs = c_p_ready_i & c_p_valid_o;
-  assign cmem_q_mode_o   = 1'b0; // no probing -> harwire to 0 (probing is only for external mode memory oerpations)
   assign cmem_q_spec_o = 1'b0;  // no speculative memory operations -> hardwire to 0
-  assign cmem_p_ready_o = 1'b1;  // always accept writebacks from the core (e.g. loads)
 
   assign fpu_out_ready_o = ~cmem_rsp_hs_o;  // only don't accept writebacks from the FPnew when a memory instruction writes back to the fp register file
   assign cmem_req_hs = cmem_q_valid_o & cmem_q_ready_i;
-  assign cmem_rsp_hs_o = cmem_p_valid_i & cmem_p_ready_o;
+  assign cmem_rsp_hs_o = cmem_p_valid_i;
 
   // dependency check (used to avoid data hazards)
-  assign dep_rs1 = scoreboard_q[rs1_i] & pop_valid_i & (op_select_i[0] == fpu_ss_pkg::RegA | op_select_i[1] == fpu_ss_pkg::RegA | op_select_i[2] == fpu_ss_pkg::RegA);
-  assign dep_rs2 = scoreboard_q[rs2_i] & pop_valid_i & (op_select_i[0] == fpu_ss_pkg::RegB | op_select_i[1] == fpu_ss_pkg::RegB | op_select_i[2] == fpu_ss_pkg::RegB);
-  assign dep_rs3 = scoreboard_q[rs3_i] & pop_valid_i & (op_select_i[0] == fpu_ss_pkg::RegC | op_select_i[1] == fpu_ss_pkg::RegC | op_select_i[2] == fpu_ss_pkg::RegC);
+  assign dep_rs1 = rd_scoreboard_q[rs1_i] & pop_valid_i & (op_select_i[0] == fpu_ss_pkg::RegA | op_select_i[1] == fpu_ss_pkg::RegA | op_select_i[2] == fpu_ss_pkg::RegA);
+  assign dep_rs2 = rd_scoreboard_q[rs2_i] & pop_valid_i & (op_select_i[0] == fpu_ss_pkg::RegB | op_select_i[1] == fpu_ss_pkg::RegB | op_select_i[2] == fpu_ss_pkg::RegB);
+  assign dep_rs3 = rd_scoreboard_q[rs3_i] & pop_valid_i & (op_select_i[0] == fpu_ss_pkg::RegC | op_select_i[1] == fpu_ss_pkg::RegC | op_select_i[2] == fpu_ss_pkg::RegC);
   assign dep_rs = (dep_rs1 & ~fwd_o[0]) | (dep_rs2 & ~fwd_o[1]) | (dep_rs3 & ~fwd_o[2]);
-  assign dep_rd = scoreboard_q[rd_i] & rd_in_is_fp_i & ~(fpu_out_valid_i & rd_is_fp_i & (fpr_wb_addr_i == rd_i));
+  assign dep_rd = rd_scoreboard_q[rd_i] & rd_in_is_fp_i & ~(fpu_out_valid_i & rd_is_fp_i & (fpr_wb_addr_i == rd_i));
 
   // integer writeback delay assignement
   assign int_wb_o = delay_reg_q[INT_REG_WB_DELAY];
@@ -147,9 +156,9 @@ module fpu_ss_controller #(
   // Note: out-of-order execution is enabled/disabled here
   always_comb begin
     fpu_in_valid_o = 1'b0;
-    if (use_fpu_i & pop_valid_i & ~dep_rs & ~dep_rd & OUT_OF_ORDER) begin
+    if (use_fpu_i & pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | ((x_commit_i.id == fpu_in_id_i) & x_commit_i.commit_kill)) & ~dep_rs & ~dep_rd & OUT_OF_ORDER) begin
       fpu_in_valid_o = 1'b1;
-    end else if (use_fpu_i  & pop_valid_i & ~dep_rs & ~dep_rd & (fpu_out_valid_i | ~instr_inflight_q) & ~OUT_OF_ORDER) begin
+    end else if (use_fpu_i  & pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | ((x_commit_i.id == fpu_in_id_i) & x_commit_i.commit_kill)) & ~dep_rs & ~dep_rd & (fpu_out_valid_i | ~instr_inflight_q) & ~OUT_OF_ORDER) begin
       fpu_in_valid_o = 1'b1;
     end
   end
@@ -175,11 +184,10 @@ module fpu_ss_controller #(
 
   // assert c_p_valid_o (integer register writeback) (c-response channel handshake)
   // - when fpu_out_valid_i is high
-  // - when rd is NOT a fp register
   // - when int_wb is high (int_wb controlls integer register writebacks of instructions that do not go though the fpu (e.g. csr))
   always_comb begin
     c_p_valid_o = 1'b0;
-    if ((fpu_out_valid_i & ~rd_is_fp_i) | (int_wb_o)) begin
+    if (fpu_out_valid_i | int_wb_o) begin
       c_p_valid_o = 1'b1;
     end
   end
@@ -199,9 +207,9 @@ module fpu_ss_controller #(
   // - when is_load_i  -> req_type = READ
   // - when is_store_i -> req_type = WRITE
   always_comb begin
-    cmem_q_req_type_o = acc_pkg::READ;
+    x_mem_req_we_o = 1'b0;
     if (is_store_i) begin
-      cmem_q_req_type_o = acc_pkg::WRITE;
+      x_mem_req_we_o = 1'b1;
     end
   end
 
@@ -225,14 +233,25 @@ module fpu_ss_controller #(
     end
   end
 
-  // update for the scoreboard
+  // update for the rd scoreboard
   always_comb begin
-    scoreboard_d = scoreboard_q;
-    if (fpu_in_valid_o & rd_in_is_fp_i) begin
-      scoreboard_d[rd_i] = 1'b1;
+    rd_scoreboard_d = rd_scoreboard_q;
+    if (fpu_in_valid_o & fpu_in_ready_i & rd_in_is_fp_i) begin
+      rd_scoreboard_d[rd_i] = 1'b1;
     end
     if ((fpu_out_ready_o & fpu_out_valid_i) & ~(fpu_in_valid_o & fpu_in_ready_i & fpr_wb_addr_i == rd_i)) begin
-      scoreboard_d[fpr_wb_addr_i] = 1'b0;
+      rd_scoreboard_d[fpr_wb_addr_i] = 1'b0;
+    end
+  end
+
+  // update for the id scoreboard
+  always_comb begin
+    id_scoreboard_d = id_scoreboard_q;
+    if (x_commit_valid_i & x_commit_i.commit_kill) begin
+      id_scoreboard_d[x_commit_i.id] = 1'b1;
+    end
+    if (fpu_out_ready_o & fpu_out_valid_i) begin
+      id_scoreboard_d[fpu_out_id_i] = 1'b0;
     end
   end
 
@@ -241,11 +260,13 @@ module fpu_ss_controller #(
     if (~rst_ni) begin
       instr_inflight_q  <= 1'b0;
       instr_offloaded_q <= 1'b0;
-      scoreboard_q      <= '0;
+      rd_scoreboard_q   <= '0;
+      id_scoreboard_q   <= '0;
     end else begin
       instr_inflight_q  <= instr_inflight_d;
       instr_offloaded_q <= instr_offloaded_d;
-      scoreboard_q      <= scoreboard_d;
+      rd_scoreboard_q   <= rd_scoreboard_d;
+      id_scoreboard_q   <= id_scoreboard_d;
     end
   end
 

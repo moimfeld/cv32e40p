@@ -31,16 +31,16 @@ package fpu_ss_pkg;
   } ls_size_e;
 
   typedef struct packed {
-    logic [acc_pkg::AddrWidth:0] addr;
     logic [2:0][31:0] rs;
-    logic [31:0] instr_data;
-    logic [31:0] hart_id;
+    logic [31:0]      instr_data;
+    logic [3:0]       id;
+    logic [1:0]       mode;
   } offloaded_data_t;
 
   typedef struct packed {
     logic [ 4:0] addr;
     logic        rd_is_fp;
-    logic [31:0] hart_id;
+    logic [3:0]  id;
   } fpu_tag_t;
 
 endpackage : fpu_ss_pkg
