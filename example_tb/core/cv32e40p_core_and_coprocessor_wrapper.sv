@@ -1,6 +1,5 @@
 module cv32e40p_core_and_coprocessor_wrapper
-    import cv32e40p_x_if_pkg::*;
-    import cv32e30p_core_v_xif_pkg::*;
+    import cv32e40p_core_v_xif_pkg::*;
   #(
     parameter INSTR_RDATA_WIDTH = 32,
     parameter BOOT_ADDR = 'h180,
@@ -47,35 +46,35 @@ module cv32e40p_core_and_coprocessor_wrapper
   logic                               core_sleep;
 
   // Compressed interface
-  logic x_compressed_valid, // not implemented
-  logic x_compressed_ready, // not implemented
-  x_compressed_req_t x_compressed_req, // not implemented
-  x_compressed_resp_t x_compressed_resp, // not implemented
+  logic x_compressed_valid; // not implemented
+  logic x_compressed_ready; // not implemented
+  x_compressed_req_t x_compressed_req; // not implemented
+  x_compressed_resp_t x_compressed_resp; // not implemented
 
   // Issue Interface
-  logic x_issue_valid,
-  logic x_issue_ready,
-  x_issue_req_t x_issue_req,
-  x_issue_resp_t x_issue_resp,
+  logic x_issue_valid;
+  logic x_issue_ready;
+  x_issue_req_t x_issue_req;
+  x_issue_resp_t x_issue_resp;
 
   // Commit Interface
-  logic x_commit_valid,
-  x_commit_t x_commit,
+  logic x_commit_valid;
+  x_commit_t x_commit;
 
   // Memory request/response Interface
-  logic x_mem_valid,
-  logic x_mem_ready,
-  x_mem_req_t x_mem_req,
-  x_mem_resp_t x_mem_resp,
+  logic x_mem_valid;
+  logic x_mem_ready;
+  x_mem_req_t x_mem_req;
+  x_mem_resp_t x_mem_resp;
 
   // Memory Result Interface
-  logic x_mem_result_valid,
-  x_mem_result_t x_mem_result,
+  logic x_mem_result_valid;
+  x_mem_result_t x_mem_result;
 
   // Result Interface
-  logic x_result_valid,
-  logic x_result_ready,
-  x_result_t x_result,
+  logic x_result_valid;
+  logic x_result_ready;
+  x_result_t x_result;
 
   assign x_compressed_ready       = '0;
   assign x_compressed_resp.instr  = '0;
@@ -167,7 +166,7 @@ module cv32e40p_core_and_coprocessor_wrapper
     if (FPU) begin : gen_fpu_ss
       fpu_ss #(
       .PULP_ZFINX(PULP_ZFINX),
-      .BUFFER_DEPTH(1),
+      .BUFFER_DEPTH(4),
       .INT_REG_WB_DELAY(1),
       .OUT_OF_ORDER(1),
       .FORWARDING(1),
@@ -213,7 +212,7 @@ module cv32e40p_core_and_coprocessor_wrapper
       assign x_issue_resp.loadstore = '0;
       assign x_issue_resp.exc       = '0;
 
-      assign x_mem_valid_o          = '0;
+      assign x_mem_valid            = '0;
       assign x_mem_req.id           = '0;
       assign x_mem_req.addr         = '0;
       assign x_mem_req.mode         = '0;

@@ -12,7 +12,7 @@
 // Contributor: Robert Balas <balasr@student.ethz.ch>
 
 module cv32e40p_tb_subsystem
-    import cv32e40p_x_if_pkg::*;
+    import cv32e40p_core_v_xif_pkg::*;
   #(
     parameter INSTR_RDATA_WIDTH = 32,
     parameter RAM_ADDR_WIDTH = 20,

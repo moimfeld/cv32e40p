@@ -26,6 +26,7 @@
 `endif
 
 module cv32e40p_wrapper
+    import cv32e40p_core_v_xif_pkg::*;
 #(
     parameter PULP_XPULP          =  0,                   // PULP ISA Extension (incl. custom CSRs and hardware loop, excl. p.elw)
     parameter PULP_CLUSTER = 0,  // PULP Cluster interface (incl. p.elw)
