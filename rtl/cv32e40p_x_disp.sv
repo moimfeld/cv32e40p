@@ -35,6 +35,7 @@ module cv32e40p_x_disp
     input logic            x_we_wb_i,
     input logic [4:0]      x_result_rd_i,
     input logic            x_result_valid_i,
+    input logic            x_result_we_i,
     input logic [2:0][4:0] x_rs_addr_i,
     input logic [2:0]      x_regs_used_i,
     input logic            x_branch_or_jump_i,
@@ -47,20 +48,20 @@ module cv32e40p_x_disp
     input  logic       x_issue_resp_loadstore_i,
     output logic [2:0] x_issue_req_rs_valid_o,
     output logic [3:0] x_issue_req_id_o,
-    output logic [2:0] x_issue_req_frs_valid_o,
+    output logic [1:0] x_issue_req_frs_valid_o,
     output logic [1:0] x_issue_req_mode_o,
     output logic       x_stall_o,
     output logic       x_result_ready_o,
 
     // commit interface
     output logic       x_commit_valid_o,
-    output logic       x_commit_id_o,
+    output logic [3:0] x_commit_id_o,
     output logic       x_commit_commit_kill,
 
     // xmem-request signals
     input  logic          x_mem_valid_i,
     output logic          x_mem_ready_o,
-    input  logic          x_mem_req_mode_i,  // unused
+    input  logic [1:0]    x_mem_req_mode_i,  // unused
     input  logic          x_mem_req_spec_i,  // unused
     input  logic          x_mem_req_last_i,  // unused
     output logic          x_mem_resp_exc_o, // hardwired to 0
@@ -142,6 +143,7 @@ module cv32e40p_x_disp
   assign dep = ~x_illegal_insn_o & ((x_regs_used_i[0] & scoreboard_q[x_rs_addr_i[0]]) | (x_regs_used_i[1] & scoreboard_q[x_rs_addr_i[1]]) | (x_regs_used_i[2] & scoreboard_q[x_rs_addr_i[2]]));
 
   // id generation
+  assign x_issue_req_id_o = id_q;
   always_comb begin
     id_d = id_q;
     if (x_issue_valid_o & x_issue_ready_i) begin
@@ -164,10 +166,10 @@ module cv32e40p_x_disp
   // scoreboard update
   always_comb begin
     scoreboard_d = scoreboard_q;
-    if (x_issue_resp_writeback_i & x_issue_valid_o & x_issue_ready_i & ~((x_waddr_id_i == x_result_rd_i) & x_result_valid_i)) begin  // update rule for outgoing instructions
+    if (x_issue_resp_writeback_i & x_issue_valid_o & x_issue_ready_i & ~((x_waddr_id_i == x_result_rd_i) & x_result_valid_i & x_result_rd_i)) begin  // update rule for outgoing instructions
       scoreboard_d[x_waddr_id_i] = 1'b1;
     end
-    if (x_result_valid_i) begin  // update rule for successful writebacks
+    if (x_result_valid_i & x_result_we_i) begin  // update rule for successful writebacks
       scoreboard_d[x_result_rd_i] = 1'b0;
     end
   end

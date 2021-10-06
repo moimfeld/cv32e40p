@@ -157,7 +157,7 @@ module cv32e40p_id_stage
 
     // Memory Result Interface
     output logic x_mem_result_valid_o,
-    output x_mem_result_t x_mem_result_o,
+    output logic x_mem_result_err_o,
 
     // Core internal xif memory signals
     output logic       x_mem_instr_ex_o,
@@ -982,6 +982,7 @@ module cv32e40p_id_stage
           .x_we_wb_i                (regfile_we_wb_i),
           .x_result_rd_i            (x_result_i.rd),
           .x_result_valid_i         (x_result_valid_i),
+          .x_result_we_i            (x_result_i.we),
           .x_rs_addr_i              (x_rs_addr),
           .x_regs_used_i            (x_regs_used),
           .x_branch_or_jump_i       (branch_in_ex_o),
@@ -1019,7 +1020,7 @@ module cv32e40p_id_stage
 
           // xmem-response signals
           .x_mem_result_valid_o (x_mem_result_valid_o),
-          .x_mem_result_err_o   (x_mem_result_o.err),
+          .x_mem_result_err_o   (x_mem_result_err_o),
 
           // additional status signals
           .x_illegal_insn_dec_i(illegal_insn_dec),
@@ -1038,7 +1039,7 @@ module cv32e40p_id_stage
       assign x_waddr_wb                = regfile_waddr_wb_i[4:0];
       assign x_regs_used               = {regc_used, regb_used, rega_used};
       assign x_result_valid_assigned_o = x_result_valid_i;
-      assign x_mem_valid                = x_mem_valid_i;
+      assign x_mem_valid               = x_mem_valid_i;
 
       // x-interface integer souce register assignment
       assign x_issue_req_o.rs[0] = regfile_data_ra_id;
@@ -1046,9 +1047,9 @@ module cv32e40p_id_stage
       assign x_issue_req_o.rs[2] = regfile_data_rc_id;
 
       // x-interface floating-point register assignment (hardwired to 0 according to specifications)
-      assign x_isse_req_o.frs[0] = '0;
-      assign x_isse_req_o.frs[1] = '0;
-      assign x_isse_req_o.frs[2] = '0;
+      assign x_issue_req_o.frs[0] = '0;
+      assign x_issue_req_o.frs[1] = '0;
+      assign x_issue_req_o.frs[2] = '0;
 
       // illegal instruction signal
       assign illegal_insn        = x_illegal_insn;
@@ -1056,7 +1057,7 @@ module cv32e40p_id_stage
       // LSU signal assignment/MUX
       assign regfile_we_id       = regfile_we_id_dec & ~x_mem_data_req;
       assign data_req_id         = data_req_dec & ~x_mem_valid_i | x_mem_data_req;
-      assign data_we_id          = data_we_dec & ~x_mem_valid_i | x_mem_req_i.we;
+      assign data_we_id          = data_we_dec & ~x_mem_valid_i | (x_mem_valid_i & x_mem_req_i.we);
       always_comb begin
         data_type_id       = data_type_dec;
         data_sign_ext_id   = data_sign_ext_dec;
@@ -1066,7 +1067,7 @@ module cv32e40p_id_stage
         alu_operand_c      = alu_operand_c_dec;
         prepost_useincr    = prepost_useincr_dec;
         if (x_mem_data_req) begin
-          data_type_id       = 2'b00;  //xmem_width_i[1:0]; // NOTE: NOT AGNOSTIC
+          data_type_id       = 2'b00;  // x_mem_req_i.size; // NOTE: NOT AGNOSTIC;
           data_sign_ext_id   = 2'b00;
           data_reg_offset_id = 2'b00;
           data_load_event_id = 1'b0;
@@ -1080,7 +1081,7 @@ module cv32e40p_id_stage
       // default assignment for x-interface control signals
       assign x_stall                   = 1'b0;
       assign x_result_valid_assigned_o = 1'b0;
-      assign x_mem_valid                = 1'b0;
+      assign x_mem_valid               = 1'b0;
 
       // default illegal instruction assignment
       assign illegal_insn        = illegal_insn_dec;
