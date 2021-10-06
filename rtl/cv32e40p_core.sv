@@ -70,12 +70,11 @@ module cv32e40p_core
     input  logic [31:0] data_rdata_i,
 
     // CORE-V-XIF
-
-    // Compressed interface (unused at the moment)
-    output logic x_compressed_valid_o,
-    input  logic x_compressed_ready_i,
-    output x_compressed_req_t x_compressed_req_o,
-    input  x_compressed_resp_t x_compressed_resp_i,
+    // Compressed interface
+    output logic x_compressed_valid_o, // not implemented
+    input  logic x_compressed_ready_i, // not implemented
+    output x_compressed_req_t x_compressed_req_o, // not implemented
+    input  x_compressed_resp_t x_compressed_resp_i, // not implemented
 
     // Issue Interface
     output logic x_issue_valid_o,
@@ -606,10 +605,10 @@ module cv32e40p_core
 
       // CORE-V-XIF
       // Compressed interface (unused at the moment)
-      .x_compressed_valid_o (x_compressed_valid_o),
-      .x_compressed_ready_i (x_compressed_ready_i),
-      .x_compressed_req_o (x_compressed_req_o),
-      .x_compressed_resp_i (x_compressed_resp_i),
+      .x_compressed_valid_o (x_compressed_valid_o), // not implemented
+      .x_compressed_ready_i (x_compressed_ready_i), // not implemented
+      .x_compressed_req_o (x_compressed_req_o), // not implemented
+      .x_compressed_resp_i (x_compressed_resp_i), // not implemented
 
       // Issue Interface
       .x_issue_valid_o (x_issue_valid_o),
@@ -629,7 +628,7 @@ module cv32e40p_core
 
       // Memory Result Interface
       .x_mem_result_valid_o (x_mem_result_valid_o),
-      .x_mem_result_o (x_mem_result_o),
+      .x_mem_result_err_o (x_mem_result_o.err),
 
       // Result Interface
       .x_result_valid_i (x_result_valid_i),
