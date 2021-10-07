@@ -165,7 +165,6 @@ module fpu_ss
   fpnew_pkg::status_t                             fpu_status;
 
   // additional signals
-  logic                                           cmem_rsp_hs;
   logic                                           int_wb;
 
   // predecoder signal assignments
@@ -248,7 +247,7 @@ module fpu_ss
     end
   end
 
-  // cmem-request channel assignements
+  // x_mem_req signal assignments
   assign x_mem_req_o.mode   = offloaded_data_pop.mode;
   assign x_mem_req_o.size   = instr[14:12];
   assign x_mem_req_o.id     = offloaded_data_pop.id;
@@ -279,7 +278,7 @@ module fpu_ss
   // fp register writeback data mux
   always_comb begin
     fpr_wb_data = fpu_result;
-    if (cmem_rsp_hs) begin
+    if (x_mem_result_valid_i) begin
       fpr_wb_data = x_mem_result_i.rdata;
     end
   end
@@ -397,11 +396,11 @@ module fpu_ss
       .fpr_we_o(fpr_we),
       .fpu_out_id_i (fpu_tag_out.id),
 
-      // c-response handshake
-      .c_p_ready_i(x_result_ready_i),
+      // x_result_handshake
+      .x_result_ready_i(x_result_ready_i),
+      .x_result_valid_o(x_result_valid_o),
       .csr_wb_i(csr_wb),
       .csr_instr_i(csr_instr),
-      .c_p_valid_o(x_result_valid_o),
 
       // dependency check
       .rd_in_is_fp_i(rd_is_fp),
@@ -416,19 +415,18 @@ module fpu_ss
       .is_store_i(is_store),
 
       // request Handshake
-      .cmem_q_valid_o           (x_mem_valid_o),
-      .cmem_q_ready_i           (x_mem_ready_i),
-      .x_mem_req_we_o           (x_mem_req_o.we),
-      .cmem_q_spec_o            (x_mem_req_o.spec),
-      .cmem_q_endoftransaction_o(x_mem_req_o.last),
+      .x_mem_valid_o    (x_mem_valid_o),
+      .x_mem_ready_i    (x_mem_ready_i),
+      .x_mem_req_we_o   (x_mem_req_o.we),
+      .x_mem_req_spec_o (x_mem_req_o.spec),
+      .x_mem_req_last_o (x_mem_req_o.last),
 
       // response handshake
-      .cmem_p_valid_i(x_mem_result_valid_i),
-      .cmem_status_i (x_mem_result_i.err),
+      .x_mem_result_valid_i(x_mem_result_valid_i),
+      .x_mem_result_err_i (x_mem_result_i.err),
 
       // additional signals
-      .int_wb_o(int_wb),
-      .cmem_rsp_hs_o(cmem_rsp_hs)
+      .int_wb_o(int_wb)
   );
 
   // FPU subsystem dedicated floating-point register file

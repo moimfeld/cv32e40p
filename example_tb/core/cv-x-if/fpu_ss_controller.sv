@@ -49,10 +49,10 @@ module fpu_ss_controller
     input  logic [3:0] fpu_out_id_i,
 
     // c-response handshake
-    input  logic c_p_ready_i,
+    input  logic x_result_ready_i,
+    output logic x_result_valid_o,
     input  logic csr_wb_i,
     input  logic csr_instr_i,
-    output logic c_p_valid_o,
 
     // dependency check
     input  logic                         rd_in_is_fp_i,
@@ -67,20 +67,18 @@ module fpu_ss_controller
     input logic is_store_i,
 
     // request Handshake
-    output logic cmem_q_valid_o,
-    input  logic cmem_q_ready_i,
+    output logic x_mem_valid_o,
+    input  logic x_mem_ready_i,
     output logic x_mem_req_we_o,
-    output logic cmem_q_mode_o,
-    output logic cmem_q_spec_o,
-    output logic cmem_q_endoftransaction_o,
+    output logic x_mem_req_spec_o,
+    output logic x_mem_req_last_o,
 
     // response handshake
-    input  logic cmem_p_valid_i,
-    input  logic cmem_status_i,
+    input  logic x_mem_result_valid_i,
+    input  logic x_mem_result_err_i, // unused
 
     // additional signals
-    output logic int_wb_o,
-    output logic cmem_rsp_hs_o
+    output logic int_wb_o
 );
 
   // status signals
@@ -94,8 +92,8 @@ module fpu_ss_controller
   logic [31:0] rd_scoreboard_q;
 
   // id scoreboard
-  logic [31:0] id_scoreboard_d;
-  logic [31:0] id_scoreboard_q;
+  logic [15:0] id_scoreboard_d;
+  logic [15:0] id_scoreboard_q;
 
   // dependencies
   logic dep_rs1;
@@ -109,15 +107,14 @@ module fpu_ss_controller
   logic [INT_REG_WB_DELAY:0] delay_reg_q;
 
   // handshakes
-  logic c_rsp_hs;
-  logic cmem_req_hs;
+  logic x_result_hs;
+  logic x_mem_req_hs;
 
-  assign c_rsp_hs = c_p_ready_i & c_p_valid_o;
-  assign cmem_q_spec_o = 1'b0;  // no speculative memory operations -> hardwire to 0
+  assign x_result_hs = x_result_ready_i & x_result_valid_o;
+  assign x_mem_req_spec_o = 1'b0;  // no speculative memory operations -> hardwire to 0
 
-  assign fpu_out_ready_o = ~cmem_rsp_hs_o;  // only don't accept writebacks from the FPnew when a memory instruction writes back to the fp register file
-  assign cmem_req_hs = cmem_q_valid_o & cmem_q_ready_i;
-  assign cmem_rsp_hs_o = cmem_p_valid_i;
+  assign fpu_out_ready_o = ~x_mem_result_valid_i;  // only don't accept writebacks from the FPnew when a memory instruction writes back to the fp register file
+  assign x_mem_req_hs = x_mem_valid_o & x_mem_ready_i;
 
   // dependency check (used to avoid data hazards)
   assign dep_rs1 = rd_scoreboard_q[rs1_i] & pop_valid_i & (op_select_i[0] == fpu_ss_pkg::RegA | op_select_i[1] == fpu_ss_pkg::RegA | op_select_i[2] == fpu_ss_pkg::RegA);
@@ -144,7 +141,7 @@ module fpu_ss_controller
   // pop instruction
   always_comb begin
     pop_ready_o = 1'b0;
-    if ((fpu_in_valid_o & fpu_in_ready_i) | (c_rsp_hs & int_wb_o) | cmem_rsp_hs_o) begin
+    if ((fpu_in_valid_o & fpu_in_ready_i) | (x_result_hs & int_wb_o) | x_mem_result_valid_i) begin
       pop_ready_o = 1'b1;
     end
   end
@@ -165,47 +162,45 @@ module fpu_ss_controller
 
   // assert fpr_we_o
   // - when fpu has a valid output and When rd is a fp register
-  // - when instruction is load and the valid ready handshake of the cmem response channel occures
+  // - when instruction is load and there is a valid memory result
   always_comb begin
     fpr_we_o = 1'b0;
-    if ((fpu_out_valid_i & rd_is_fp_i) | (is_load_i & cmem_rsp_hs_o)) begin
+    if ((fpu_out_valid_i & rd_is_fp_i) | (is_load_i & x_mem_result_valid_i)) begin
       fpr_we_o = 1'b1;
     end
   end
 
-  // assert cmem_q_endoftransaction_o
-  // - when the cmem-response handshake happend
+  // assert x_mem_req_last_o
+  // - every memory only does a single memory access
   always_comb begin
-    cmem_q_endoftransaction_o = 1'b0;
-    if (cmem_req_hs) begin
-      cmem_q_endoftransaction_o = 1'b1;
+    x_mem_req_last_o = 1'b0;
+    if (x_mem_valid_o) begin
+      x_mem_req_last_o = 1'b1;
     end
   end
 
-  // assert c_p_valid_o (integer register writeback) (c-response channel handshake)
+  // assert x_result_valid_o
   // - when fpu_out_valid_i is high
   // - when int_wb is high (int_wb controlls integer register writebacks of instructions that do not go though the fpu (e.g. csr))
   always_comb begin
-    c_p_valid_o = 1'b0;
+    x_result_valid_o = 1'b0;
     if (fpu_out_valid_i | int_wb_o) begin
-      c_p_valid_o = 1'b1;
+      x_result_valid_o = 1'b1;
     end
   end
 
-  // assert cmem_q_valid_o (load/store offload to the core)
+  // assert x_mem_valid_o (load/store offload to the core)
   // - when the current instruction is a load/store instruction
   // - when the fifo is NOT empty
   // - when the instruction has NOT already been offloaded back to the core (instr_offloaded_q signal)
   always_comb begin
-    cmem_q_valid_o = 1'b0;
+    x_mem_valid_o = 1'b0;
     if ((is_load_i | is_store_i) & ~dep_rs & pop_valid_i & ~instr_offloaded_q & ~fpu_busy_i) begin
-      cmem_q_valid_o = 1'b1;
+      x_mem_valid_o = 1'b1;
     end
   end
 
-  // set the cmem_q_req_type_o
-  // - when is_load_i  -> req_type = READ
-  // - when is_store_i -> req_type = WRITE
+  // assert write enable signal
   always_comb begin
     x_mem_req_we_o = 1'b0;
     if (is_store_i) begin
@@ -226,9 +221,9 @@ module fpu_ss_controller
   // update for the instr_offloaded status signal
   always_comb begin
     instr_offloaded_d = instr_offloaded_q;
-    if (pop_valid_i & cmem_req_hs) begin
+    if (pop_valid_i & x_mem_req_hs) begin
       instr_offloaded_d = 1'b1;
-    end else if (cmem_rsp_hs_o) begin
+    end else if (x_mem_result_valid_i) begin
       instr_offloaded_d = 1'b0;
     end
   end
