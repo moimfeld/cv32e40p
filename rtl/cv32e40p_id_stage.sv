@@ -1067,7 +1067,11 @@ module cv32e40p_id_stage
         alu_operand_c      = alu_operand_c_dec;
         prepost_useincr    = prepost_useincr_dec;
         if (x_mem_data_req) begin
-          data_type_id       = 2'b00;  // x_mem_req_i.size; // NOTE: NOT AGNOSTIC;
+          case(x_mem_req_i.size)
+            2'b00: data_type_id = 2'b10; // SB
+            2'b01: data_type_id = 2'b01; // SH
+            2'b10: data_type_id = 2'b00; // SW
+          endcase
           data_sign_ext_id   = 2'b00;
           data_reg_offset_id = 2'b00;
           data_load_event_id = 1'b0;
