@@ -1055,28 +1055,14 @@ module cv32e40p_id_stage
       assign illegal_insn        = x_illegal_insn;
 
       // x-interface integer souce operand assignment
-      always_comb begin
-        x_issue_req_o.rs[0] = regfile_data_ra_id;
-        if (x_ex_fwd[0]) begin
-          x_issue_req_o.rs[0] = regfile_alu_wdata_fw_i;
-        end else if (x_wb_fwd[0]) begin
-          x_issue_req_o.rs[0] = regfile_wdata_wb_i;
-        end
-      end
-      always_comb begin
-        x_issue_req_o.rs[1] = regfile_data_rb_id;
-        if (x_ex_fwd[1]) begin
-          x_issue_req_o.rs[1] = regfile_alu_wdata_fw_i;
-        end else if (x_wb_fwd[1]) begin
-          x_issue_req_o.rs[1] = regfile_wdata_wb_i;
-        end
-      end
-      always_comb begin
-        x_issue_req_o.rs[2] = regfile_data_rc_id;
-        if (x_ex_fwd[2]) begin
-          x_issue_req_o.rs[2] = regfile_alu_wdata_fw_i;
-        end else if (x_wb_fwd[2]) begin
-          x_issue_req_o.rs[2] = regfile_wdata_wb_i;
+      for (genvar i = 0; i < 3; i++) begin
+        always_comb begin
+          x_issue_req_o.rs[i] = regfile_data_ra_id;
+          if (x_ex_fwd[i]) begin
+            x_issue_req_o.rs[i] = regfile_alu_wdata_fw_i;
+          end else if (x_wb_fwd[i]) begin
+            x_issue_req_o.rs[i] = regfile_wdata_wb_i;
+          end
         end
       end
 
