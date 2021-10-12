@@ -65,7 +65,8 @@ module fpu_ss_controller
     input  logic                   [4:0] rs1_i,
     input  logic                   [4:0] rs2_i,
     input  logic                   [4:0] rs3_i,
-    output logic                   [2:0] fwd_o,
+    output logic                   [2:0] fpu_fwd_o,
+    output logic                   [2:0] lsu_fwd_o,
     input  fpu_ss_pkg::op_select_e [2:0] op_select_i,
 
     // memory instruction handling
@@ -126,7 +127,7 @@ module fpu_ss_controller
   assign dep_rs1 = rd_scoreboard_q[rs1_i] & in_buf_pop_valid_i & (op_select_i[0] == fpu_ss_pkg::RegA | op_select_i[1] == fpu_ss_pkg::RegA | op_select_i[2] == fpu_ss_pkg::RegA);
   assign dep_rs2 = rd_scoreboard_q[rs2_i] & in_buf_pop_valid_i & (op_select_i[0] == fpu_ss_pkg::RegB | op_select_i[1] == fpu_ss_pkg::RegB | op_select_i[2] == fpu_ss_pkg::RegB);
   assign dep_rs3 = rd_scoreboard_q[rs3_i] & in_buf_pop_valid_i & (op_select_i[0] == fpu_ss_pkg::RegC | op_select_i[1] == fpu_ss_pkg::RegC | op_select_i[2] == fpu_ss_pkg::RegC);
-  assign dep_rs = (dep_rs1 & ~fwd_o[0]) | (dep_rs2 & ~fwd_o[1]) | (dep_rs3 & ~fwd_o[2]);
+  assign dep_rs = (dep_rs1 & ~(fpu_fwd_o[0] | lsu_fwd_o[0])) | (dep_rs2 & ~(fpu_fwd_o[1] | lsu_fwd_o[1])) | (dep_rs3 & ~(fpu_fwd_o[2] | lsu_fwd_o[2]));
   assign dep_rd = rd_scoreboard_q[rd_i] & rd_in_is_fp_i & ~(fpu_out_valid_i & fpu_out_ready_o & rd_is_fp_i & (fpr_wb_addr_i == rd_i));
 
   // integer writeback delay assignement
@@ -138,13 +139,19 @@ module fpu_ss_controller
 
   // forwarding
   always_comb begin
-    fwd_o[0] = 1'b0;
-    fwd_o[1] = 1'b0;
-    fwd_o[2] = 1'b0;
+    fpu_fwd_o[0] = 1'b0;
+    fpu_fwd_o[1] = 1'b0;
+    fpu_fwd_o[2] = 1'b0;
+    lsu_fwd_o[0] = 1'b0;
+    lsu_fwd_o[1] = 1'b0;
+    lsu_fwd_o[2] = 1'b0;
     if (FORWARDING) begin
-      fwd_o[0] = dep_rs1 & fpu_out_valid_i & rd_is_fp_i & rs1_i == fpr_wb_addr_i;
-      fwd_o[1] = dep_rs2 & fpu_out_valid_i & rd_is_fp_i & rs2_i == fpr_wb_addr_i;
-      fwd_o[2] = dep_rs3 & fpu_out_valid_i & rd_is_fp_i & rs3_i == fpr_wb_addr_i;
+      fpu_fwd_o[0] = (op_select_i[0] == fpu_ss_pkg::RegA | op_select_i[0] == fpu_ss_pkg::RegB | op_select_i[0] == fpu_ss_pkg::RegC) & fpu_out_valid_i & fpu_out_ready_o & rd_is_fp_i & rs1_i == fpr_wb_addr_i;
+      fpu_fwd_o[1] = (op_select_i[1] == fpu_ss_pkg::RegA | op_select_i[1] == fpu_ss_pkg::RegB | op_select_i[1] == fpu_ss_pkg::RegC) & fpu_out_valid_i & fpu_out_ready_o & rd_is_fp_i & rs2_i == fpr_wb_addr_i;
+      fpu_fwd_o[2] = (op_select_i[2] == fpu_ss_pkg::RegA | op_select_i[2] == fpu_ss_pkg::RegB | op_select_i[2] == fpu_ss_pkg::RegC) & fpu_out_valid_i & fpu_out_ready_o & rd_is_fp_i & rs3_i == fpr_wb_addr_i;
+      lsu_fwd_o[0] = (op_select_i[0] == fpu_ss_pkg::RegA | op_select_i[0] == fpu_ss_pkg::RegB | op_select_i[0] == fpu_ss_pkg::RegC) & x_mem_result_valid_i & mem_pop_i.we & rs1_i == mem_pop_i.rd;
+      lsu_fwd_o[1] = (op_select_i[1] == fpu_ss_pkg::RegA | op_select_i[1] == fpu_ss_pkg::RegB | op_select_i[1] == fpu_ss_pkg::RegC) & x_mem_result_valid_i & mem_pop_i.we & rs2_i == mem_pop_i.rd;
+      lsu_fwd_o[2] = (op_select_i[2] == fpu_ss_pkg::RegA | op_select_i[2] == fpu_ss_pkg::RegB | op_select_i[2] == fpu_ss_pkg::RegC) & x_mem_result_valid_i & mem_pop_i.we & rs3_i == mem_pop_i.rd;
     end
   end
 
@@ -175,7 +182,7 @@ module fpu_ss_controller
   // - when instruction is load and there is a valid memory result
   always_comb begin
     fpr_we_o = 1'b0;
-    if ((fpu_out_valid_i & rd_is_fp_i) | (mem_pop_i.we & x_mem_result_valid_i)) begin
+    if ((fpu_out_valid_i & fpu_out_ready_o & rd_is_fp_i) | (mem_pop_i.we & x_mem_result_valid_i)) begin
       fpr_we_o = 1'b1;
     end
   end
