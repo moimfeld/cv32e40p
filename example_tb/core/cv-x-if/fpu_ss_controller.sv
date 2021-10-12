@@ -27,10 +27,16 @@ module fpu_ss_controller
     input  x_commit_t  x_commit_i,
 
     // buffer pop handshake
-    input  logic pop_valid_i,
-    output logic pop_ready_o,
+    input  logic in_buf_pop_valid_i,
+    output logic in_buf_pop_ready_o,
     input  logic fpu_busy_i,
     input  logic use_fpu_i,
+
+    output logic                      mem_push_valid_o,
+    input  logic                      mem_push_ready_i,
+    input  logic                      mem_pop_valid_i,
+    output logic                      mem_pop_ready_o,
+    input  fpu_ss_pkg::mem_metadata_t mem_pop_i,
 
     // FPnew input handshake
     output logic       fpu_in_valid_o,
@@ -117,14 +123,18 @@ module fpu_ss_controller
   assign x_mem_req_hs = x_mem_valid_o & x_mem_ready_i;
 
   // dependency check (used to avoid data hazards)
-  assign dep_rs1 = rd_scoreboard_q[rs1_i] & pop_valid_i & (op_select_i[0] == fpu_ss_pkg::RegA | op_select_i[1] == fpu_ss_pkg::RegA | op_select_i[2] == fpu_ss_pkg::RegA);
-  assign dep_rs2 = rd_scoreboard_q[rs2_i] & pop_valid_i & (op_select_i[0] == fpu_ss_pkg::RegB | op_select_i[1] == fpu_ss_pkg::RegB | op_select_i[2] == fpu_ss_pkg::RegB);
-  assign dep_rs3 = rd_scoreboard_q[rs3_i] & pop_valid_i & (op_select_i[0] == fpu_ss_pkg::RegC | op_select_i[1] == fpu_ss_pkg::RegC | op_select_i[2] == fpu_ss_pkg::RegC);
+  assign dep_rs1 = rd_scoreboard_q[rs1_i] & in_buf_pop_valid_i & (op_select_i[0] == fpu_ss_pkg::RegA | op_select_i[1] == fpu_ss_pkg::RegA | op_select_i[2] == fpu_ss_pkg::RegA);
+  assign dep_rs2 = rd_scoreboard_q[rs2_i] & in_buf_pop_valid_i & (op_select_i[0] == fpu_ss_pkg::RegB | op_select_i[1] == fpu_ss_pkg::RegB | op_select_i[2] == fpu_ss_pkg::RegB);
+  assign dep_rs3 = rd_scoreboard_q[rs3_i] & in_buf_pop_valid_i & (op_select_i[0] == fpu_ss_pkg::RegC | op_select_i[1] == fpu_ss_pkg::RegC | op_select_i[2] == fpu_ss_pkg::RegC);
   assign dep_rs = (dep_rs1 & ~fwd_o[0]) | (dep_rs2 & ~fwd_o[1]) | (dep_rs3 & ~fwd_o[2]);
-  assign dep_rd = rd_scoreboard_q[rd_i] & rd_in_is_fp_i & ~(fpu_out_valid_i & rd_is_fp_i & (fpr_wb_addr_i == rd_i));
+  assign dep_rd = rd_scoreboard_q[rd_i] & rd_in_is_fp_i & ~(fpu_out_valid_i & fpu_out_ready_o & rd_is_fp_i & (fpr_wb_addr_i == rd_i));
 
   // integer writeback delay assignement
   assign int_wb_o = delay_reg_q[INT_REG_WB_DELAY];
+
+  // memory buffer controll logic
+  assign mem_push_valid_o = x_mem_req_hs;
+  assign mem_pop_ready_o = x_mem_result_valid_i;
 
   // forwarding
   always_comb begin
@@ -140,9 +150,9 @@ module fpu_ss_controller
 
   // pop instruction
   always_comb begin
-    pop_ready_o = 1'b0;
-    if ((fpu_in_valid_o & fpu_in_ready_i) | (x_result_hs & int_wb_o) | x_mem_result_valid_i) begin
-      pop_ready_o = 1'b1;
+    in_buf_pop_ready_o = 1'b0;
+    if ((fpu_in_valid_o & fpu_in_ready_i) | (x_result_hs & int_wb_o) | x_mem_req_hs) begin
+      in_buf_pop_ready_o = 1'b1;
     end
   end
 
@@ -153,9 +163,9 @@ module fpu_ss_controller
   // Note: out-of-order execution is enabled/disabled here
   always_comb begin
     fpu_in_valid_o = 1'b0;
-    if (use_fpu_i & pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | ((x_commit_i.id == fpu_in_id_i) & x_commit_i.commit_kill)) & ~dep_rs & ~dep_rd & OUT_OF_ORDER) begin
+    if (use_fpu_i & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | ((x_commit_i.id == fpu_in_id_i) & x_commit_i.commit_kill)) & ~dep_rs & ~dep_rd & OUT_OF_ORDER) begin
       fpu_in_valid_o = 1'b1;
-    end else if (use_fpu_i  & pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | ((x_commit_i.id == fpu_in_id_i) & x_commit_i.commit_kill)) & ~dep_rs & ~dep_rd & (fpu_out_valid_i | ~instr_inflight_q) & ~OUT_OF_ORDER) begin
+    end else if (use_fpu_i  & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | ((x_commit_i.id == fpu_in_id_i) & x_commit_i.commit_kill)) & ~dep_rs & ~dep_rd & (fpu_out_valid_i | ~instr_inflight_q) & ~OUT_OF_ORDER) begin
       fpu_in_valid_o = 1'b1;
     end
   end
@@ -165,7 +175,7 @@ module fpu_ss_controller
   // - when instruction is load and there is a valid memory result
   always_comb begin
     fpr_we_o = 1'b0;
-    if ((fpu_out_valid_i & rd_is_fp_i) | (is_load_i & x_mem_result_valid_i)) begin
+    if ((fpu_out_valid_i & rd_is_fp_i) | (mem_pop_i.we & x_mem_result_valid_i)) begin
       fpr_we_o = 1'b1;
     end
   end
@@ -195,7 +205,7 @@ module fpu_ss_controller
   // - when the instruction has NOT already been offloaded back to the core (instr_offloaded_q signal)
   always_comb begin
     x_mem_valid_o = 1'b0;
-    if ((is_load_i | is_store_i) & ~dep_rs & pop_valid_i & ~instr_offloaded_q & ~fpu_busy_i) begin
+    if ((is_load_i | is_store_i) & ~dep_rs & ~dep_rd & in_buf_pop_valid_i) begin
       x_mem_valid_o = 1'b1;
     end
   end
@@ -221,7 +231,7 @@ module fpu_ss_controller
   // update for the instr_offloaded status signal
   always_comb begin
     instr_offloaded_d = instr_offloaded_q;
-    if (pop_valid_i & x_mem_req_hs) begin
+    if (in_buf_pop_valid_i & x_mem_req_hs) begin
       instr_offloaded_d = 1'b1;
     end else if (x_mem_result_valid_i) begin
       instr_offloaded_d = 1'b0;
@@ -231,11 +241,13 @@ module fpu_ss_controller
   // update for the rd scoreboard
   always_comb begin
     rd_scoreboard_d = rd_scoreboard_q;
-    if (fpu_in_valid_o & fpu_in_ready_i & rd_in_is_fp_i) begin
+    if ((fpu_in_valid_o & fpu_in_ready_i & rd_in_is_fp_i) | (x_mem_req_hs & is_load_i)) begin
       rd_scoreboard_d[rd_i] = 1'b1;
     end
     if ((fpu_out_ready_o & fpu_out_valid_i) & ~(fpu_in_valid_o & fpu_in_ready_i & fpr_wb_addr_i == rd_i)) begin
       rd_scoreboard_d[fpr_wb_addr_i] = 1'b0;
+    end else if (x_mem_result_valid_i & mem_pop_i.we) begin
+      rd_scoreboard_d[mem_pop_i.rd] = 1'b0;
     end
   end
 
@@ -270,7 +282,7 @@ module fpu_ss_controller
   // - when there is an instruction that does not use the fpu, does write back to an integer register and is not a load or store
   always_comb begin
     delay_reg_q[0] = 1'b0;
-    if (pop_valid_i & (csr_instr_i | (~use_fpu_i & ~is_load_i & ~is_store_i))) begin
+    if (in_buf_pop_valid_i & (csr_instr_i | (~use_fpu_i & ~is_load_i & ~is_store_i))) begin
       delay_reg_q[0] = 1'b1;
     end
   end
@@ -281,7 +293,7 @@ module fpu_ss_controller
   for (genvar i = 0; i < INT_REG_WB_DELAY; i++) begin
     always_comb begin
       delay_reg_d[i+1] = delay_reg_q[i];
-      if (~delay_reg_q[0] | pop_ready_o | fpu_busy_i | fpu_out_valid_i | is_load_i | is_store_i | ~pop_valid_i) begin
+      if (~delay_reg_q[0] | in_buf_pop_ready_o | fpu_busy_i | fpu_out_valid_i | is_load_i | is_store_i | ~in_buf_pop_valid_i) begin
         delay_reg_d[i+1] = 1'b0;
       end
     end

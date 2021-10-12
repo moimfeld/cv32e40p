@@ -86,7 +86,6 @@ module cv32e40p_x_disp
   logic [31:0] scoreboard_q, scoreboard_d;
   logic [ 3:0] id_q, id_d;
   logic instr_offloaded_q, instr_offloaded_d;
-  logic mem_wb_complete_q, mem_wb_complete_d;
   logic [3:0] mem_cnt_q, mem_cnt_d;
   logic dep;
   logic pending_mem_op;
@@ -205,19 +204,8 @@ module cv32e40p_x_disp
   // memory instruction response handshake
   always_comb begin
     x_mem_result_valid_o = 1'b0;
-    if (x_mem_instr_wb_i & ~mem_wb_complete_q) begin
+    if (x_mem_instr_wb_i) begin
       x_mem_result_valid_o = 1'b1;
-    end
-  end
-
-
-  // status signal that is asserted when a memory instruction writeback (to an accelerator) has completed
-  always_comb begin
-    mem_wb_complete_d = mem_wb_complete_q;
-    if (x_mem_result_valid_o) begin
-      mem_wb_complete_d = 1'b1;
-    end else if (x_mem_ready_o & x_mem_valid_i) begin
-      mem_wb_complete_d = 1'b0;
     end
   end
 
@@ -244,13 +232,11 @@ module cv32e40p_x_disp
     if (~rst_ni) begin
       scoreboard_q      <= 32'b0;
       instr_offloaded_q <= 1'b0;
-      mem_wb_complete_q <= 1'b0;
       mem_cnt_q         <= 4'b0;
       id_q              <= 4'b0;
     end else begin
       scoreboard_q      <= scoreboard_d;
       instr_offloaded_q <= instr_offloaded_d;
-      mem_wb_complete_q <= mem_wb_complete_d;
       mem_cnt_q         <= mem_cnt_d;
       id_q              <= id_d;
     end
