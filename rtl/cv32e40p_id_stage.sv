@@ -392,6 +392,8 @@ module cv32e40p_id_stage
   logic [2:0][4:0] x_rs_addr;
   logic x_mem_data_req;
   logic x_mem_valid;
+  logic [2:0] x_ex_fwd;
+  logic [2:0] x_wb_fwd;
 
   // Register Write Control
   logic regfile_we_id;
@@ -973,7 +975,7 @@ module cv32e40p_id_stage
           .clk_i (clk),
           .rst_ni(rst_n),
 
-          // scoreboard and dependency check/stall
+          // scoreboard, dependency check, stall, forwarding to the interface
           .x_waddr_id_i             (x_waddr_id),
           .x_issue_resp_writeback_i (x_issue_resp_i.writeback),
           .x_waddr_ex_i             (x_waddr_ex),
@@ -987,6 +989,8 @@ module cv32e40p_id_stage
           .x_regs_used_i            (x_regs_used),
           .x_branch_or_jump_i       (branch_in_ex_o),
           .x_data_req_dec_i         (data_req_dec),
+          .x_ex_fwd_o               (x_ex_fwd),
+          .x_wb_fwd_o               (x_wb_fwd),
 
           // x-request and response channel signals
           .x_issue_valid_o          (x_issue_valid_o),
@@ -1026,6 +1030,7 @@ module cv32e40p_id_stage
           .x_illegal_insn_dec_i(illegal_insn_dec),
           .x_illegal_insn_o    (x_illegal_insn),
           .id_ready_i          (id_ready_o),
+          .ex_valid_i          (ex_valid_i),
           .current_priv_lvl_i  (current_priv_lvl_i)
       );
 
@@ -1041,11 +1046,6 @@ module cv32e40p_id_stage
       assign x_result_valid_assigned_o = x_result_valid_i;
       assign x_mem_valid               = x_mem_valid_i;
 
-      // x-interface integer souce register assignment
-      assign x_issue_req_o.rs[0] = regfile_data_ra_id;
-      assign x_issue_req_o.rs[1] = regfile_data_rb_id;
-      assign x_issue_req_o.rs[2] = regfile_data_rc_id;
-
       // x-interface floating-point register assignment (hardwired to 0 according to specifications)
       assign x_issue_req_o.frs[0] = '0;
       assign x_issue_req_o.frs[1] = '0;
@@ -1053,6 +1053,32 @@ module cv32e40p_id_stage
 
       // illegal instruction signal
       assign illegal_insn        = x_illegal_insn;
+
+      // x-interface integer souce operand assignment
+      always_comb begin
+        x_issue_req_o.rs[0] = regfile_data_ra_id;
+        if (x_ex_fwd[0]) begin
+          x_issue_req_o.rs[0] = regfile_alu_wdata_fw_i;
+        end else if (x_wb_fwd[0]) begin
+          x_issue_req_o.rs[0] = regfile_wdata_wb_i;
+        end
+      end
+      always_comb begin
+        x_issue_req_o.rs[1] = regfile_data_rb_id;
+        if (x_ex_fwd[1]) begin
+          x_issue_req_o.rs[1] = regfile_alu_wdata_fw_i;
+        end else if (x_wb_fwd[1]) begin
+          x_issue_req_o.rs[1] = regfile_wdata_wb_i;
+        end
+      end
+      always_comb begin
+        x_issue_req_o.rs[2] = regfile_data_rc_id;
+        if (x_ex_fwd[2]) begin
+          x_issue_req_o.rs[2] = regfile_alu_wdata_fw_i;
+        end else if (x_wb_fwd[2]) begin
+          x_issue_req_o.rs[2] = regfile_wdata_wb_i;
+        end
+      end
 
       // LSU signal assignment/MUX
       assign regfile_we_id       = regfile_we_id_dec & ~x_mem_data_req;
