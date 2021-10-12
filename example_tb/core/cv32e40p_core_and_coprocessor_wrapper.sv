@@ -166,7 +166,7 @@ module cv32e40p_core_and_coprocessor_wrapper
     if (FPU) begin : gen_fpu_ss
       fpu_ss #(
       .PULP_ZFINX(PULP_ZFINX),
-      .BUFFER_DEPTH(4),
+      .INPUT_BUFFER_DEPTH(4),
       .INT_REG_WB_DELAY(1),
       .OUT_OF_ORDER(1),
       .FORWARDING(1),

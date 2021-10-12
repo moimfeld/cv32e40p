@@ -12,52 +12,52 @@
 //
 // Parameters:  PULP_ZFINX:       Unused at the moment
 //
-//              BUFFER_DEPTH:     This parameter can be used to set the depth of the stream_fifo buffer.
-//                                Minimum value is 0
+//              INPUT_BUFFER_DEPTH: This parameter can be used to set the depth of the stream_fifo buffer.
+//                                  Minimum value is 0
 //
-//              INT_REG_WB_DELAY: INTeger REGister WriteBack DELAY can be used to cut combinational
-//                                paths of instructions that do not go through the FPnew.
-//                                Instructions that cause such paths are for example the CSR instructions.
-//                                Setting this parameter to 0 can lead to writebacks to the core
-//                                in the same cycle as an instruction was offloaded.
-//                                Minimum value is 0
+//              INT_REG_WB_DELAY:   INTeger REGister WriteBack DELAY can be used to cut combinational
+//                                  paths of instructions that do not go through the FPnew.
+//                                  Instructions that cause such paths are for example the CSR instructions.
+//                                  Setting this parameter to 0 can lead to writebacks to the core
+//                                  in the same cycle as an instruction was offloaded.
+//                                  Minimum value is 0
 //
-//              OUT_OF_ORDER:     Enable or diable out-of-order execution for instructions that go through
-//                                the FPnew.
-//                                For example with OUT_OF_ORDER = 1
-//                                    fdiv.s fa1, fa2, fa3 // suppose takes 3 cycles
-//                                    fmul.s fa4, fa5, fa6 // suppose takes 1 cycles
-//                                    fmul.s fa2, fa5, fa6 // suppose takes 1 cycles
-//                                    fmul.s fa3, fa5, fa6 // suppose takes 1 cycles
-//                                --> This sequence takes 4 clock cycles
-//                                With OUT_OF_ORDER this instruction sequence would take 5 clock cycles
-//                                Possible values for this parameter are 0 and 1
+//              OUT_OF_ORDER:       Enable or diable out-of-order execution for instructions that go through
+//                                  the FPnew.
+//                                  For example with OUT_OF_ORDER = 1
+//                                      fdiv.s fa1, fa2, fa3 // suppose takes 3 cycles
+//                                      fmul.s fa4, fa5, fa6 // suppose takes 1 cycles
+//                                      fmul.s fa2, fa5, fa6 // suppose takes 1 cycles
+//                                      fmul.s fa3, fa5, fa6 // suppose takes 1 cycles
+//                                  --> This sequence takes 4 clock cycles
+//                                  With OUT_OF_ORDER this instruction sequence would take 5 clock cycles
+//                                  Possible values for this parameter are 0 and 1
 //
-//             FORWARDING:        With this parameter forwarding of floating-point results in the subsystem
-//                                can be enabled/disabled.
-//                                For examle take this sequence:
-//                                    fmul.s fa4, fa5, fa6 // suppose takes 1 cycles
-//                                    fmul.s fa1, fa4, fa6 // suppose takes 1 cycles
-//                                There is a source register dependency for the second instruction on the
-//                                first instruction. With FORWARDING = 1 this sequence takes 2 clock cycles
-//                                while with FORWARDING = 0 this sequence takes 3 clock cycles.
+//             FORWARDING:          With this parameter forwarding of floating-point results in the subsystem
+//                                  can be enabled/disabled.
+//                                  For examle take this sequence:
+//                                      fmul.s fa4, fa5, fa6 // suppose takes 1 cycles
+//                                      fmul.s fa1, fa4, fa6 // suppose takes 1 cycles
+//                                  There is a source register dependency for the second instruction on the
+//                                  first instruction. With FORWARDING = 1 this sequence takes 2 clock cycles
+//                                  while with FORWARDING = 0 this sequence takes 3 clock cycles.
 //
-//             FPU_FEATURES:      Parameter to configure the FPnew, the subsystem was designed for the configuration found here:
-//                                https://github.com/moimfeld/cv32e40p/blob/x-interface/example_tb/core/cv-x-if/cv32e40p_fpu_pkg.sv
-//                                Other configurations might not work
+//             FPU_FEATURES:        Parameter to configure the FPnew, the subsystem was designed for the configuration found here:
+//                                  https://github.com/moimfeld/cv32e40p/blob/x-interface/example_tb/core/cv-x-if/cv32e40p_fpu_pkg.sv
+//                                  Other configurations might not work
 //
-//             FPU_IMPLEMENTATION:Parameter to configure the FPnew, the subsystem was designed for the configuration found here:
-//                                https://github.com/moimfeld/cv32e40p/blob/x-interface/example_tb/core/cv-x-if/cv32e40p_fpu_pkg.sv
-//                                Other configurations might not work
+//             FPU_IMPLEMENTATION:  Parameter to configure the FPnew, the subsystem was designed for the configuration found here:
+//                                  https://github.com/moimfeld/cv32e40p/blob/x-interface/example_tb/core/cv-x-if/cv32e40p_fpu_pkg.sv
+//                                  Other configurations might not work
 //
 // Contributor: Moritz Imfeld <moimfeld@student.ethz.ch>
 //              Davide Schiavone <davide@openhwgroup.org>
 
-module fpu_ss 
+module fpu_ss
     import cv32e40p_core_v_xif_pkg::*; // maybe change to a fpu_ss package but then one needs casting in the core_and_coprocessor wrapper
 #(
     parameter                                 PULP_ZFINX         = 0,
-    parameter                                 BUFFER_DEPTH       = 1,
+    parameter                                 INPUT_BUFFER_DEPTH = 1,
     parameter                                 INT_REG_WB_DELAY   = 1,
     parameter                                 OUT_OF_ORDER       = 1,
     parameter                                 FORWARDING         = 1,
@@ -97,15 +97,15 @@ module fpu_ss
   // predecoder signals
   acc_pkg::acc_prd_req_t  prd_req;
   acc_pkg::acc_prd_rsp_t  prd_rsp;
-  logic buffer_ready;
+  logic in_buf_push_ready;
 
 
   // stream_fifo input and output data
   fpu_ss_pkg::offloaded_data_t                    offloaded_data_push;
   fpu_ss_pkg::offloaded_data_t                    offloaded_data_pop;
-  logic                                           push_valid;
-  logic                                           pop_valid;
-  logic                                           pop_ready;
+  logic                                           in_buf_push_valid;
+  logic                                           in_buf_pop_valid;
+  logic                                           in_buf_pop_ready;
 
   // FPnew signals
   fpu_ss_pkg::fpu_tag_t                           fpu_tag_in;
@@ -153,6 +153,14 @@ module fpu_ss
   fpu_ss_pkg::ls_size_e                           ls_size;
   logic                                           error;
 
+  // memory buffer
+  logic mem_push_valid;
+  logic mem_push_ready;
+  logic mem_pop_valid;
+  logic mem_pop_ready;
+  fpu_ss_pkg::mem_metadata_t mem_push;
+  fpu_ss_pkg::mem_metadata_t mem_pop;
+
   // writeback to core
   logic                          [ 4:0]           wb_rd;
   logic                          [ 3:0]           wb_id;
@@ -182,7 +190,7 @@ module fpu_ss
     if (((prd_rsp.p_use_rs[0] & x_issue_req_i.rs_valid[0]) | !prd_rsp.p_use_rs[0])
       & ((prd_rsp.p_use_rs[1] & x_issue_req_i.rs_valid[1]) | !prd_rsp.p_use_rs[1])
       & ((prd_rsp.p_use_rs[2] & x_issue_req_i.rs_valid[2]) | !prd_rsp.p_use_rs[2])
-      & buffer_ready) begin
+      & in_buf_push_ready) begin
       x_issue_ready_o = 1'b1;
     end
   end
@@ -195,7 +203,7 @@ module fpu_ss
 
 
   // stream_fifo input and output
-  assign push_valid = x_issue_valid_i & x_issue_ready_o;
+  assign in_buf_push_valid = x_issue_valid_i & x_issue_ready_o;
   assign offloaded_data_push.rs = x_issue_req_i.rs;
   assign offloaded_data_push.instr_data = x_issue_req_i.instr;
   assign offloaded_data_push.id = x_issue_req_i.id;
@@ -215,6 +223,11 @@ module fpu_ss
   assign fpu_tag_in.addr = rd;
   assign fpu_tag_in.rd_is_fp = rd_is_fp;
   assign fpu_tag_in.id = offloaded_data_pop.id;
+
+  // memory instruction buffer assignment
+  assign mem_push.id = offloaded_data_pop.id;
+  assign mem_push.rd = rd;
+  assign mem_push.we = is_load;
 
   // int register writeback data mux
   always_comb begin
@@ -286,7 +299,9 @@ module fpu_ss
   // fp register addr writeback mux
   always_comb begin
     fpr_wb_addr = fpu_tag_out.addr;
-    if (~use_fpu & ~fpu_out_valid) begin
+    if (x_mem_result_valid_i) begin
+      fpr_wb_addr = mem_pop.rd;
+    end else if (~use_fpu & ~fpu_out_valid) begin
       fpr_wb_addr = rd;
     end
   end
@@ -305,9 +320,9 @@ module fpu_ss
   stream_fifo #(
       .FALL_THROUGH(1),
       .DATA_WIDTH  (32),
-      .DEPTH       (BUFFER_DEPTH),
+      .DEPTH       (INPUT_BUFFER_DEPTH),
       .T           (fpu_ss_pkg::offloaded_data_t)
-  ) stream_fifo_i (
+  ) input_stream_fifo_i (
       .clk_i     (clk_i),
       .rst_ni    (rst_ni),
       .flush_i   (1'b0),
@@ -315,12 +330,12 @@ module fpu_ss
       .usage_o   (  /* unused */),
 
       .data_i (offloaded_data_push),
-      .valid_i(push_valid),
-      .ready_o(buffer_ready),
+      .valid_i(in_buf_push_valid),
+      .ready_o(in_buf_push_ready),
 
       .data_o (offloaded_data_pop),
-      .valid_o(pop_valid),
-      .ready_i(pop_ready)
+      .valid_o(in_buf_pop_valid),
+      .ready_i(in_buf_pop_ready)
   );
 
   // "F"-Extension and "xfvec"-Extension Decoder
@@ -343,6 +358,28 @@ module fpu_ss
       .is_store_o    (is_store),
       .is_load_o     (is_load),
       .ls_size_o     (ls_size)
+  );
+
+  // Memory instruction buffer
+  stream_fifo #(
+      .FALL_THROUGH(0),
+      .DATA_WIDTH  (32),
+      .DEPTH       (3),
+      .T           (fpu_ss_pkg::mem_metadata_t)
+  ) mem_stream_fifo_i (
+      .clk_i     (clk_i),
+      .rst_ni    (rst_ni),
+      .flush_i   (1'b0),
+      .testmode_i(1'b0),
+      .usage_o   (  /* unused */),
+
+      .data_i (mem_push),
+      .valid_i(mem_push_valid),
+      .ready_o(mem_push_ready),
+
+      .data_o (mem_pop),
+      .valid_o(mem_pop_valid),
+      .ready_i(mem_pop_ready)
   );
 
   // FPU subsystem CSR
@@ -375,10 +412,18 @@ module fpu_ss
       .x_commit_i       (x_commit_i),
 
       // buffer pop handshake
-      .pop_valid_i    (pop_valid),
-      .pop_ready_o    (pop_ready),
-      .fpu_busy_i     (fpu_busy),
-      .use_fpu_i      (use_fpu),
+      .in_buf_pop_valid_i (in_buf_pop_valid),
+      .in_buf_pop_ready_o (in_buf_pop_ready),
+      .fpu_busy_i         (fpu_busy),
+      .use_fpu_i          (use_fpu),
+
+      // memory buffer handshake
+      .mem_push_valid_o (mem_push_valid),
+      .mem_push_ready_i (mem_push_ready),
+      .mem_pop_valid_i  (mem_pop_valid),
+      .mem_pop_ready_o  (mem_pop_ready),
+      .mem_pop_i        (mem_pop),
+
 
       // FPnew input handshake
       .fpu_in_valid_o(fpu_in_valid),
