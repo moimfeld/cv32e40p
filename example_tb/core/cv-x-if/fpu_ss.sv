@@ -133,7 +133,8 @@ module fpu_ss
   logic                                           fpr_we;
 
   // forwarding
-  logic                          [ 2:0]           fwd;
+  logic                          [ 2:0]           fpu_fwd;
+  logic                          [ 2:0]           lsu_fwd;
 
   // decoder signals
   fpnew_pkg::operation_e                          fpu_op;
@@ -267,8 +268,10 @@ module fpu_ss
 
   always_comb begin
     x_mem_req_o.wdata = fpu_operands[1];
-    if (fwd[0]) begin
+    if (fpu_fwd[0]) begin
       x_mem_req_o.wdata = fpu_result;
+    end else if (lsu_fwd[0]) begin
+      x_mem_req_o.wdata = x_mem_result_i.rdata;
     end
   end
 
@@ -452,7 +455,8 @@ module fpu_ss
       .rs1_i(rs1),
       .rs2_i(rs2),
       .rs3_i(rs3),
-      .fwd_o(fwd),
+      .fpu_fwd_o(fpu_fwd),
+      .lsu_fwd_o(lsu_fwd),
       .op_select_i(op_select),
 
       // memory instruction handling
@@ -523,8 +527,10 @@ module fpu_ss
         end
         fpu_ss_pkg::RegA, fpu_ss_pkg::RegB, fpu_ss_pkg::RegBRep, fpu_ss_pkg::RegC, fpu_ss_pkg::RegDest: begin
           fpu_operands[i] = fpr_operands[i];
-          if (fwd[i]) begin
+          if (fpu_fwd[i]) begin
             fpu_operands[i] = fpu_result;
+          end else if (lsu_fwd[i]) begin
+            fpu_operands[i] = x_mem_result_i.rdata;
           end
           // Replicate if needed
           if (op_select[i] == fpu_ss_pkg::RegBRep) begin
