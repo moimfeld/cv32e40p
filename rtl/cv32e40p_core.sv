@@ -71,10 +71,10 @@ module cv32e40p_core
 
     // CORE-V-XIF
     // Compressed interface
-    output logic x_compressed_valid_o, // not implemented
-    input  logic x_compressed_ready_i, // not implemented
-    output x_compressed_req_t x_compressed_req_o, // not implemented
-    input  x_compressed_resp_t x_compressed_resp_i, // not implemented
+    output logic x_compressed_valid_o,
+    input  logic x_compressed_ready_i,
+    output x_compressed_req_t x_compressed_req_o,
+    input  x_compressed_resp_t x_compressed_resp_i,
 
     // Issue Interface
     output logic x_issue_valid_o,
@@ -419,7 +419,8 @@ module cv32e40p_core
   cv32e40p_if_stage #(
       .PULP_XPULP (PULP_XPULP),
       .PULP_OBI   (PULP_OBI),
-      .PULP_SECURE(PULP_SECURE)
+      .PULP_SECURE(PULP_SECURE),
+      .FPU        (FPU)
   ) if_stage_i (
       .clk  (clk),
       .rst_n(rst_ni),
@@ -447,6 +448,11 @@ module cv32e40p_core
       .instr_rdata_i  (instr_rdata_i),
       .instr_err_i    (1'b0),  // Bus error (not used yet)
       .instr_err_pmp_i(instr_err_pmp),  // PMP error
+
+      .x_compressed_valid_o (x_compressed_valid_o),
+      .x_compressed_ready_i (x_compressed_ready_i),
+      .x_compressed_req_o   (x_compressed_req_o),
+      .x_compressed_resp_i  (x_compressed_resp_i),
 
       // outputs to ID stage
       .instr_valid_id_o (instr_valid_id),
@@ -604,12 +610,6 @@ module cv32e40p_core
       .apu_en_ex_o(apu_en_ex),
 
       // CORE-V-XIF
-      // Compressed interface (unused at the moment)
-      .x_compressed_valid_o (x_compressed_valid_o), // not implemented
-      .x_compressed_ready_i (x_compressed_ready_i), // not implemented
-      .x_compressed_req_o (x_compressed_req_o), // not implemented
-      .x_compressed_resp_i (x_compressed_resp_i), // not implemented
-
       // Issue Interface
       .x_issue_valid_o (x_issue_valid_o),
       .x_issue_ready_i (x_issue_ready_i),
@@ -801,7 +801,7 @@ module cv32e40p_core
       .x_mem_result_rdata_o      (x_mem_result_o.rdata),
       .x_mem_instr_wb_o          (x_mem_instr_wb),
       .x_mem_result_id_o         (x_mem_result_o.id),
-     
+
       .lsu_en_i   (data_req_ex),
       .lsu_rdata_i(lsu_rdata),
 
