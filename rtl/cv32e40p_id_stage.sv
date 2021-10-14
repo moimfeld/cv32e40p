@@ -132,13 +132,6 @@ module cv32e40p_id_stage
     output logic apu_en_ex_o,
 
     // CORE-V-XIF
-
-    // Compressed interface (unused at the moment)
-    output logic x_compressed_valid_o,
-    input  logic x_compressed_ready_i,
-    output x_compressed_req_t x_compressed_req_o,
-    input  x_compressed_resp_t x_compressed_resp_i,
-
     // Issue Interface
     output logic x_issue_valid_o,
     input  logic x_issue_ready_i,
