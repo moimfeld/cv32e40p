@@ -68,6 +68,12 @@ module fpu_ss
     input logic clk_i,
     input logic rst_ni,
 
+    // Compressed Interface
+    input  logic x_compressed_valid_i,
+    output logic x_compressed_ready_o,
+    input  x_compressed_req_t x_compressed_req_i,
+    output x_compressed_resp_t x_compressed_resp_o,
+
     // Issue Interface
     input  logic x_issue_valid_i,
     output logic x_issue_ready_o,
@@ -94,9 +100,13 @@ module fpu_ss
     output x_result_t x_result_o
 );
 
+  // compressed predecoder signals
+  fpu_ss_pkg::comp_prd_req_t comp_prd_req;
+  fpu_ss_pkg::comp_prd_rsp_t comp_prd_rsp;
+
   // predecoder signals
-  acc_pkg::acc_prd_req_t  prd_req;
-  acc_pkg::acc_prd_rsp_t  prd_rsp;
+  fpu_ss_pkg::acc_prd_req_t  prd_req;
+  fpu_ss_pkg::acc_prd_rsp_t  prd_rsp;
   logic in_buf_push_ready;
 
 
@@ -175,6 +185,12 @@ module fpu_ss
 
   // additional signals
   logic                                           int_wb;
+
+  // compressed predecoder signal assignments
+  assign x_compressed_ready_o = x_compressed_valid_i;
+  assign comp_prd_req.comp_instr = x_compressed_req_i.instr;
+  assign x_compressed_resp_o.instr = comp_prd_rsp.decomp_instr;
+  assign x_compressed_resp_o.accept = comp_prd_rsp.accept;
 
   // predecoder signal assignments
   assign prd_req.q_instr_data = x_issue_req_i.instr;
@@ -309,6 +325,13 @@ module fpu_ss
     end
   end
 
+  // Compressed instruction predecoder
+  fpu_ss_compressed_predecoder fpu_ss_compressed_predecoder_i
+    (
+      .prd_req_i(comp_prd_req),
+      .prd_rsp_o(comp_prd_rsp)
+  );
+
   // Predecoder, that checks validity of source registers and cleanness of source register before accepting an instruction
   fpu_ss_predecoder #(
       .NumInstr(acc_fp_pkg::NumInstr),
@@ -374,7 +397,7 @@ module fpu_ss
       .rst_ni    (rst_ni),
       .flush_i   (1'b0),
       .testmode_i(1'b0),
-      .usage_o   (  /* unused */),
+      .usage_o   (mem_fifo_usage),
 
       .data_i (mem_push),
       .valid_i(mem_push_valid),
@@ -421,6 +444,7 @@ module fpu_ss
       .use_fpu_i          (use_fpu),
 
       // memory buffer handshake
+      .mem_fifo_usage_i (mem_fifo_usage),
       .mem_push_valid_o (mem_push_valid),
       .mem_push_ready_i (mem_push_ready),
       .mem_pop_valid_i  (mem_pop_valid),

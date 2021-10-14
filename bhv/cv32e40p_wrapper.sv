@@ -67,10 +67,10 @@ module cv32e40p_wrapper
 
     // CORE-V-XIF
     // Compressed interface
-    output logic x_compressed_valid_o, // not implemented
-    input  logic x_compressed_ready_i, // not implemented
-    output x_compressed_req_t x_compressed_req_o, // not implemented
-    input  x_compressed_resp_t x_compressed_resp_i, // not implemented
+    output logic x_compressed_valid_o,
+    input  logic x_compressed_ready_i,
+    output x_compressed_req_t x_compressed_req_o,
+    input  x_compressed_resp_t x_compressed_resp_i,
 
     // Issue Interface
     output logic x_issue_valid_o,

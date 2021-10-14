@@ -13,6 +13,37 @@
 
 package fpu_ss_pkg;
 
+  // Compressed predecoder request type
+  typedef struct packed {
+    logic [16:0] comp_instr;
+  } comp_prd_req_t;
+
+  // Compressed predecoder response type
+  typedef struct packed {
+    logic        accept;
+    logic [32:0] decomp_instr;
+  } comp_prd_rsp_t;
+
+  // Predecoder request type
+  typedef struct packed {
+    logic [31:0] q_instr_data;
+  } acc_prd_req_t;
+
+  // Predecoder response type
+  typedef struct packed {
+    logic       p_accept;
+    logic       p_is_mem_op;
+    logic [1:0] p_writeback;
+    logic [2:0] p_use_rs;
+  } acc_prd_rsp_t;
+
+  // Predecoder internal instruction metadata
+  typedef struct packed {
+    logic [31:0]  instr_data;
+    logic [31:0]  instr_mask;
+    acc_prd_rsp_t prd_rsp;
+  } offload_instr_t;
+
   typedef enum logic [2:0] {
     None,
     AccBus,
