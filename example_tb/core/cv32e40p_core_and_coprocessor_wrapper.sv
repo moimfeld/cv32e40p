@@ -46,10 +46,10 @@ module cv32e40p_core_and_coprocessor_wrapper
   logic                               core_sleep;
 
   // Compressed interface
-  logic x_compressed_valid; // not implemented
-  logic x_compressed_ready; // not implemented
-  x_compressed_req_t x_compressed_req; // not implemented
-  x_compressed_resp_t x_compressed_resp; // not implemented
+  logic x_compressed_valid;
+  logic x_compressed_ready;
+  x_compressed_req_t x_compressed_req;
+  x_compressed_resp_t x_compressed_resp;
 
   // Issue Interface
   logic x_issue_valid;
@@ -75,12 +75,6 @@ module cv32e40p_core_and_coprocessor_wrapper
   logic x_result_valid;
   logic x_result_ready;
   x_result_t x_result;
-
-  assign x_compressed_ready       = '0;
-  assign x_compressed_resp.instr  = '0;
-  assign x_compressed_resp.accept = '0;
-
-
 
   cv32e40p_wrapper #(
     .PULP_XPULP      (PULP_XPULP),
@@ -119,10 +113,10 @@ module cv32e40p_core_and_coprocessor_wrapper
     // CORE-V-XIF
 
     // Compressed interface
-    .x_compressed_valid_o(x_compressed_valid), // not implemented
-    .x_compressed_ready_i(x_compressed_ready), // not implemented
-    .x_compressed_req_o(x_compressed_req), // not implemented
-    .x_compressed_resp_i(x_compressed_resp), // not implemented
+    .x_compressed_valid_o(x_compressed_valid),
+    .x_compressed_ready_i(x_compressed_ready),
+    .x_compressed_req_o(x_compressed_req),
+    .x_compressed_resp_i(x_compressed_resp),
 
     // Issue Interface
     .x_issue_valid_o(x_issue_valid),
@@ -176,6 +170,12 @@ module cv32e40p_core_and_coprocessor_wrapper
     // clock and reset
     .clk_i(clk_i),
     .rst_ni(rst_ni),
+
+    // Compressed Interface
+    .x_compressed_valid_i(x_compressed_valid),
+    .x_compressed_ready_o(x_compressed_ready),
+    .x_compressed_req_i  (x_compressed_req),
+    .x_compressed_resp_o (x_compressed_resp),
 
     // Issue Interface
     .x_issue_valid_i(x_issue_valid),
