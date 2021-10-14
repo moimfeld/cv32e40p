@@ -15,13 +15,13 @@
 
 module fpu_ss_predecoder #(
     parameter int                       NumInstr               = 1,
-    parameter acc_pkg::offload_instr_t  OffloadInstr[NumInstr] = {0}
+    parameter fpu_ss_pkg::offload_instr_t  OffloadInstr[NumInstr] = {0}
 ) (
-    input  acc_pkg::acc_prd_req_t prd_req_i,
-    output acc_pkg::acc_prd_rsp_t prd_rsp_o
+    input  fpu_ss_pkg::acc_prd_req_t prd_req_i,
+    output fpu_ss_pkg::acc_prd_rsp_t prd_rsp_o
 );
 
-  import acc_pkg::*;
+  import fpu_ss_pkg::*;
 
   acc_prd_rsp_t [NumInstr-1:0] instr_rsp;
   logic         [NumInstr-1:0] instr_sel;
