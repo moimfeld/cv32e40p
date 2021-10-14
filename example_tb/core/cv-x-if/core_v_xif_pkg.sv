@@ -38,62 +38,59 @@ package core_v_xif_pkg;
   } x_compressed_resp_t;
 
   typedef struct packed {
-    logic [31:0] instr; // ok
-    logic [ 1:0] mode; // ok
-    logic [X_ID_WIDTH-1:0] id; // only changed for fifo and fpu_tag
-    logic [X_NUM_RS-1:0][X_RFR_WIDTH-1:0] rs; // ok
-    logic [X_NUM_RS-1:0] rs_valid; // ok
-    logic [X_NUM_FRS-1:0][FLEN-1:0] frs; // ok, unused
-    logic [X_NUM_FRS-1:0] frs_valid; // ok, unused
+    logic [31:0] instr;
+    logic [ 1:0] mode;
+    logic [X_ID_WIDTH-1:0] id;
+    logic [X_NUM_RS-1:0][X_RFR_WIDTH-1:0] rs;
+    logic [X_NUM_RS-1:0] rs_valid;
+    logic [X_NUM_FRS-1:0][FLEN-1:0] frs;
+    logic [X_NUM_FRS-1:0] frs_valid;
   } x_issue_req_t;
 
   typedef struct packed {
-    logic accept; // ok
-    logic writeback; // ok
-    logic float; // ok
-    logic dualwrite; // ok, why does it need the dual write
-    logic dualread; // ok
-    logic loadstore; // ok
-    logic exc; // ok
+    logic accept;
+    logic writeback;
+    logic float;
+    logic dualwrite;
+    logic dualread;
+    logic loadstore;
+    logic exc;
   } x_issue_resp_t;
 
   typedef struct packed {
-    logic [X_ID_WIDTH-1:0] id; // ok
-    logic commit_kill; // ok
+    logic [X_ID_WIDTH-1:0] id;
+    logic commit_kill;
   } x_commit_t;
 
   typedef struct packed {
-    logic [X_ID_WIDTH-1:0] id; // ok
-    logic [31:0] addr; // ok
-    logic [1:0] mode; // ok
-    logic [1:0] size; // ok
-    logic we; // ok
-    logic [X_MEM_WIDTH-1:0] wdata; // ok
-    logic last; // ok
-    logic spec; // ok
+    logic [X_ID_WIDTH-1:0] id;
+    logic [31:0] addr;
+    logic [1:0] mode;
+    logic [1:0] size;
+    logic we;
+    logic [X_MEM_WIDTH-1:0] wdata;
+    logic last;
+    logic spec;
   } x_mem_req_t;
 
   typedef struct packed {
-    logic exc; // ok, unused
-    logic [5:0] exccode; // ok, unused
+    logic exc;
+    logic [5:0] exccode;
   } x_mem_resp_t;
 
     typedef struct packed {
-    logic [X_ID_WIDTH-1:0] id; // unused for now, but is needed to handle result interface propperly
-    logic [X_MEM_WIDTH-1:0] rdata; // ok
-    logic err; // ok
+    logic [X_ID_WIDTH-1:0] id;
+    logic [X_MEM_WIDTH-1:0] rdata;
+    logic err;
   } x_mem_result_t;
 
-  typedef struct packed { // not done. Need to think how to avoid congestions
-                          // maybe prioritice memory instruction for the result interface --> if
-                          // result interface is used by memory instruction, do not accept FPU
-                          // output so the FPU itself "stalls" and keeps the results
-    logic [X_ID_WIDTH-1:0] id; // ok
-    logic [X_RFW_WIDTH-1:0] data; // ok
-    logic [4:0] rd; // ok
-    logic [X_RFW_WIDTH-XLEN:0] we; // ok
-    logic float; // ok
-    logic exc; // ok
-    logic [5:0] exccode; // ok
+  typedef struct packed {
+    logic [X_ID_WIDTH-1:0] id;
+    logic [X_RFW_WIDTH-1:0] data;
+    logic [4:0] rd;
+    logic [X_RFW_WIDTH-XLEN:0] we;
+    logic float;
+    logic exc;
+    logic [5:0] exccode;
   } x_result_t;
 endpackage
