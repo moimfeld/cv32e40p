@@ -33,6 +33,8 @@ module cv32e40p_x_disp
     input  logic            x_we_ex_i,
     input  logic [4:0]      x_waddr_wb_i,
     input  logic            x_we_wb_i,
+    input  logic [4:0]      regfile_waddr_ex_i,
+    input  logic            regfile_we_ex_i,
     input  logic [4:0]      x_result_rd_i,
     input  logic            x_result_valid_i,
     input  logic            x_result_we_i,
@@ -134,9 +136,9 @@ module cv32e40p_x_disp
   // - valid if scoreboard at the index of the source register is clean
   // - valid if there is no active core-internal instruction with the same destination register address as a source register
   // - valid if there is no active memory instruction with the same destination register address as a source register
-  assign x_issue_req_rs_valid_o[0] = ~scoreboard_q[x_rs_addr_i[0]] | x_ex_fwd_o[0] | x_wb_fwd_o[0];
-  assign x_issue_req_rs_valid_o[1] = ~scoreboard_q[x_rs_addr_i[1]] | x_ex_fwd_o[1] | x_wb_fwd_o[1];
-  assign x_issue_req_rs_valid_o[2] = ~scoreboard_q[x_rs_addr_i[2]] | x_ex_fwd_o[2] | x_wb_fwd_o[2];
+  assign x_issue_req_rs_valid_o[0] = (~scoreboard_q[x_rs_addr_i[0]] | x_ex_fwd_o[0] | x_wb_fwd_o[0]) & ~(x_rs_addr_i[0] == regfile_waddr_ex_i & regfile_we_ex_i);
+  assign x_issue_req_rs_valid_o[1] = (~scoreboard_q[x_rs_addr_i[1]] | x_ex_fwd_o[1] | x_wb_fwd_o[1]) & ~(x_rs_addr_i[1] == regfile_waddr_ex_i & regfile_we_ex_i);
+  assign x_issue_req_rs_valid_o[2] = (~scoreboard_q[x_rs_addr_i[2]] | x_ex_fwd_o[2] | x_wb_fwd_o[2]) & ~(x_rs_addr_i[2] == regfile_waddr_ex_i & regfile_we_ex_i);
 
 
   // Moritz: unused in the interface
