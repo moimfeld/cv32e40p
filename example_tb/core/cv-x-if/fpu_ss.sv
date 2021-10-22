@@ -100,6 +100,17 @@ module fpu_ss
     output x_result_t x_result_o
 );
 
+`ifdef PULP_ZFINX
+  localparam int unsigned NUM_INSTR = acc_zfinx_pkg::NumInstr;
+  localparam fpu_ss_pkg::offload_instr_t OFFLOAD_INSTR[NUM_INSTR] = acc_zfinx_pkg::OffloadInstr;
+`else
+  localparam int unsigned NUM_INSTR = acc_fp_pkg::NumInstr;
+  localparam fpu_ss_pkg::offload_instr_t OFFLOAD_INSTR[NUM_INSTR] = acc_fp_pkg::OffloadInstr;
+`endif
+
+
+
+
   // compressed predecoder signals
   fpu_ss_pkg::comp_prd_req_t comp_prd_req;
   fpu_ss_pkg::comp_prd_rsp_t comp_prd_rsp;
@@ -129,6 +140,7 @@ module fpu_ss
 
   // instruction data, operands and adresses
   logic                          [31:0]           instr;
+  logic                          [ 2:0]   [31:0]  fpu_operands_dec;
   logic                          [ 2:0]   [31:0]  fpu_operands;
   logic                          [ 2:0]   [31:0]  int_operands;
   logic                          [ 2:0]   [31:0]  fpr_operands;
@@ -148,6 +160,7 @@ module fpu_ss
 
   // decoder signals
   fpnew_pkg::operation_e                          fpu_op;
+  fpu_ss_pkg::op_select_e      [       2:0      ] op_select_dec;
   fpu_ss_pkg::op_select_e      [       2:0      ] op_select;
   fpnew_pkg::roundmode_e                          fpu_rnd_mode;
   logic                                           set_dyn_rm;
@@ -249,9 +262,7 @@ module fpu_ss
   // int register writeback data mux
   always_comb begin
     x_result_o.data = fpu_result;
-    if (~rd_is_fp & ~use_fpu & ~csr_wb & ~fpu_out_valid & int_wb) begin
-      x_result_o.data = fpu_operands[0];
-    end else if (csr_wb & ~fpu_out_valid & int_wb & ~fpu_out_valid) begin
+    if (csr_wb & ~fpu_out_valid & int_wb & ~fpu_out_valid) begin
       x_result_o.data = wb_csr_rdata;
     end
   end
@@ -334,8 +345,8 @@ module fpu_ss
 
   // Predecoder, that checks validity of source registers and cleanness of source register before accepting an instruction
   fpu_ss_predecoder #(
-      .NumInstr(acc_fp_pkg::NumInstr),
-      .OffloadInstr(acc_fp_pkg::OffloadInstr)
+      .NumInstr(NUM_INSTR),
+      .OffloadInstr(OFFLOAD_INSTR)
   ) fpu_ss_predecoder_i (
       .prd_req_i(prd_req),
       .prd_rsp_o(prd_rsp)
@@ -371,7 +382,7 @@ module fpu_ss
       .instr_i       (instr),
       .fpu_rnd_mode_i(fpnew_pkg::roundmode_e'(frm)),
       .fpu_op_o      (fpu_op),
-      .op_select_o   (op_select),
+      .op_select_o   (op_select_dec),
       .fpu_rnd_mode_o(fpu_rnd_mode),
       .set_dyn_rm_o  (set_dyn_rm),
       .src_fmt_o     (src_fmt),
@@ -397,7 +408,7 @@ module fpu_ss
       .rst_ni    (rst_ni),
       .flush_i   (1'b0),
       .testmode_i(1'b0),
-      .usage_o   (mem_fifo_usage),
+      .usage_o   (  /* unused */),
 
       .data_i (mem_push),
       .valid_i(mem_push_valid),
@@ -444,7 +455,6 @@ module fpu_ss
       .use_fpu_i          (use_fpu),
 
       // memory buffer handshake
-      .mem_fifo_usage_i (mem_fifo_usage),
       .mem_push_valid_o (mem_push_valid),
       .mem_push_ready_i (mem_push_ready),
       .mem_pop_valid_i  (mem_pop_valid),
@@ -503,17 +513,39 @@ module fpu_ss
   );
 
   // FPU subsystem dedicated floating-point register file
-  fpu_ss_regfile fpu_ss_regfile_i (
-      .clk_i(clk_i),
-      .rst_ni(rst_ni),
+  generate
+    if (~PULP_ZFINX) begin
+      fpu_ss_regfile fpu_ss_regfile_i (
+          .clk_i(clk_i),
+          .rst_ni(rst_ni),
 
-      .raddr_i(fpr_raddr),
-      .rdata_o(fpr_operands),
+          .raddr_i(fpr_raddr),
+          .rdata_o(fpr_operands),
 
-      .waddr_i(fpr_wb_addr),
-      .wdata_i(fpr_wb_data),
-      .we_i   (fpr_we)
-  );
+          .waddr_i(fpr_wb_addr),
+          .wdata_i(fpr_wb_data),
+          .we_i   (fpr_we)
+      );
+    end else begin
+      assign fpr_operands = int_operands;
+    end
+  endgenerate
+
+  for (genvar i = 0; i < 3; i++) begin
+    always_comb begin
+      op_select[i] = op_select_dec[i];
+      if (PULP_ZFINX) begin
+        unique case (op_select_dec[i]) // Moritz: case for RegBRep is missing (--> but maybe it is not necessary because only vector instr need RegBRep)
+          fpu_ss_pkg::None, fpu_ss_pkg::AccBus: begin
+            op_select[i] = op_select_dec[i];
+          end
+          fpu_ss_pkg::RegA, fpu_ss_pkg::RegB, fpu_ss_pkg::RegBRep, fpu_ss_pkg::RegC, fpu_ss_pkg::RegDest: begin
+            op_select[i] = fpu_ss_pkg::AccBus;
+          end
+        endcase
+      end
+    end
+  end
 
   // FP rgister address selection
   always_comb begin
@@ -521,14 +553,14 @@ module fpu_ss
     fpr_raddr[1] = rs2;
     fpr_raddr[2] = rs3;
 
-    unique case (op_select[1])
+    unique case (op_select_dec[1])
       fpu_ss_pkg::RegA: begin
         fpr_raddr[1] = rs1;
       end
       default: ;
     endcase
 
-    unique case (op_select[2])
+    unique case (op_select_dec[2])
       fpu_ss_pkg::RegB, fpu_ss_pkg::RegBRep: begin
         fpr_raddr[2] = rs2;
       end
@@ -544,33 +576,48 @@ module fpu_ss
     always_comb begin
       unique case (op_select[i])
         fpu_ss_pkg::None: begin
-          fpu_operands[i] = '1;
+          fpu_operands_dec[i] = '1;
         end
         fpu_ss_pkg::AccBus: begin
-          fpu_operands[i] = int_operands[i];
+          fpu_operands_dec[i] = int_operands[i];
+          if (fpu_fwd[i]) begin // Moritz: could be wrong...
+            fpu_operands_dec[i] = fpu_result;
+          end
         end
         fpu_ss_pkg::RegA, fpu_ss_pkg::RegB, fpu_ss_pkg::RegBRep, fpu_ss_pkg::RegC, fpu_ss_pkg::RegDest: begin
-          fpu_operands[i] = fpr_operands[i];
+          fpu_operands_dec[i] = fpr_operands[i];
           if (fpu_fwd[i]) begin
-            fpu_operands[i] = fpu_result;
+            fpu_operands_dec[i] = fpu_result;
           end else if (lsu_fwd[i]) begin
-            fpu_operands[i] = x_mem_result_i.rdata;
+            fpu_operands_dec[i] = x_mem_result_i.rdata;
           end
           // Replicate if needed
           if (op_select[i] == fpu_ss_pkg::RegBRep) begin
             unique case (src_fmt)
-              fpnew_pkg::FP32: fpu_operands[i] = {(32 / 32) {fpu_operands[i][31:0]}};
+              fpnew_pkg::FP32: fpu_operands_dec[i] = {(32 / 32) {fpu_operands_dec[i][31:0]}};
               fpnew_pkg::FP16, fpnew_pkg::FP16ALT:
-              fpu_operands[i] = {(32 / 16) {fpu_operands[i][15:0]}};
-              fpnew_pkg::FP8: fpu_operands[i] = {(32 / 8) {fpu_operands[i][7:0]}};
-              default: fpu_operands[i] = fpu_operands[i][32-1:0];
+              fpu_operands_dec[i] = {(32 / 16) {fpu_operands_dec[i][15:0]}};
+              fpnew_pkg::FP8: fpu_operands_dec[i] = {(32 / 8) {fpu_operands_dec[i][7:0]}};
+              default: fpu_operands_dec[i] = fpu_operands_dec[i][32-1:0];
             endcase
           end
         end
         default: begin
-          fpu_operands[i] = '0;
+          fpu_operands_dec[i] = '0;
         end
       endcase
+    end
+  end
+
+  always_comb begin
+    fpu_operands = fpu_operands_dec;
+    if (PULP_ZFINX) begin
+      if (op_select_dec[1] == fpu_ss_pkg::RegA) begin
+        fpu_operands[1] = int_operands[0];
+      end
+      if (op_select_dec[2] == fpu_ss_pkg::RegB) begin
+        fpu_operands[2] = int_operands[1];
+      end
     end
   end
 
