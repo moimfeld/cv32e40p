@@ -975,6 +975,8 @@ module cv32e40p_id_stage
           .x_we_ex_i                (regfile_alu_we_ex_o),
           .x_waddr_wb_i             (x_waddr_wb),
           .x_we_wb_i                (regfile_we_wb_i),
+          .regfile_waddr_ex_i       (regfile_waddr_ex_o[4:0]),
+          .regfile_we_ex_i          (regfile_we_ex_o),
           .x_result_rd_i            (x_result_i.rd),
           .x_result_valid_i         (x_result_valid_i),
           .x_result_we_i            (x_result_i.we),
@@ -1050,7 +1052,13 @@ module cv32e40p_id_stage
       // x-interface integer souce operand assignment
       for (genvar i = 0; i < 3; i++) begin
         always_comb begin
-          x_issue_req_o.rs[i] = regfile_data_ra_id;
+          if (i == 0) begin
+            x_issue_req_o.rs[i] = regfile_data_ra_id;
+          end else if (i == 1) begin
+            x_issue_req_o.rs[i] = regfile_data_rb_id;
+          end else begin
+            x_issue_req_o.rs[i] = regfile_data_rc_id;
+          end
           if (x_ex_fwd[i]) begin
             x_issue_req_o.rs[i] = regfile_alu_wdata_fw_i;
           end else if (x_wb_fwd[i]) begin
