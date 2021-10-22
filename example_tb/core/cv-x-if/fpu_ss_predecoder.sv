@@ -32,15 +32,15 @@ module fpu_ss_predecoder #(
   end
 
   for (genvar i = 0; i < NumInstr; i++) begin : gen_predecoder_mux
-    assign instr_rsp[i].p_accept    = instr_sel[i] ? 1'b1 : 1'b0;
-    assign instr_rsp[i].p_writeback = instr_sel[i] ? OffloadInstr[i].prd_rsp.p_writeback : '0;
+    assign instr_rsp[i].p_accept    = instr_sel[i] ? OffloadInstr[i].prd_rsp.p_accept : 1'b0;
+    assign instr_rsp[i].p_writeback = instr_sel[i] ? OffloadInstr[i].prd_rsp.p_writeback : 1'b0;
     assign instr_rsp[i].p_is_mem_op = instr_sel[i] ? OffloadInstr[i].prd_rsp.p_is_mem_op : '0;
     assign instr_rsp[i].p_use_rs    = instr_sel[i] ? OffloadInstr[i].prd_rsp.p_use_rs : '0;
   end
 
   always_comb begin
     prd_rsp_o.p_accept    = 1'b0;
-    prd_rsp_o.p_writeback = '0;
+    prd_rsp_o.p_writeback = 1'b0;
     prd_rsp_o.p_is_mem_op = '0;
     prd_rsp_o.p_use_rs    = '0;
     for (int unsigned i = 0; i < NumInstr; i++) begin

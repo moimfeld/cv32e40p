@@ -33,7 +33,7 @@ package fpu_ss_pkg;
   typedef struct packed {
     logic       p_accept;
     logic       p_is_mem_op;
-    logic [1:0] p_writeback;
+    logic       p_writeback;
     logic [2:0] p_use_rs;
   } acc_prd_rsp_t;
 

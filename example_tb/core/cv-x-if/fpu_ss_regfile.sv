@@ -39,8 +39,8 @@ module fpu_ss_regfile (
   end
 
   // loop from 1 to NumWords-1 as R0 is nil
-  always_ff @(posedge clk_i, negedge rst_ni) begin : register_write_behavioral
-    for (int unsigned i = 0; i < NumWords; i++) begin
+  for (genvar i = 0; i < NumWords; i++) begin : register_write_behavioral
+    always_ff @(posedge clk_i, negedge rst_ni) begin
       if (~rst_ni) begin
         mem[i] <= '0;
       end else if (we_dec[i]) begin
