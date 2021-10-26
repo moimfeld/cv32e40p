@@ -31,13 +31,11 @@ module cv32e40p_x_disp
     input  logic       x_issue_ready_i,
     input  logic       x_issue_resp_accept_i,
     input  logic       x_issue_resp_writeback_i,
-    input  logic       x_issue_resp_loadstore_i, // unused
+    input  logic       x_issue_resp_loadstore_i,  // unused
     output logic [2:0] x_issue_req_rs_valid_o,
     output logic [3:0] x_issue_req_id_o,
     output logic [1:0] x_issue_req_frs_valid_o,  // hardwired to 0
     output logic [1:0] x_issue_req_mode_o,
-    output logic       x_stall_o,
-    output logic       x_result_ready_o,  // hardwired to 1
 
     // commit interface
     output logic       x_commit_valid_o,
@@ -45,22 +43,23 @@ module cv32e40p_x_disp
     output logic       x_commit_commit_kill,  // hardwired to 1
 
     // memory (request/response) interface
-    input  logic          x_mem_valid_i,
-    output logic          x_mem_ready_o,
-    input  logic [1:0]    x_mem_req_mode_i,  // unused
-    input  logic          x_mem_req_spec_i,  // unused
-    input  logic          x_mem_req_last_i,  // unused
-    output logic          x_mem_resp_exc_o, // hardwired to 0
-    output logic [5:0]    x_mem_resp_exccode_o, // hardwired to 0
+    input  logic       x_mem_valid_i,
+    output logic       x_mem_ready_o,
+    input  logic [1:0] x_mem_req_mode_i,  // unused
+    input  logic       x_mem_req_spec_i,  // unused
+    input  logic       x_mem_req_last_i,  // unused
+    output logic       x_mem_resp_exc_o,  // hardwired to 0
+    output logic [5:0] x_mem_resp_exccode_o,  // hardwired to 0
 
     // memory result interface
     output logic x_mem_result_valid_o,
     output logic x_mem_result_err_o,  // hardwired to 0
 
     // result interface
-    input  logic            x_result_valid_i,
-    input  logic [4:0]      x_result_rd_i,
-    input  logic            x_result_we_i,
+    input  logic       x_result_valid_i,
+    output logic       x_result_ready_o,  // hardwired to 1
+    input  logic [4:0] x_result_rd_i,
+    input  logic       x_result_we_i,
 
     // scoreboard, dependency check, stall, forwarding
     input  logic [4:0]      waddr_id_i,
@@ -81,16 +80,17 @@ module cv32e40p_x_disp
     input  logic x_mem_instr_wb_i,
 
     // additional status signals
-    input  logic x_illegal_insn_dec_i,
+    output logic x_stall_o,
     output logic x_illegal_insn_o,
-    input  logic id_ready_i,
-    input  logic ex_valid_i,
-    input  cv32e40p_pkg::PrivLvl_t current_priv_lvl_i
+    input logic x_illegal_insn_dec_i,
+    input logic id_ready_i,
+    input logic ex_valid_i,
+    input cv32e40p_pkg::PrivLvl_t current_priv_lvl_i
 );
 
   // scoreboard, id and satus signals
   logic [31:0] scoreboard_q, scoreboard_d;
-  logic [ 3:0] id_q, id_d;
+  logic [3:0] id_q, id_d;
   logic instr_offloaded_q, instr_offloaded_d;
   logic dep;
   logic branch;
@@ -111,7 +111,7 @@ module cv32e40p_x_disp
   assign x_commit_commit_kill = 1'b1;
 
   // memory (req/resp) interface
-  assign x_mem_ready_o    = x_mem_valid_i;
+  assign x_mem_ready_o = x_mem_valid_i;
   assign x_mem_resp_exc_o = 1'b0;
   assign x_mem_resp_exccode_o = '0;
 
