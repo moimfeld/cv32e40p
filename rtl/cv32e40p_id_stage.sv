@@ -377,10 +377,10 @@ module cv32e40p_id_stage
 
   // X-Interface
   logic illegal_insn;
-  logic [4:0] x_waddr_id;
-  logic [4:0] x_waddr_ex;
-  logic [4:0] x_waddr_wb;
-  logic [2:0] x_regs_used;
+  logic [4:0] waddr_id;
+  logic [4:0] waddr_ex;
+  logic [4:0] waddr_wb;
+  logic [2:0] regs_used;
   logic x_stall;
   logic [2:0][4:0] x_rs_addr;
   logic x_mem_data_req;
@@ -968,28 +968,10 @@ module cv32e40p_id_stage
           .clk_i (clk),
           .rst_ni(rst_n),
 
-          // scoreboard, dependency check, stall, forwarding to the interface
-          .x_waddr_id_i             (x_waddr_id),
-          .x_issue_resp_writeback_i (x_issue_resp_i.writeback),
-          .x_waddr_ex_i             (x_waddr_ex),
-          .x_we_ex_i                (regfile_alu_we_ex_o),
-          .x_waddr_wb_i             (x_waddr_wb),
-          .x_we_wb_i                (regfile_we_wb_i),
-          .regfile_waddr_ex_i       (regfile_waddr_ex_o[4:0]),
-          .regfile_we_ex_i          (regfile_we_ex_o),
-          .x_result_rd_i            (x_result_i.rd),
-          .x_result_valid_i         (x_result_valid_i),
-          .x_result_we_i            (x_result_i.we),
-          .x_rs_addr_i              (x_rs_addr),
-          .x_regs_used_i            (x_regs_used),
-          .x_branch_or_jump_i       (branch_in_ex_o),
-          .x_data_req_dec_i         (data_req_dec),
-          .x_ex_fwd_o               (x_ex_fwd),
-          .x_wb_fwd_o               (x_wb_fwd),
-
-          // x-request and response channel signals
+          // issue interface
           .x_issue_valid_o          (x_issue_valid_o),
           .x_issue_ready_i          (x_issue_ready_i),
+          .x_issue_resp_writeback_i (x_issue_resp_i.writeback),
           .x_issue_resp_accept_i    (x_issue_resp_i.accept),
           .x_issue_resp_loadstore_i (x_issue_resp_i.loadstore),
           .x_issue_req_rs_valid_o   (x_issue_req_o.rs_valid),
@@ -1004,7 +986,7 @@ module cv32e40p_id_stage
           .x_commit_id_o            (x_commit_o.id),
           .x_commit_commit_kill     (x_commit_o.commit_kill),
 
-          // xmem-request signals
+          // memory (request/response) interface
           .x_mem_valid_i            (x_mem_valid_i),
           .x_mem_ready_o            (x_mem_ready_o),
           .x_mem_req_mode_i         (x_mem_req_i.mode),
@@ -1013,13 +995,32 @@ module cv32e40p_id_stage
           .x_mem_resp_exc_o         (x_mem_resp_o.exc),
           .x_mem_resp_exccode_o     (x_mem_resp_o.exccode),
 
+          // memory result interface
+          .x_mem_result_valid_o (x_mem_result_valid_o),
+          .x_mem_result_err_o   (x_mem_result_err_o),
+
+          // result interface
+          .x_result_rd_i            (x_result_i.rd),
+          .x_result_valid_i         (x_result_valid_i),
+          .x_result_we_i            (x_result_i.we),
+
+          // scoreboard, dependency check, stall, forwarding
+          .waddr_id_i               (waddr_id),
+          .waddr_ex_i               (waddr_ex),
+          .waddr_wb_i               (waddr_wb),
+          .we_ex_i                  (regfile_alu_we_ex_o),
+          .we_wb_i                  (regfile_we_wb_i),
+          .mem_instr_waddr_ex_i     (regfile_waddr_ex_o[4:0]),
+          .mem_instr_we_ex_i        (regfile_we_ex_o),
+          .regs_used_i              (regs_used),
+          .branch_or_jump_i         (branch_in_ex_o),
+          .x_rs_addr_i              (x_rs_addr),
+          .x_ex_fwd_o               (x_ex_fwd),
+          .x_wb_fwd_o               (x_wb_fwd),
+
           // memory request core-internal status signals
           .x_mem_data_req_o(x_mem_data_req),
           .x_mem_instr_wb_i(x_mem_instr_wb_i),
-
-          // xmem-response signals
-          .x_mem_result_valid_o (x_mem_result_valid_o),
-          .x_mem_result_err_o   (x_mem_result_err_o),
 
           // additional status signals
           .x_illegal_insn_dec_i(illegal_insn_dec),
@@ -1029,28 +1030,26 @@ module cv32e40p_id_stage
           .current_priv_lvl_i  (current_priv_lvl_i)
       );
 
+      // illegal instruction signal
+      assign illegal_insn        = x_illegal_insn;
+
       // x-dispatcher signal assignments
       assign x_issue_req_o.instr       = instr;
       assign x_rs_addr[0]              = regfile_addr_ra_id[4:0];
       assign x_rs_addr[1]              = regfile_addr_rb_id[4:0];
       assign x_rs_addr[2]              = regfile_addr_rc_id[4:0];
-      assign x_waddr_id                = instr[REG_D_MSB:REG_D_LSB];
-      assign x_waddr_ex                = regfile_alu_waddr_ex_o[4:0];
-      assign x_waddr_wb                = regfile_waddr_wb_i[4:0];
-      assign x_regs_used               = {regc_used, regb_used, rega_used};
+      assign waddr_id                  = instr[REG_D_MSB:REG_D_LSB];
+      assign waddr_ex                  = regfile_alu_waddr_ex_o[4:0];
+      assign waddr_wb                  = regfile_waddr_wb_i[4:0];
+      assign regs_used                 = {regc_used, regb_used, rega_used};
       assign x_result_valid_assigned_o = x_result_valid_i;
       assign x_mem_valid               = x_mem_valid_i;
+      assign x_issue_req_o.frs[0]      = '0; // hardwired to 0 according to specs
+      assign x_issue_req_o.frs[1]      = '0; // hardwired to 0 according to specs
+      assign x_issue_req_o.frs[2]      = '0; // hardwired to 0 according to specs
 
-      // x-interface floating-point register assignment (hardwired to 0 according to specifications)
-      assign x_issue_req_o.frs[0] = '0;
-      assign x_issue_req_o.frs[1] = '0;
-      assign x_issue_req_o.frs[2] = '0;
-
-      // illegal instruction signal
-      assign illegal_insn        = x_illegal_insn;
-
-      // x-interface integer souce operand assignment
-      for (genvar i = 0; i < 3; i++) begin
+      // xif integer souce operand selection
+      for (genvar i = 0; i < 3; i++) begin : xif_operand_assignment
         always_comb begin
           if (i == 0) begin
             x_issue_req_o.rs[i] = regfile_data_ra_id;
@@ -1095,13 +1094,13 @@ module cv32e40p_id_stage
       end
     end else begin : gen_no_x_disp
 
+      // default illegal instruction assignment
+      assign illegal_insn        = illegal_insn_dec;
+
       // default assignment for x-interface control signals
       assign x_stall                   = 1'b0;
       assign x_result_valid_assigned_o = 1'b0;
       assign x_mem_valid               = 1'b0;
-
-      // default illegal instruction assignment
-      assign illegal_insn        = illegal_insn_dec;
 
       // default assignment for LSU signals
       assign data_req_id         = data_req_dec;
