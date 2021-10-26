@@ -26,43 +26,25 @@ module cv32e40p_x_disp
     input logic clk_i,
     input logic rst_ni,
 
-    // scoreboard and dependency check/stall
-    input  logic [4:0]      x_waddr_id_i,
-    input  logic            x_issue_resp_writeback_i,
-    input  logic [4:0]      x_waddr_ex_i,
-    input  logic            x_we_ex_i,
-    input  logic [4:0]      x_waddr_wb_i,
-    input  logic            x_we_wb_i,
-    input  logic [4:0]      regfile_waddr_ex_i,
-    input  logic            regfile_we_ex_i,
-    input  logic [4:0]      x_result_rd_i,
-    input  logic            x_result_valid_i,
-    input  logic            x_result_we_i,
-    input  logic [2:0][4:0] x_rs_addr_i,
-    input  logic [2:0]      x_regs_used_i,
-    input  logic            x_branch_or_jump_i,
-    input  logic            x_data_req_dec_i,
-    output logic [2:0]      x_ex_fwd_o,
-    output logic [2:0]      x_wb_fwd_o,
-
-    // x-request and response channel signals
+    // issue interface
     output logic       x_issue_valid_o,
     input  logic       x_issue_ready_i,
     input  logic       x_issue_resp_accept_i,
-    input  logic       x_issue_resp_loadstore_i,
+    input  logic       x_issue_resp_writeback_i,
+    input  logic       x_issue_resp_loadstore_i, // unused
     output logic [2:0] x_issue_req_rs_valid_o,
     output logic [3:0] x_issue_req_id_o,
-    output logic [1:0] x_issue_req_frs_valid_o,
+    output logic [1:0] x_issue_req_frs_valid_o,  // hardwired to 0
     output logic [1:0] x_issue_req_mode_o,
     output logic       x_stall_o,
-    output logic       x_result_ready_o,
+    output logic       x_result_ready_o,  // hardwired to 1
 
     // commit interface
     output logic       x_commit_valid_o,
     output logic [3:0] x_commit_id_o,
-    output logic       x_commit_commit_kill,
+    output logic       x_commit_commit_kill,  // hardwired to 1
 
-    // xmem-request signals
+    // memory (request/response) interface
     input  logic          x_mem_valid_i,
     output logic          x_mem_ready_o,
     input  logic [1:0]    x_mem_req_mode_i,  // unused
@@ -71,13 +53,32 @@ module cv32e40p_x_disp
     output logic          x_mem_resp_exc_o, // hardwired to 0
     output logic [5:0]    x_mem_resp_exccode_o, // hardwired to 0
 
+    // memory result interface
+    output logic x_mem_result_valid_o,
+    output logic x_mem_result_err_o,  // hardwired to 0
+
+    // result interface
+    input  logic            x_result_valid_i,
+    input  logic [4:0]      x_result_rd_i,
+    input  logic            x_result_we_i,
+
+    // scoreboard, dependency check, stall, forwarding
+    input  logic [4:0]      waddr_id_i,
+    input  logic [4:0]      waddr_ex_i,
+    input  logic [4:0]      waddr_wb_i,
+    input  logic            we_ex_i,
+    input  logic            we_wb_i,
+    input  logic [4:0]      mem_instr_waddr_ex_i,
+    input  logic            mem_instr_we_ex_i,
+    input  logic [2:0]      regs_used_i,
+    input  logic            branch_or_jump_i,
+    input  logic [2:0][4:0] x_rs_addr_i,
+    output logic [2:0]      x_ex_fwd_o,
+    output logic [2:0]      x_wb_fwd_o,
+
     // memory request core-internal status signals
     output logic x_mem_data_req_o,
     input  logic x_mem_instr_wb_i,
-
-    // xmem-result signals
-    output logic x_mem_result_valid_o,
-    output logic x_mem_result_err_o,
 
     // additional status signals
     input  logic x_illegal_insn_dec_i,
@@ -87,87 +88,61 @@ module cv32e40p_x_disp
     input  cv32e40p_pkg::PrivLvl_t current_priv_lvl_i
 );
 
-  // scoreboard and status signals
+  // scoreboard, id and satus signals
   logic [31:0] scoreboard_q, scoreboard_d;
   logic [ 3:0] id_q, id_d;
   logic instr_offloaded_q, instr_offloaded_d;
-  logic [3:0] mem_cnt_q, mem_cnt_d;
   logic dep;
-  logic pending_mem_op;
+  logic branch;
+  logic x_if_not_ready;
+  logic x_if_memory_instr;
 
-  // core is always ready to receive results from the x-interface
-  // Moritz: core might not be always ready anymore since the destination register check is not anymore part of the interface.
-  //         So a new destination register clean check has to be done. Could be done before offload, but this might lead to performance regression.
-  assign x_result_ready_o = 1'b1;
-
-  // status signal for memory instruction is always 1'b1 since there are no memory access faults
-  assign x_mem_result_err_o = 1'b0;
-
-  // hardwire floating-point register valid to 0, according to specifications
+  // issue interface
+  assign x_issue_valid_o = x_illegal_insn_dec_i & ~branch_or_jump_i & ~instr_offloaded_q;
+  assign x_issue_req_id_o = id_q;
+  assign x_issue_req_rs_valid_o[0] = (~scoreboard_q[x_rs_addr_i[0]] | x_ex_fwd_o[0] | x_wb_fwd_o[0]) & ~(x_rs_addr_i[0] == mem_instr_waddr_ex_i & mem_instr_we_ex_i);
+  assign x_issue_req_rs_valid_o[1] = (~scoreboard_q[x_rs_addr_i[1]] | x_ex_fwd_o[1] | x_wb_fwd_o[1]) & ~(x_rs_addr_i[1] == mem_instr_waddr_ex_i & mem_instr_we_ex_i);
+  assign x_issue_req_rs_valid_o[2] = (~scoreboard_q[x_rs_addr_i[2]] | x_ex_fwd_o[2] | x_wb_fwd_o[2]) & ~(x_rs_addr_i[2] == mem_instr_waddr_ex_i & mem_instr_we_ex_i);
   assign x_issue_req_frs_valid_o = '0;
 
-  // hardwire memory exception repsponse signals to 0 because cv32e40p cannot throw memory exceptions
-  assign x_mem_resp_exc_o = 1'b0;
-  assign x_mem_resp_exccode_o = '0;
-
-  // core is ready to offload instruction when:
-  // - an illegal instruction was decoded
-  // - there are no pending jumps or branches
-  // - the instruction has not already been offloaded
-  assign x_issue_valid_o = x_illegal_insn_dec_i & ~x_branch_or_jump_i & ~instr_offloaded_q;
-
   // commit interface
-  // any instruction will be instantly commit after the offload, since the core itself
-  // checks for any possible outstanding exceptions. Only when there cannot be any outstanding
-  // exceptions in the core, the core will attempt an offload of an unknown instruction.
   assign x_commit_valid_o = x_issue_valid_o;
   assign x_commit_id_o = id_q;
   assign x_commit_commit_kill = 1'b1;
 
-  // core needs to stall when:
-  // - there is a pending x-interface handshake
-  // - a dependency for a core-internal instruction is detected
-  // - there is an offloaded memory instruction pending and the core encounters an internal memory instruction
-  // - an illegal instruction was decoded and there are pending jumps or branches
-  // - a memory instruction is incoming through the xmem interface while a core-internal instruction is in the decode stage
-  assign x_stall_o = (x_issue_valid_o & ~x_issue_ready_i) | dep | (x_illegal_insn_dec_i & (x_branch_or_jump_i)) | (x_mem_valid_i & ~(x_issue_valid_o & x_issue_ready_i)); // Moritz: removed the pending_mem_op signal
+  // memory (req/resp) interface
+  assign x_mem_ready_o    = x_mem_valid_i;
+  assign x_mem_resp_exc_o = 1'b0;
+  assign x_mem_resp_exccode_o = '0;
 
-  // check validity of source registers and cleanness of destination register:
-  // - valid if scoreboard at the index of the source register is clean
-  // - valid if there is no active core-internal instruction with the same destination register address as a source register
-  // - valid if there is no active memory instruction with the same destination register address as a source register
-  assign x_issue_req_rs_valid_o[0] = (~scoreboard_q[x_rs_addr_i[0]] | x_ex_fwd_o[0] | x_wb_fwd_o[0]) & ~(x_rs_addr_i[0] == regfile_waddr_ex_i & regfile_we_ex_i);
-  assign x_issue_req_rs_valid_o[1] = (~scoreboard_q[x_rs_addr_i[1]] | x_ex_fwd_o[1] | x_wb_fwd_o[1]) & ~(x_rs_addr_i[1] == regfile_waddr_ex_i & regfile_we_ex_i);
-  assign x_issue_req_rs_valid_o[2] = (~scoreboard_q[x_rs_addr_i[2]] | x_ex_fwd_o[2] | x_wb_fwd_o[2]) & ~(x_rs_addr_i[2] == regfile_waddr_ex_i & regfile_we_ex_i);
+  // memory result channel
+  assign x_mem_result_valid_o = x_mem_instr_wb_i;
+  assign x_mem_result_err_o = 1'b0;
 
+  // result channel
+  // todo: at the moment core internal instructions can be overtaken by instructions in the coprocessor (waw hazards)
+  assign x_result_ready_o = 1'b1;
 
-  // Moritz: unused in the interface
-  assign x_rd_clean_o = ~((scoreboard_q[x_waddr_id_i] & ~(x_result_valid_i & (x_waddr_id_i == x_result_rd_i))) | ((x_waddr_id_i == x_waddr_ex_i) & x_we_ex_i) | ((x_waddr_id_i == x_waddr_wb_i) & x_we_wb_i));
+  // core internal memory request signal
+  assign x_mem_data_req_o = x_mem_valid_i;
 
-  // dependency check
-  assign dep = ~x_illegal_insn_o & ((x_regs_used_i[0] & scoreboard_q[x_rs_addr_i[0]]) | (x_regs_used_i[1] & scoreboard_q[x_rs_addr_i[1]]) | (x_regs_used_i[2] & scoreboard_q[x_rs_addr_i[2]]));
+  // core stall signal
+  assign x_stall_o = x_if_not_ready | dep | branch | x_if_memory_instr;
+  assign dep = ~x_illegal_insn_o & ((regs_used_i[0] & scoreboard_q[x_rs_addr_i[0]]) | (regs_used_i[1] & scoreboard_q[x_rs_addr_i[1]]) | (regs_used_i[2] & scoreboard_q[x_rs_addr_i[2]]));
+  assign branch = x_illegal_insn_dec_i & branch_or_jump_i;
+  assign x_if_not_ready = x_issue_valid_o & ~x_issue_ready_i;
+  assign x_if_memory_instr = x_mem_valid_i & ~(x_issue_valid_o & x_issue_ready_i);
 
   // forwarding
-  for (genvar i = 0; i < 3; i++) begin
-    always_comb begin
-      x_ex_fwd_o[i] = 1'b0;
-      if (x_rs_addr_i[i] == x_waddr_ex_i & x_we_ex_i & ex_valid_i) begin
-        x_ex_fwd_o[i] = 1'b1;
-      end
-    end
-  end
-
-  for (genvar i = 0; i < 3; i++) begin
-    always_comb begin
-      x_wb_fwd_o[i] = 1'b0;
-      if (x_rs_addr_i[i] == x_waddr_wb_i & x_we_wb_i & ex_valid_i) begin
-        x_wb_fwd_o[i] = 1'b1;
-      end
-    end
-  end
+  assign x_ex_fwd_o[0] = x_rs_addr_i[0] == waddr_ex_i & we_ex_i & ex_valid_i;
+  assign x_ex_fwd_o[1] = x_rs_addr_i[1] == waddr_ex_i & we_ex_i & ex_valid_i;
+  assign x_ex_fwd_o[2] = x_rs_addr_i[2] == waddr_ex_i & we_ex_i & ex_valid_i;
+  assign x_wb_fwd_o[0] = x_rs_addr_i[0] == waddr_wb_i & we_wb_i & ex_valid_i;
+  assign x_wb_fwd_o[1] = x_rs_addr_i[1] == waddr_wb_i & we_wb_i & ex_valid_i;
+  assign x_wb_fwd_o[2] = x_rs_addr_i[2] == waddr_wb_i & we_wb_i & ex_valid_i;
 
   // id generation
-  assign x_issue_req_id_o = id_q;
+  // todo: generate ids for compressed instructions
   always_comb begin
     id_d = id_q;
     if (x_issue_valid_o & x_issue_ready_i) begin
@@ -175,7 +150,7 @@ module cv32e40p_x_disp
     end
   end
 
-  // Assign mode according to PrivLvl_t
+  // assign operation mode according to PrivLvl_t
   always_comb begin
     x_issue_req_mode_o = 2'b11;
     case (current_priv_lvl_i)
@@ -190,10 +165,10 @@ module cv32e40p_x_disp
   // scoreboard update
   always_comb begin
     scoreboard_d = scoreboard_q;
-    if (x_issue_resp_writeback_i & x_issue_valid_o & x_issue_ready_i & ~((x_waddr_id_i == x_result_rd_i) & x_result_valid_i & x_result_rd_i)) begin  // update rule for outgoing instructions
-      scoreboard_d[x_waddr_id_i] = 1'b1;
+    if (x_issue_resp_writeback_i & x_issue_valid_o & x_issue_ready_i & ~((waddr_id_i == x_result_rd_i) & x_result_valid_i & x_result_rd_i)) begin
+      scoreboard_d[waddr_id_i] = 1'b1;
     end
-    if (x_result_valid_i & x_result_we_i) begin  // update rule for successful writebacks
+    if (x_result_valid_i & x_result_we_i) begin
       scoreboard_d[x_result_rd_i] = 1'b0;
     end
   end
@@ -208,49 +183,11 @@ module cv32e40p_x_disp
     end
   end
 
-  // illegal instruction assertion according to x-interface specs
+  // illegal instruction assertion
   always_comb begin
     x_illegal_insn_o = 1'b0;
     if (x_issue_valid_o & x_issue_ready_i & ~x_issue_resp_accept_i) begin
       x_illegal_insn_o = 1'b1;
-    end
-  end
-
-  // memory instruction request handling
-  always_comb begin
-    x_mem_data_req_o = 1'b0;
-    x_mem_ready_o    = 1'b0;
-    if (x_mem_valid_i) begin
-      x_mem_data_req_o = 1'b1;
-      x_mem_ready_o    = 1'b1;
-    end
-  end
-
-  // memory instruction response handshake
-  always_comb begin
-    x_mem_result_valid_o = 1'b0;
-    if (x_mem_instr_wb_i) begin
-      x_mem_result_valid_o = 1'b1;
-    end
-  end
-
-  // check if the core wants to execute a memory instruction while there is still an offloaded memory instruction pending
-  // Moritz: unnecessary
-  always_comb begin
-    pending_mem_op = 1'b0;
-    if (x_data_req_dec_i & (mem_cnt_q != 4'b0000)) begin
-      pending_mem_op = 1'b1;
-    end
-  end
-
-  // count number of pending memory instructions
-  // Moritz: unnecessary
-  always_comb begin
-    mem_cnt_d = mem_cnt_q;
-    if (x_issue_valid_o & x_issue_ready_i & x_issue_resp_loadstore_i & ~x_mem_valid_i) begin
-      mem_cnt_d = mem_cnt_q + 4'b0001;
-    end else if (~(x_issue_valid_o & x_issue_ready_i & x_issue_resp_loadstore_i) & x_mem_valid_i & mem_cnt_q != 4'b0000) begin
-      mem_cnt_d = mem_cnt_q - 4'b0001;
     end
   end
 
@@ -259,12 +196,10 @@ module cv32e40p_x_disp
     if (~rst_ni) begin
       scoreboard_q      <= 32'b0;
       instr_offloaded_q <= 1'b0;
-      mem_cnt_q         <= 4'b0;
       id_q              <= 4'b0;
     end else begin
       scoreboard_q      <= scoreboard_d;
       instr_offloaded_q <= instr_offloaded_d;
-      mem_cnt_q         <= mem_cnt_d;
       id_q              <= id_d;
     end
   end
