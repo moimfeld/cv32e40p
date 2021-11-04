@@ -10,7 +10,7 @@
 //
 // Description: Top level Module of the FPU subsystem
 //
-// Parameters:  PULP_ZFINX:       Unused at the moment
+// Parameters:  PULP_ZFINX:         Unused at the moment
 //
 //              INPUT_BUFFER_DEPTH: This parameter can be used to set the depth of the stream_fifo buffer.
 //                                  Minimum value is 0
@@ -100,7 +100,7 @@ module fpu_ss
     output x_result_t x_result_o
 );
 
-`ifdef PULP_ZFINX
+`ifdef PULP_ZFINX_DEF
   localparam int unsigned NUM_INSTR = acc_zfinx_pkg::NumInstr;
   localparam fpu_ss_pkg::offload_instr_t OFFLOAD_INSTR[NUM_INSTR] = acc_zfinx_pkg::OffloadInstr;
 `else
@@ -255,9 +255,9 @@ module fpu_ss
   assign fpu_tag_in.id = offloaded_data_pop.id;
 
   // memory instruction buffer assignment
-  assign mem_push.id = offloaded_data_pop.id;
-  assign mem_push.rd = rd;
-  assign mem_push.we = is_load;
+  assign mem_push.id   = offloaded_data_pop.id;
+  assign mem_push.rd   = rd;
+  assign mem_push.we   = is_load;
 
   // int register writeback data mux
   always_comb begin
@@ -283,7 +283,7 @@ module fpu_ss
   // write enable assignment for core writeback
   always_comb begin
     x_result_o.we = 1'b0;
-    if ((fpu_out_valid & ~fpu_tag_out.rd_is_fp) | (int_wb)) begin
+    if ((fpu_out_valid & ~fpu_tag_out.rd_is_fp) | (int_wb)) begin // todo: cause of large combinational path (add register pipeline register infront of the csr)
       x_result_o.we = 1'b1;
     end
   end
@@ -295,9 +295,9 @@ module fpu_ss
 
   always_comb begin
     x_mem_req_o.wdata = fpu_operands[1];
-    if (fpu_fwd[0]) begin
+    if (fpu_fwd[1]) begin
       x_mem_req_o.wdata = fpu_result;
-    end else if (lsu_fwd[0]) begin
+    end else if (lsu_fwd[1]) begin
       x_mem_req_o.wdata = x_mem_result_i.rdata;
     end
   end
@@ -401,7 +401,7 @@ module fpu_ss
   stream_fifo #(
       .FALL_THROUGH(0),
       .DATA_WIDTH  (32),
-      .DEPTH       (3),
+      .DEPTH       (2),
       .T           (fpu_ss_pkg::mem_metadata_t)
   ) mem_stream_fifo_i (
       .clk_i     (clk_i),
@@ -514,7 +514,7 @@ module fpu_ss
 
   // FPU subsystem dedicated floating-point register file
   generate
-    if (~PULP_ZFINX) begin
+    if (!PULP_ZFINX) begin : gen_fp_register_file
       fpu_ss_regfile fpu_ss_regfile_i (
           .clk_i(clk_i),
           .rst_ni(rst_ni),
@@ -526,7 +526,7 @@ module fpu_ss
           .wdata_i(fpr_wb_data),
           .we_i   (fpr_we)
       );
-    end else begin
+    end else begin : gen_no_fp_register_file
       assign fpr_operands = int_operands;
     end
   endgenerate
@@ -535,7 +535,7 @@ module fpu_ss
     always_comb begin
       op_select[i] = op_select_dec[i];
       if (PULP_ZFINX) begin
-        unique case (op_select_dec[i]) // Moritz: case for RegBRep is missing (--> but maybe it is not necessary because only vector instr need RegBRep)
+        unique case (op_select_dec[i]) // todo: case for RegBRep is missing (--> but maybe it is not necessary because only vector instr need RegBRep)
           fpu_ss_pkg::None, fpu_ss_pkg::AccBus: begin
             op_select[i] = op_select_dec[i];
           end
@@ -586,9 +586,9 @@ module fpu_ss
         end
         fpu_ss_pkg::RegA, fpu_ss_pkg::RegB, fpu_ss_pkg::RegBRep, fpu_ss_pkg::RegC, fpu_ss_pkg::RegDest: begin
           fpu_operands_dec[i] = fpr_operands[i];
-          if (fpu_fwd[i]) begin
+          if (fpu_fwd[i] & (fpu_op != fpnew_pkg::ADD)) begin
             fpu_operands_dec[i] = fpu_result;
-          end else if (lsu_fwd[i]) begin
+          end else if (lsu_fwd[i] & (fpu_op != fpnew_pkg::ADD)) begin
             fpu_operands_dec[i] = x_mem_result_i.rdata;
           end
           // Replicate if needed
@@ -617,6 +617,19 @@ module fpu_ss
       end
       if (op_select_dec[2] == fpu_ss_pkg::RegB) begin
         fpu_operands[2] = int_operands[1];
+      end
+    end else begin
+      if (lsu_fwd[0] & (fpu_op == fpnew_pkg::ADD) & use_fpu) begin
+        fpu_operands[1] = x_mem_result_i.rdata;
+      end
+      if (lsu_fwd[1] & (fpu_op == fpnew_pkg::ADD) & use_fpu) begin
+        fpu_operands[2] = x_mem_result_i.rdata;
+      end
+      if (fpu_fwd[0] & (fpu_op == fpnew_pkg::ADD) & use_fpu) begin
+        fpu_operands[1] = fpu_result;
+      end
+      if (fpu_fwd[1] & (fpu_op == fpnew_pkg::ADD) & use_fpu) begin
+        fpu_operands[2] = fpu_result;
       end
     end
   end

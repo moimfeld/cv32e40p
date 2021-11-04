@@ -128,7 +128,7 @@ module fpu_ss_controller
   assign dep_rs2 = rd_scoreboard_q[rs2_i] & in_buf_pop_valid_i & (op_select_i[0] == fpu_ss_pkg::RegB | op_select_i[1] == fpu_ss_pkg::RegB | op_select_i[2] == fpu_ss_pkg::RegB);
   assign dep_rs3 = rd_scoreboard_q[rs3_i] & in_buf_pop_valid_i & (op_select_i[0] == fpu_ss_pkg::RegC | op_select_i[1] == fpu_ss_pkg::RegC | op_select_i[2] == fpu_ss_pkg::RegC);
   assign dep_rs = (dep_rs1 & ~(fpu_fwd_o[0] | lsu_fwd_o[0])) | (dep_rs2 & ~(fpu_fwd_o[1] | lsu_fwd_o[1])) | (dep_rs3 & ~(fpu_fwd_o[2] | lsu_fwd_o[2]));
-  assign dep_rd = rd_scoreboard_q[rd_i] & rd_in_is_fp_i & ~(fpu_out_valid_i & fpu_out_ready_o & rd_is_fp_i & (fpr_wb_addr_i == rd_i));
+  assign dep_rd = rd_scoreboard_q[rd_i] & rd_in_is_fp_i & ~(((fpu_out_valid_i & fpu_out_ready_o) | x_mem_result_valid_i) & fpr_we_o & (fpr_wb_addr_i == rd_i));
 
   // integer writeback delay assignement
   assign int_wb_o = delay_reg_q[INT_REG_WB_DELAY];
@@ -212,7 +212,7 @@ module fpu_ss_controller
   // - when the instruction has NOT already been offloaded back to the core (instr_offloaded_q signal)
   always_comb begin
     x_mem_valid_o = 1'b0;
-    if ((is_load_i | is_store_i) & ~dep_rs & ~dep_rd & in_buf_pop_valid_i) begin
+    if ((is_load_i | is_store_i) & ~dep_rs & ~dep_rd & in_buf_pop_valid_i & mem_push_ready_i) begin
       x_mem_valid_o = 1'b1;
     end
   end
@@ -253,7 +253,7 @@ module fpu_ss_controller
     end
     if ((fpu_out_ready_o & fpu_out_valid_i) & ~(fpu_in_valid_o & fpu_in_ready_i & fpr_wb_addr_i == rd_i)) begin
       rd_scoreboard_d[fpr_wb_addr_i] = 1'b0;
-    end else if (x_mem_result_valid_i & mem_pop_i.we) begin
+    end else if (x_mem_result_valid_i & mem_pop_i.we & ~(fpu_in_valid_o & fpu_in_ready_i & rd_in_is_fp_i & (mem_pop_i.rd == rd_i))) begin
       rd_scoreboard_d[mem_pop_i.rd] = 1'b0;
     end
   end
