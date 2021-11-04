@@ -71,6 +71,7 @@ module cv32e40p_x_disp
     input  logic            mem_instr_we_ex_i,
     input  logic [2:0]      regs_used_i,
     input  logic            branch_or_jump_i,
+    input  logic            instr_valid_i,
     input  logic [2:0][4:0] x_rs_addr_i,
     output logic [2:0]      x_ex_fwd_o,
     output logic [2:0]      x_wb_fwd_o,
@@ -85,24 +86,30 @@ module cv32e40p_x_disp
     input logic x_illegal_insn_dec_i,
     input logic id_ready_i,
     input logic ex_valid_i,
-    input cv32e40p_pkg::PrivLvl_t current_priv_lvl_i
+    input cv32e40p_pkg::PrivLvl_t current_priv_lvl_i,
+    input logic data_req_dec_i
 );
 
   // scoreboard, id and satus signals
   logic [31:0] scoreboard_q, scoreboard_d;
   logic [3:0] id_q, id_d;
-  logic instr_offloaded_q, instr_offloaded_d;
+  logic [3:0] instr_offloaded_q, instr_offloaded_d;
+  logic mem_counter_q, mem_counter_d;
   logic dep;
+  logic outstanding_mem;
   logic branch;
   logic x_if_not_ready;
   logic x_if_memory_instr;
 
   // issue interface
-  assign x_issue_valid_o = x_illegal_insn_dec_i & ~branch_or_jump_i & ~instr_offloaded_q;
+  assign x_issue_valid_o = x_illegal_insn_dec_i & ~branch_or_jump_i & ~instr_offloaded_q & instr_valid_i;
   assign x_issue_req_id_o = id_q;
-  assign x_issue_req_rs_valid_o[0] = (~scoreboard_q[x_rs_addr_i[0]] | x_ex_fwd_o[0] | x_wb_fwd_o[0]) & ~(x_rs_addr_i[0] == mem_instr_waddr_ex_i & mem_instr_we_ex_i);
-  assign x_issue_req_rs_valid_o[1] = (~scoreboard_q[x_rs_addr_i[1]] | x_ex_fwd_o[1] | x_wb_fwd_o[1]) & ~(x_rs_addr_i[1] == mem_instr_waddr_ex_i & mem_instr_we_ex_i);
-  assign x_issue_req_rs_valid_o[2] = (~scoreboard_q[x_rs_addr_i[2]] | x_ex_fwd_o[2] | x_wb_fwd_o[2]) & ~(x_rs_addr_i[2] == mem_instr_waddr_ex_i & mem_instr_we_ex_i);
+  assign x_issue_req_rs_valid_o[0] = (~scoreboard_q[x_rs_addr_i[0]] | x_ex_fwd_o[0] | x_wb_fwd_o[0])
+                                     & ~(x_rs_addr_i[0] == mem_instr_waddr_ex_i & mem_instr_we_ex_i);
+  assign x_issue_req_rs_valid_o[1] = (~scoreboard_q[x_rs_addr_i[1]] | x_ex_fwd_o[1] | x_wb_fwd_o[1])
+                                     & ~(x_rs_addr_i[1] == mem_instr_waddr_ex_i & mem_instr_we_ex_i);
+  assign x_issue_req_rs_valid_o[2] = (~scoreboard_q[x_rs_addr_i[2]] | x_ex_fwd_o[2] | x_wb_fwd_o[2])
+                                     & ~(x_rs_addr_i[2] == mem_instr_waddr_ex_i & mem_instr_we_ex_i);
   assign x_issue_req_frs_valid_o = '0;
 
   // commit interface
@@ -120,15 +127,17 @@ module cv32e40p_x_disp
   assign x_mem_result_err_o = 1'b0;
 
   // result channel
-  // todo: at the moment core internal instructions can be overtaken by instructions in the coprocessor (waw hazards)
   assign x_result_ready_o = 1'b1;
 
   // core internal memory request signal
   assign x_mem_data_req_o = x_mem_valid_i;
 
   // core stall signal
-  assign x_stall_o = x_if_not_ready | dep | branch | x_if_memory_instr;
-  assign dep = ~x_illegal_insn_o & ((regs_used_i[0] & scoreboard_q[x_rs_addr_i[0]]) | (regs_used_i[1] & scoreboard_q[x_rs_addr_i[1]]) | (regs_used_i[2] & scoreboard_q[x_rs_addr_i[2]]));
+  assign x_stall_o = dep | outstanding_mem | branch | x_if_not_ready | x_if_memory_instr;
+  assign dep = ~x_illegal_insn_o & ((regs_used_i[0] & scoreboard_q[x_rs_addr_i[0]])
+                                  | (regs_used_i[1] & scoreboard_q[x_rs_addr_i[1]])
+                                  | (regs_used_i[2] & scoreboard_q[x_rs_addr_i[2]]));
+  assign outstanding_mem = data_req_dec_i & (mem_counter_q != '0);
   assign branch = x_illegal_insn_dec_i & branch_or_jump_i;
   assign x_if_not_ready = x_issue_valid_o & ~x_issue_ready_i;
   assign x_if_memory_instr = x_mem_valid_i & ~(x_issue_valid_o & x_issue_ready_i);
@@ -165,7 +174,8 @@ module cv32e40p_x_disp
   // scoreboard update
   always_comb begin
     scoreboard_d = scoreboard_q;
-    if (x_issue_resp_writeback_i & x_issue_valid_o & x_issue_ready_i & ~((waddr_id_i == x_result_rd_i) & x_result_valid_i & x_result_rd_i)) begin
+    if (x_issue_resp_writeback_i & x_issue_valid_o & x_issue_ready_i
+        & ~((waddr_id_i == x_result_rd_i) & x_result_valid_i & x_result_rd_i)) begin
       scoreboard_d[waddr_id_i] = 1'b1;
     end
     if (x_result_valid_i & x_result_we_i) begin
@@ -186,7 +196,7 @@ module cv32e40p_x_disp
   // illegal instruction assertion
   always_comb begin
     x_illegal_insn_o = 1'b0;
-    if (x_issue_valid_o & x_issue_ready_i & ~x_issue_resp_accept_i) begin
+    if (x_issue_valid_o & ~x_issue_resp_accept_i) begin // todo: not conform to the xif
       x_illegal_insn_o = 1'b1;
     end
   end
@@ -194,14 +204,28 @@ module cv32e40p_x_disp
   // scoreboard and status signal register
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (~rst_ni) begin
-      scoreboard_q      <= 32'b0;
+      scoreboard_q      <= '0;
       instr_offloaded_q <= 1'b0;
-      id_q              <= 4'b0;
+      id_q              <= '0;
+      mem_counter_q     <= '0;
     end else begin
       scoreboard_q      <= scoreboard_d;
       instr_offloaded_q <= instr_offloaded_d;
       id_q              <= id_d;
+      mem_counter_q     <= mem_counter_d;
     end
   end
+
+
+  always_comb begin
+    mem_counter_d = mem_counter_q;
+    if ((x_issue_valid_o & x_issue_ready_i & x_issue_resp_loadstore_i) & ~(x_mem_valid_i & x_mem_ready_o) ) begin
+      mem_counter_d = mem_counter_q + 4'b0001;
+    end else if (~(x_issue_valid_o & x_issue_ready_i & x_issue_resp_loadstore_i) & (x_mem_valid_i & x_mem_ready_o)) begin
+      mem_counter_d = mem_counter_q - 4'b0001;
+    end
+  end
+
+
 
 endmodule : cv32e40p_x_disp
