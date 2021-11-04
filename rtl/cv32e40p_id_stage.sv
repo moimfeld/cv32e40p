@@ -1012,7 +1012,8 @@ module cv32e40p_id_stage
           .mem_instr_waddr_ex_i(regfile_waddr_ex_o[4:0]),
           .mem_instr_we_ex_i   (regfile_we_ex_o),
           .regs_used_i         (regs_used),
-          .branch_or_jump_i    (branch_in_ex_o),
+          .branch_or_jump_i    (branch_taken_ex),
+          .instr_valid_i       (instr_valid_i),
           .x_rs_addr_i         (x_rs_addr),
           .x_ex_fwd_o          (x_ex_fwd),
           .x_wb_fwd_o          (x_wb_fwd),
@@ -1027,7 +1028,8 @@ module cv32e40p_id_stage
           .x_illegal_insn_dec_i(illegal_insn_dec),
           .id_ready_i          (id_ready_o),
           .ex_valid_i          (ex_valid_i),
-          .current_priv_lvl_i  (current_priv_lvl_i)
+          .current_priv_lvl_i  (current_priv_lvl_i),
+          .data_req_dec_i      (data_req_dec)
       );
 
       // illegal instruction signal
