@@ -69,9 +69,9 @@ package fpu_ss_pkg;
   } offloaded_data_t;
 
   typedef struct packed {
-    logic [3:0] id;
-    logic [4:0] rd;
-    logic       we;
+    logic [ 3:0] id;
+    logic [ 4:0] rd;
+    logic        we;
   } mem_metadata_t;
 
   typedef struct packed {
