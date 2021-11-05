@@ -74,6 +74,6 @@ package cv32e40p_fpu_pkg;
       '{default: fpnew_pkg::PARALLEL},  // NONCOMP
       '{default: fpnew_pkg::MERGED}
   },  // CONV
-  PipeConfig: fpnew_pkg::INSIDE};
+  PipeConfig: fpnew_pkg::BEFORE};
 
 endpackage : cv32e40p_fpu_pkg
