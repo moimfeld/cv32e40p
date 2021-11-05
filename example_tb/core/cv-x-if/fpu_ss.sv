@@ -294,7 +294,7 @@ module fpu_ss
   assign x_mem_req_o.id     = offloaded_data_pop.id;
 
   always_comb begin
-    x_mem_req_o.wdata = fpu_operands[1];
+    x_mem_req_o.wdata = fpr_operands[1];
     if (fpu_fwd[1]) begin
       x_mem_req_o.wdata = fpu_result;
     end else if (lsu_fwd[1]) begin
@@ -424,14 +424,15 @@ module fpu_ss
       .clk_i (clk_i),
       .rst_ni(rst_ni),
 
-      .instr_i     (instr),
-      .csr_data_i  (int_operands[0]),
-      .fpu_status_i(fpu_status),
-      .fpu_busy_i  (fpu_busy),
-      .csr_rdata_o (csr_rdata),
-      .frm_o       (frm),
-      .csr_wb_o    (csr_wb),
-      .csr_instr_o (csr_instr)
+      .instr_i         (instr),
+      .csr_data_i      (int_operands[0]),
+      .fpu_status_i    (fpu_status),
+      .fpu_busy_i      (fpu_busy),
+      .fpu_out_valid_i (fpu_out_valid),
+      .csr_rdata_o     (csr_rdata),
+      .frm_o           (frm),
+      .csr_wb_o        (csr_wb),
+      .csr_instr_o     (csr_instr)
   );
 
   // FPU subsystem controller
