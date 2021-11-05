@@ -196,7 +196,7 @@ module cv32e40p_x_disp
   // illegal instruction assertion
   always_comb begin
     x_illegal_insn_o = 1'b0;
-    if (x_issue_valid_o & ~x_issue_resp_accept_i) begin // todo: not conform to the xif
+    if (x_issue_valid_o & x_issue_ready_i & ~x_issue_resp_accept_i) begin
       x_illegal_insn_o = 1'b1;
     end
   end
