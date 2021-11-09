@@ -26,6 +26,8 @@ module cv32e40p_x_disp
     input logic clk_i,
     input logic rst_ni,
 
+    // compressed interface
+    output logic [3:0] x_compressed_id_o,
     // issue interface
     output logic       x_issue_valid_o,
     input  logic       x_issue_ready_i,
@@ -149,7 +151,7 @@ module cv32e40p_x_disp
   assign x_wb_fwd_o[2] = x_rs_addr_i[2] == waddr_wb_i & we_wb_i & ex_valid_i;
 
   // id generation
-  // todo: generate ids for compressed instructions
+  assign x_compressed_id_o = id_d;
   always_comb begin
     id_d = id_q;
     if (x_issue_valid_o & x_issue_ready_i) begin

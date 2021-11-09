@@ -132,6 +132,9 @@ module cv32e40p_id_stage
     output logic apu_en_ex_o,
 
     // CORE-V-XIF
+    // Compressed Interface
+    output logic [3:0] x_compressed_id_o,
+
     // Issue Interface
     output logic x_issue_valid_o,
     input logic x_issue_ready_i,
@@ -967,6 +970,9 @@ module cv32e40p_id_stage
           // clock and reset
           .clk_i (clk),
           .rst_ni(rst_n),
+
+          // compressed interface
+          .x_compressed_id_o       (x_compressed_id_o),
 
           // issue interface
           .x_issue_valid_o         (x_issue_valid_o),
