@@ -401,7 +401,7 @@ module fpu_ss
   stream_fifo #(
       .FALL_THROUGH(0),
       .DATA_WIDTH  (32),
-      .DEPTH       (2),
+      .DEPTH       (3),
       .T           (fpu_ss_pkg::mem_metadata_t)
   ) mem_stream_fifo_i (
       .clk_i     (clk_i),
@@ -487,9 +487,9 @@ module fpu_ss
 
       // dependency check
       .rd_in_is_fp_i(rd_is_fp),
-      .rs1_i(rs1),
-      .rs2_i(rs2),
-      .rs3_i(rs3),
+      .rs1_i(fpr_raddr[0]),
+      .rs2_i(fpr_raddr[1]),
+      .rs3_i(fpr_raddr[2]),
       .fpu_fwd_o(fpu_fwd),
       .lsu_fwd_o(lsu_fwd),
       .op_select_i(op_select),
@@ -620,16 +620,16 @@ module fpu_ss
         fpu_operands[2] = int_operands[1];
       end
     end else begin
-      if (lsu_fwd[0] & (fpu_op == fpnew_pkg::ADD) & use_fpu) begin
+      if (lsu_fwd[1] & (fpu_op == fpnew_pkg::ADD) & use_fpu) begin
         fpu_operands[1] = x_mem_result_i.rdata;
       end
-      if (lsu_fwd[1] & (fpu_op == fpnew_pkg::ADD) & use_fpu) begin
+      if (lsu_fwd[2] & (fpu_op == fpnew_pkg::ADD) & use_fpu) begin
         fpu_operands[2] = x_mem_result_i.rdata;
       end
-      if (fpu_fwd[0] & (fpu_op == fpnew_pkg::ADD) & use_fpu) begin
+      if (fpu_fwd[1] & (fpu_op == fpnew_pkg::ADD) & use_fpu) begin
         fpu_operands[1] = fpu_result;
       end
-      if (fpu_fwd[1] & (fpu_op == fpnew_pkg::ADD) & use_fpu) begin
+      if (fpu_fwd[2] & (fpu_op == fpnew_pkg::ADD) & use_fpu) begin
         fpu_operands[2] = fpu_result;
       end
     end
