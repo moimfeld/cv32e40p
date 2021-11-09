@@ -283,7 +283,7 @@ module fpu_ss
   // write enable assignment for core writeback
   always_comb begin
     x_result_o.we = 1'b0;
-    if ((fpu_out_valid & ~fpu_tag_out.rd_is_fp) | (int_wb)) begin // todo: cause of large combinational path (add register pipeline register infront of the csr)
+    if ((fpu_out_valid & ~fpu_tag_out.rd_is_fp) | (int_wb)) begin
       x_result_o.we = 1'b1;
     end
   end
@@ -536,7 +536,7 @@ module fpu_ss
     always_comb begin
       op_select[i] = op_select_dec[i];
       if (PULP_ZFINX) begin
-        unique case (op_select_dec[i]) // todo: case for RegBRep is missing (--> but maybe it is not necessary because only vector instr need RegBRep)
+        unique case (op_select_dec[i])
           fpu_ss_pkg::None, fpu_ss_pkg::AccBus: begin
             op_select[i] = op_select_dec[i];
           end
@@ -581,7 +581,7 @@ module fpu_ss
         end
         fpu_ss_pkg::AccBus: begin
           fpu_operands_dec[i] = int_operands[i];
-          if (fpu_fwd[i]) begin // Moritz: could be wrong...
+          if (fpu_fwd[i]) begin
             fpu_operands_dec[i] = fpu_result;
           end
         end
