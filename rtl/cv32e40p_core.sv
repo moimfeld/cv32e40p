@@ -218,6 +218,7 @@ module cv32e40p_core
   logic               apu_en_ex;
 
   // X-Interface
+  logic        [ 3:0] x_compressed_id;
   logic               x_result_valid_assigned;
   logic               x_mem_instr;
   logic        [ 3:0] x_mem_id_ex;
@@ -453,6 +454,7 @@ module cv32e40p_core
       .x_compressed_ready_i (x_compressed_ready_i),
       .x_compressed_req_o   (x_compressed_req_o),
       .x_compressed_resp_i  (x_compressed_resp_i),
+      .x_compressed_id_i    (x_compressed_id),
 
       // outputs to ID stage
       .instr_valid_id_o (instr_valid_id),
@@ -610,6 +612,9 @@ module cv32e40p_core
       .apu_en_ex_o(apu_en_ex),
 
       // CORE-V-XIF
+      // Compressed Interface
+      .x_compressed_id_o (x_compressed_id),
+
       // Issue Interface
       .x_issue_valid_o (x_issue_valid_o),
       .x_issue_ready_i (x_issue_ready_i),

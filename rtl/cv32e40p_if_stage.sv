@@ -62,6 +62,7 @@ module cv32e40p_if_stage #(
     input  logic x_compressed_ready_i,
     output cv32e40p_core_v_xif_pkg::x_compressed_req_t x_compressed_req_o,
     input  cv32e40p_core_v_xif_pkg::x_compressed_resp_t x_compressed_resp_i,
+    input  logic [3:0] x_compressed_id_i,
 
     // Output of IF Pipeline stage
     output logic instr_valid_id_o,  // instruction in IF/ID pipeline is valid
@@ -286,10 +287,10 @@ module cv32e40p_if_stage #(
 
   generate
     if (FPU) begin
-      assign x_compressed_valid_o = illegal_c_insn_dec; // Moritz: no default value, might be a problem
+      assign x_compressed_valid_o = illegal_c_insn_dec;
       assign x_compressed_req_o.instr = instr_aligned;
       assign x_compressed_req_o.mode = 2'b00; // Machine Mode
-      assign x_compressed_req_o.id = 4'b0000; // Moritz: note correctly implemented
+      assign x_compressed_req_o.id = x_compressed_id_i;
 
       always_comb begin
         instr_decompressed = instr_decompressed_dec;
