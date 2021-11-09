@@ -97,7 +97,6 @@ module cv32e40p_x_disp
   logic mem_counter_q, mem_counter_d;
   logic dep;
   logic outstanding_mem;
-  logic branch;
   logic x_if_not_ready;
   logic x_if_memory_instr;
 
@@ -133,14 +132,13 @@ module cv32e40p_x_disp
   assign x_mem_data_req_o = x_mem_valid_i;
 
   // core stall signal
-  assign x_stall_o = dep | outstanding_mem | branch | x_if_not_ready | x_if_memory_instr;
-  assign dep = ~x_illegal_insn_o & ((regs_used_i[0] & scoreboard_q[x_rs_addr_i[0]])
-                                  | (regs_used_i[1] & scoreboard_q[x_rs_addr_i[1]])
-                                  | (regs_used_i[2] & scoreboard_q[x_rs_addr_i[2]]));
+  assign x_stall_o = dep | outstanding_mem | x_if_not_ready | x_if_memory_instr;
+  assign dep = ~x_illegal_insn_o & ((regs_used_i[0] & scoreboard_q[x_rs_addr_i[0]] & (x_result_rd_i != x_rs_addr_i[0]))
+                                  | (regs_used_i[1] & scoreboard_q[x_rs_addr_i[1]] & (x_result_rd_i != x_rs_addr_i[1]))
+                                  | (regs_used_i[2] & scoreboard_q[x_rs_addr_i[2]] & (x_result_rd_i != x_rs_addr_i[2])));
   assign outstanding_mem = data_req_dec_i & (mem_counter_q != '0);
-  assign branch = x_illegal_insn_dec_i & branch_or_jump_i;
-  assign x_if_not_ready = x_issue_valid_o & ~x_issue_ready_i;
   assign x_if_memory_instr = x_mem_valid_i & ~(x_issue_valid_o & x_issue_ready_i);
+  assign x_if_not_ready = x_issue_valid_o & ~x_issue_ready_i;
 
   // forwarding
   assign x_ex_fwd_o[0] = x_rs_addr_i[0] == waddr_ex_i & we_ex_i & ex_valid_i;
