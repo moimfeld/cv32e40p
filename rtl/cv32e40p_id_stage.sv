@@ -1102,6 +1102,7 @@ module cv32e40p_id_stage
       assign x_stall                   = 1'b0;
       assign x_result_valid_assigned_o = 1'b0;
       assign x_mem_valid               = 1'b0;
+      assign x_issue_valid_o           = 1'b0;
 
       // default assignment for LSU signals
       assign data_req_id               = data_req_dec;
@@ -1682,7 +1683,7 @@ module cv32e40p_id_stage
 
   // stall control
   assign id_ready_o = ((~misaligned_stall) & (~jr_stall) & (~load_stall) & (~csr_apu_stall) & (~x_stall) & ex_ready_i);
-  assign id_valid_o = (~halt_id) & id_ready_o | x_mem_valid;
+  assign id_valid_o = (~halt_id) & id_ready_o & ~x_issue_valid_o | x_mem_valid;
   assign halt_if_o = halt_if;
 
 
