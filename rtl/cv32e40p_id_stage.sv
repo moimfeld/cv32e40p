@@ -393,17 +393,9 @@ module cv32e40p_id_stage
 
   // Register Write Control
   logic regfile_we_id;
-  logic regfile_we_id_dec;
   logic regfile_alu_waddr_mux_sel;
 
   // Data Memory Control
-  logic [1:0] data_type_dec;
-  logic data_we_dec;
-  logic [1:0] data_sign_ext_dec;
-  logic [1:0] data_reg_offset_dec;
-  logic data_req_dec;
-  logic data_load_event_dec;
-
   logic [1:0] data_type_id;
   logic data_we_id;
   logic [1:0] data_sign_ext_id;
@@ -433,7 +425,6 @@ module cv32e40p_id_stage
   csr_opcode_e              csr_op;
   logic                     csr_status;
 
-  logic                     prepost_useincr_dec;
   logic                     prepost_useincr;
 
   // Forwarding
@@ -447,8 +438,6 @@ module cv32e40p_id_stage
   logic [31:0] operand_b, operand_b_vec;
   logic [31:0] operand_c, operand_c_vec;
 
-  logic [31:0] alu_operand_a_dec;
-  logic [31:0] alu_operand_c_dec;
   logic [31:0] alu_operand_a;
   logic [31:0] alu_operand_b;
   logic [31:0] alu_operand_c;
@@ -604,12 +593,12 @@ module cv32e40p_id_stage
   // ALU_Op_a Mux
   always_comb begin : alu_operand_a_mux
     case (alu_op_a_mux_sel)
-      OP_A_REGA_OR_FWD: alu_operand_a_dec = operand_a_fw_id;
-      OP_A_REGB_OR_FWD: alu_operand_a_dec = operand_b_fw_id;
-      OP_A_REGC_OR_FWD: alu_operand_a_dec = operand_c_fw_id;
-      OP_A_CURRPC:      alu_operand_a_dec = pc_id_i;
-      OP_A_IMM:         alu_operand_a_dec = imm_a;
-      default:          alu_operand_a_dec = operand_a_fw_id;
+      OP_A_REGA_OR_FWD: alu_operand_a = operand_a_fw_id;
+      OP_A_REGB_OR_FWD: alu_operand_a = operand_b_fw_id;
+      OP_A_REGC_OR_FWD: alu_operand_a = operand_c_fw_id;
+      OP_A_CURRPC:      alu_operand_a = pc_id_i;
+      OP_A_IMM:         alu_operand_a = imm_a;
+      default:          alu_operand_a = operand_a_fw_id;
     endcase
     ;  // case (alu_op_a_mux_sel)
   end
@@ -729,7 +718,7 @@ module cv32e40p_id_stage
   end
 
   // choose normal or scalar replicated version of operand b
-  assign alu_operand_c_dec = (scalar_replication_c == 1'b1) ? operand_c_vec : operand_c;
+  assign alu_operand_c = (scalar_replication_c == 1'b1) ? operand_c_vec : operand_c;
 
 
   // Operand c forwarding mux
@@ -912,7 +901,7 @@ module cv32e40p_id_stage
       .mult_dot_signed_o (mult_dot_signed),
 
       // Register file control signals
-      .regfile_mem_we_o       (regfile_we_id_dec),
+      .regfile_mem_we_o       (regfile_we_id),
       .regfile_alu_we_o       (regfile_alu_we_id),
       .regfile_alu_we_dec_o   (regfile_alu_we_dec_id),
       .regfile_alu_waddr_sel_o(regfile_alu_waddr_mux_sel),
@@ -924,13 +913,13 @@ module cv32e40p_id_stage
       .current_priv_lvl_i(current_priv_lvl_i),
 
       // Data bus interface
-      .data_req_o           (data_req_dec),
-      .data_we_o            (data_we_dec),
-      .prepost_useincr_o    (prepost_useincr_dec),
-      .data_type_o          (data_type_dec),
-      .data_sign_extension_o(data_sign_ext_dec),
-      .data_reg_offset_o    (data_reg_offset_dec),
-      .data_load_event_o    (data_load_event_dec),
+      .data_req_o           (data_req_id),
+      .data_we_o            (data_we_id),
+      .prepost_useincr_o    (prepost_useincr),
+      .data_type_o          (data_type_id),
+      .data_sign_extension_o(data_sign_ext_id),
+      .data_reg_offset_o    (data_reg_offset_id),
+      .data_load_event_o    (data_load_event_id),
 
       // Atomic memory access
       .atop_o(atop_id),
@@ -954,7 +943,7 @@ module cv32e40p_id_stage
       .mcounteren_i(mcounteren_i)
 
   );
-
+      logic [1:0] x_mem_data_type_id;
   generate
     if (FPU) begin : gen_x_disp
       ////////////////////////////////////////
@@ -1035,7 +1024,7 @@ module cv32e40p_id_stage
           .id_ready_i          (id_ready_o),
           .ex_valid_i          (ex_valid_i),
           .current_priv_lvl_i  (current_priv_lvl_i),
-          .data_req_dec_i      (data_req_dec)
+          .data_req_dec_i      (data_req_id)
       );
 
       // illegal instruction signal
@@ -1072,32 +1061,13 @@ module cv32e40p_id_stage
           end
         end
       end
-
       // LSU signal assignment/MUX
-      assign regfile_we_id = regfile_we_id_dec & ~x_mem_data_req;
-      assign data_req_id   = data_req_dec & ~x_mem_valid_i | x_mem_data_req;
-      assign data_we_id    = data_we_dec & ~x_mem_valid_i | (x_mem_valid_i & x_mem_req_i.we);
       always_comb begin
-        data_type_id       = data_type_dec;
-        data_sign_ext_id   = data_sign_ext_dec;
-        data_reg_offset_id = data_reg_offset_dec;
-        data_load_event_id = data_load_event_dec;
-        alu_operand_a      = alu_operand_a_dec;
-        alu_operand_c      = alu_operand_c_dec;
-        prepost_useincr    = prepost_useincr_dec;
-        if (x_mem_data_req) begin
-          case (x_mem_req_i.size)
-            2'b00: data_type_id = 2'b10;  // SB
-            2'b01: data_type_id = 2'b01;  // SH
-            2'b10: data_type_id = 2'b00;  // SW
-          endcase
-          data_sign_ext_id   = 2'b00;
-          data_reg_offset_id = 2'b00;
-          data_load_event_id = 1'b0;
-          alu_operand_a      = x_mem_req_i.addr;
-          alu_operand_c      = x_mem_req_i.wdata;
-          prepost_useincr    = 1'b0;
-        end
+        case (x_mem_req_i.size)
+          2'b00: x_mem_data_type_id = 2'b10;  // SB
+          2'b01: x_mem_data_type_id = 2'b01;  // SH
+          2'b10: x_mem_data_type_id = 2'b00;  // SW
+        endcase
       end
     end else begin : gen_no_x_disp
 
@@ -1110,17 +1080,6 @@ module cv32e40p_id_stage
       assign x_mem_valid               = 1'b0;
       assign x_issue_valid_o           = 1'b0;
 
-      // default assignment for LSU signals
-      assign data_req_id               = data_req_dec;
-      assign data_we_id                = data_we_dec;
-      assign data_type_id              = data_type_dec;
-      assign data_sign_ext_id          = data_sign_ext_dec;
-      assign data_reg_offset_id        = data_reg_offset_dec;
-      assign data_load_event_id        = data_load_event_dec;
-      assign alu_operand_a             = alu_operand_a_dec;
-      assign alu_operand_c             = alu_operand_c_dec;
-      assign prepost_useincr           = prepost_useincr_dec;
-      assign regfile_we_id             = regfile_we_id_dec;
     end : gen_no_x_disp
   endgenerate
 
@@ -1529,11 +1488,7 @@ module cv32e40p_id_stage
     end else if (mult_multicycle_i) begin
       mult_operand_c_ex_o <= operand_c_fw_id;
     end else begin
-      x_mem_instr_ex_o <= x_mem_valid;
-      x_mem_id_ex_o    <= x_mem_req_i.id;
-
       // normal pipeline unstall case
-
       if (id_valid_o) begin  // unstall the whole pipeline
         alu_en_ex_o <= alu_en;
         if (alu_en) begin
@@ -1601,6 +1556,9 @@ module cv32e40p_id_stage
           data_load_event_ex_o <= 1'b0;
         end
 
+        x_mem_instr_ex_o     <= 1'b0;
+        x_mem_id_ex_o        <= 1'b0;
+
         data_misaligned_ex_o <= 1'b0;
 
         if ((ctrl_transfer_insn_in_id == BRANCH_COND) || data_req_id) begin
@@ -1609,6 +1567,26 @@ module cv32e40p_id_stage
 
         branch_in_ex_o <= ctrl_transfer_insn_in_id == BRANCH_COND;
       end else if (ex_ready_i) begin
+
+        if (x_mem_valid) begin
+          data_req_ex_o        <= x_mem_valid;
+          data_we_ex_o         <= x_mem_req_i.we;
+          data_type_ex_o       <= x_mem_data_type_id;
+          data_sign_ext_ex_o   <= 2'b00;
+          data_reg_offset_ex_o <= 2'b00;
+          data_load_event_ex_o <= 1'b1;
+          prepost_useincr_ex_o <= 1'b0;
+          alu_operand_a_ex_o   <= x_mem_req_i.addr;
+          alu_operand_c_ex_o   <= x_mem_req_i.wdata;
+          x_mem_instr_ex_o     <= x_mem_valid;
+          x_mem_id_ex_o        <= x_mem_req_i.id;
+        end else begin
+          x_mem_instr_ex_o     <= 1'b0;
+          x_mem_id_ex_o        <= 1'b0;
+          data_req_ex_o        <= 1'b0;
+          data_load_event_ex_o <= 1'b0;
+        end
+
         // EX stage is ready but we don't have a new instruction for it,
         // so we set all write enables to 0, but unstall the pipe
 
@@ -1617,10 +1595,6 @@ module cv32e40p_id_stage
         regfile_alu_we_ex_o  <= 1'b0;
 
         csr_op_ex_o          <= CSR_OP_READ;
-
-        data_req_ex_o        <= 1'b0;
-
-        data_load_event_ex_o <= 1'b0;
 
         data_misaligned_ex_o <= 1'b0;
 
@@ -1648,7 +1622,7 @@ module cv32e40p_id_stage
   // Illegal/ebreak/ecall are never counted as retired instructions. Note that actually issued instructions
   // are being counted; the manner in which CSR instructions access the performance counters guarantees
   // that this count will correspond to the retired isntructions count.
-  assign minstret = id_valid_o && is_decoding_o && !(illegal_insn_dec || ebrk_insn_dec || ecall_insn_dec);
+  assign minstret = id_valid_o && is_decoding_o && !(illegal_insn || ebrk_insn_dec || ecall_insn_dec);
 
   always_ff @(posedge clk, negedge rst_n) begin
     if (rst_n == 1'b0) begin
@@ -1689,7 +1663,7 @@ module cv32e40p_id_stage
 
   // stall control
   assign id_ready_o = ((~misaligned_stall) & (~jr_stall) & (~load_stall) & (~csr_apu_stall) & (~x_stall) & ex_ready_i);
-  assign id_valid_o = (~halt_id) & id_ready_o & ~x_issue_valid_o | x_mem_valid;
+  assign id_valid_o = (~halt_id) & id_ready_o & ~x_mem_valid;
   assign halt_if_o = halt_if;
 
 
