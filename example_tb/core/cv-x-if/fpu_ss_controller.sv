@@ -181,9 +181,9 @@ module fpu_ss_controller
   // Note: out-of-order execution is enabled/disabled here
   always_comb begin
     fpu_in_valid_o = 1'b0;
-    if (use_fpu_i & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | ((x_commit_i.id == fpu_in_id_i) & x_commit_i.commit_kill)) & ~dep_rs & ~dep_rd & OUT_OF_ORDER) begin
+    if (use_fpu_i & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | ((x_commit_i.id == fpu_in_id_i) & ~x_commit_i.commit_kill)) & ~dep_rs & ~dep_rd & OUT_OF_ORDER) begin
       fpu_in_valid_o = 1'b1;
-    end else if (use_fpu_i  & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | ((x_commit_i.id == fpu_in_id_i) & x_commit_i.commit_kill)) & ~dep_rs & ~dep_rd & (fpu_out_valid_i | ~instr_inflight_q) & ~OUT_OF_ORDER) begin
+    end else if (use_fpu_i  & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | ((x_commit_i.id == fpu_in_id_i) & ~x_commit_i.commit_kill)) & ~dep_rs & ~dep_rd & (fpu_out_valid_i | ~instr_inflight_q) & ~OUT_OF_ORDER) begin
       fpu_in_valid_o = 1'b1;
     end
   end
@@ -272,7 +272,7 @@ module fpu_ss_controller
   // update for the id scoreboard
   always_comb begin
     id_scoreboard_d = id_scoreboard_q;
-    if (x_commit_valid_i & x_commit_i.commit_kill) begin
+    if (x_commit_valid_i & ~x_commit_i.commit_kill) begin
       id_scoreboard_d[x_commit_i.id] = 1'b1;
     end
     if (fpu_out_ready_o & fpu_out_valid_i) begin

@@ -42,7 +42,7 @@ module cv32e40p_x_disp
     // commit interface
     output logic       x_commit_valid_o,
     output logic [3:0] x_commit_id_o,
-    output logic       x_commit_commit_kill,  // hardwired to 1
+    output logic       x_commit_commit_kill,  // hardwired to 0
 
     // memory (request/response) interface
     input  logic       x_mem_valid_i,
@@ -116,7 +116,7 @@ module cv32e40p_x_disp
   // commit interface
   assign x_commit_valid_o = x_issue_valid_o;
   assign x_commit_id_o = id_q;
-  assign x_commit_commit_kill = 1'b1;
+  assign x_commit_commit_kill = 1'b0;
 
   // memory (req/resp) interface
   assign x_mem_ready_o = x_mem_valid_i;
@@ -225,7 +225,5 @@ module cv32e40p_x_disp
       mem_counter_d = mem_counter_q - 4'b0001;
     end
   end
-
-
 
 endmodule : cv32e40p_x_disp
