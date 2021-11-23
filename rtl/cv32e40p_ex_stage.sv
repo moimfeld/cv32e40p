@@ -271,6 +271,7 @@ module cv32e40p_ex_stage
         // we are ready for a new instruction, but there is none available,
         // so we just flush the current one out of the pipe
         regfile_we_lsu <= 1'b0;
+        x_mem_instr_wb_o <= 1'b0;
       end
     end
   end

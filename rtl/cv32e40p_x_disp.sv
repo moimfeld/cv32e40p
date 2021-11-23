@@ -81,6 +81,7 @@ module cv32e40p_x_disp
     // memory request core-internal status signals
     output logic x_mem_data_req_o,
     input  logic x_mem_instr_wb_i,
+    input  logic wb_ready_i,
 
     // additional status signals
     output logic x_stall_o,
@@ -88,6 +89,7 @@ module cv32e40p_x_disp
     input logic x_illegal_insn_dec_i,
     input logic id_ready_i,
     input logic ex_valid_i,
+    input logic ex_ready_i,
     input cv32e40p_pkg::PrivLvl_t current_priv_lvl_i,
     input logic data_req_dec_i
 );
@@ -106,11 +108,11 @@ module cv32e40p_x_disp
   assign x_issue_valid_o = x_illegal_insn_dec_i & ~branch_or_jump_i & ~instr_offloaded_q & instr_valid_i;
   assign x_issue_req_id_o = id_q;
   assign x_issue_req_rs_valid_o[0] = (~scoreboard_q[x_rs_addr_i[0]] | x_ex_fwd_o[0] | x_wb_fwd_o[0])
-                                     & ~(x_rs_addr_i[0] == mem_instr_waddr_ex_i & mem_instr_we_ex_i);
+                                     & ~(x_rs_addr_i[0] == mem_instr_waddr_ex_i & mem_instr_we_ex_i) & ~(x_rs_addr_i[0] == waddr_wb_i & ~ex_valid_i);
   assign x_issue_req_rs_valid_o[1] = (~scoreboard_q[x_rs_addr_i[1]] | x_ex_fwd_o[1] | x_wb_fwd_o[1])
-                                     & ~(x_rs_addr_i[1] == mem_instr_waddr_ex_i & mem_instr_we_ex_i);
+                                     & ~(x_rs_addr_i[1] == mem_instr_waddr_ex_i & mem_instr_we_ex_i) & ~(x_rs_addr_i[1] == waddr_wb_i & ~ex_valid_i);
   assign x_issue_req_rs_valid_o[2] = (~scoreboard_q[x_rs_addr_i[2]] | x_ex_fwd_o[2] | x_wb_fwd_o[2])
-                                     & ~(x_rs_addr_i[2] == mem_instr_waddr_ex_i & mem_instr_we_ex_i);
+                                     & ~(x_rs_addr_i[2] == mem_instr_waddr_ex_i & mem_instr_we_ex_i) & ~(x_rs_addr_i[2] == waddr_wb_i & ~ex_valid_i);
   assign x_issue_req_frs_valid_o = '0;
 
   // commit interface
@@ -119,19 +121,19 @@ module cv32e40p_x_disp
   assign x_commit_commit_kill = 1'b0;
 
   // memory (req/resp) interface
-  assign x_mem_ready_o = x_mem_valid_i;
+  assign x_mem_ready_o = ex_ready_i;
   assign x_mem_resp_exc_o = 1'b0;
   assign x_mem_resp_exccode_o = '0;
 
   // memory result channel
-  assign x_mem_result_valid_o = x_mem_instr_wb_i;
+  assign x_mem_result_valid_o = x_mem_instr_wb_i & wb_ready_i;
   assign x_mem_result_err_o = 1'b0;
 
   // result channel
   assign x_result_ready_o = 1'b1;
 
   // core internal memory request signal
-  assign x_mem_data_req_o = x_mem_valid_i;
+  assign x_mem_data_req_o = x_mem_valid_i & x_mem_ready_o;
 
   // core stall signal
   assign x_stall_o = dep | outstanding_mem | x_if_not_ready | x_if_memory_instr;
@@ -139,7 +141,7 @@ module cv32e40p_x_disp
                                   | (regs_used_i[1] & scoreboard_q[x_rs_addr_i[1]] & (x_result_rd_i != x_rs_addr_i[1]))
                                   | (regs_used_i[2] & scoreboard_q[x_rs_addr_i[2]] & (x_result_rd_i != x_rs_addr_i[2])));
   assign outstanding_mem = data_req_dec_i & (mem_counter_q != '0);
-  assign x_if_memory_instr = x_mem_valid_i & ~(x_issue_valid_o & x_issue_ready_i);
+  assign x_if_memory_instr = x_mem_data_req_o & ~(x_issue_valid_o & x_issue_ready_i);
   assign x_if_not_ready = x_issue_valid_o & ~x_issue_ready_i;
 
   // forwarding

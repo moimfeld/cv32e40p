@@ -1016,6 +1016,7 @@ module cv32e40p_id_stage
           // memory request core-internal status signals
           .x_mem_data_req_o(x_mem_data_req),
           .x_mem_instr_wb_i(x_mem_instr_wb_i),
+          .wb_ready_i      (wb_ready_i),
 
           // additional status signals
           .x_stall_o           (x_stall),
@@ -1023,6 +1024,7 @@ module cv32e40p_id_stage
           .x_illegal_insn_dec_i(illegal_insn_dec),
           .id_ready_i          (id_ready_o),
           .ex_valid_i          (ex_valid_i),
+          .ex_ready_i          (ex_ready_i),
           .current_priv_lvl_i  (current_priv_lvl_i),
           .data_req_dec_i      (data_req_id)
       );
@@ -1578,7 +1580,7 @@ module cv32e40p_id_stage
           prepost_useincr_ex_o <= 1'b0;
           alu_operand_a_ex_o   <= x_mem_req_i.addr;
           alu_operand_c_ex_o   <= x_mem_req_i.wdata;
-          x_mem_instr_ex_o     <= x_mem_valid;
+          x_mem_instr_ex_o     <= x_mem_data_req;
           x_mem_id_ex_o        <= x_mem_req_i.id;
         end else begin
           x_mem_instr_ex_o     <= 1'b0;
@@ -1670,6 +1672,7 @@ module cv32e40p_id_stage
   //----------------------------------------------------------------------------
   // Assertions
   //----------------------------------------------------------------------------
+
 `ifdef CV32E40P_ASSERT_ON
 
   // make sure that branch decision is valid when jumping
