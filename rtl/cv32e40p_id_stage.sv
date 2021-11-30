@@ -1065,6 +1065,7 @@ module cv32e40p_id_stage
       end
       // LSU signal assignment/MUX
       always_comb begin
+        x_mem_data_type_id = 2'b00;
         case (x_mem_req_i.size)
           2'b00: x_mem_data_type_id = 2'b10;  // SB
           2'b01: x_mem_data_type_id = 2'b01;  // SH
