@@ -259,7 +259,7 @@ module fpu_ss_controller
   // update for the rd scoreboard
   always_comb begin
     rd_scoreboard_d = rd_scoreboard_q;
-    if ((fpu_in_valid_o & fpu_in_ready_i & rd_in_is_fp_i) | (x_mem_req_hs & is_load_i)) begin
+    if ((fpu_in_valid_o & fpu_in_ready_i & rd_in_is_fp_i) | (x_mem_req_hs & is_load_i & in_buf_pop_valid_i)) begin
       rd_scoreboard_d[rd_i] = 1'b1;
     end
     if ((fpu_out_ready_o & fpu_out_valid_i) & ~(fpu_in_valid_o & fpu_in_ready_i & fpr_wb_addr_i == rd_i)) begin

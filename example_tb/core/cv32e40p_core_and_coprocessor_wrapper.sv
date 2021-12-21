@@ -158,15 +158,15 @@ module cv32e40p_core_and_coprocessor_wrapper
 
   generate
     if (FPU) begin : gen_fpu_ss
-      fpu_ss #(
+    fpu_ss_wrapper #(
       .PULP_ZFINX(PULP_ZFINX),
-      .INPUT_BUFFER_DEPTH(4),
+      .INPUT_BUFFER_DEPTH(1),
       .INT_REG_WB_DELAY(1),
       .OUT_OF_ORDER(1),
       .FORWARDING(1),
       .FPU_FEATURES(cv32e40p_fpu_pkg::FPU_FEATURES),
       .FPU_IMPLEMENTATION(cv32e40p_fpu_pkg::FPU_IMPLEMENTATION)
-  ) fpu_ss_i (
+  ) fpu_ss_wrapper_i (
     // clock and reset
     .clk_i(clk_i),
     .rst_ni(rst_ni),
