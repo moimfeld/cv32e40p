@@ -68,6 +68,8 @@ module fpu_ss_controller
     output logic                   [2:0] fpu_fwd_o,
     output logic                   [2:0] lsu_fwd_o,
     input  fpu_ss_pkg::op_select_e [2:0] op_select_i,
+    output logic                         dep_rs_o,
+    output logic                         dep_rd_o,
 
     // memory instruction handling
     input logic is_load_i,
@@ -108,11 +110,9 @@ module fpu_ss_controller
   // dependencies
   logic dep_rs1;
   logic dep_rs2;
-  logic dep_rs1_add;
+  logic dep_rs1_add; // seperate dependency calculation for the addition instruction, since it has different operand assignments (--> see FPnew documentation)
   logic dep_rs2_add;
   logic dep_rs3;
-  logic dep_rs;
-  logic dep_rd;
 
   // INT_REG_WB_DELAY signals
   logic [INT_REG_WB_DELAY:0] delay_reg_d;
@@ -136,8 +136,12 @@ module fpu_ss_controller
   assign mem_pop_ready_o = x_mem_result_valid_i;
 
   // dependency check (used to avoid data hazards)
-  assign dep_rs = (dep_rs1 & ~(fpu_fwd_o[0] | lsu_fwd_o[0])) | (dep_rs1_add & ~(fpu_fwd_o[1] | lsu_fwd_o[1])) | (dep_rs2 & ~(fpu_fwd_o[1] | lsu_fwd_o[1])) | (dep_rs2_add & ~(fpu_fwd_o[2] | lsu_fwd_o[2])) | (dep_rs3 & ~(fpu_fwd_o[2] | lsu_fwd_o[2]));
-  assign dep_rd = rd_scoreboard_q[rd_i] & rd_in_is_fp_i & ~(((fpu_out_valid_i & fpu_out_ready_o) | x_mem_result_valid_i) & fpr_we_o & (fpr_wb_addr_i == rd_i));
+  assign dep_rs_o = (dep_rs1 & ~(fpu_fwd_o[0] | lsu_fwd_o[0]))
+                | (dep_rs1_add & ~(fpu_fwd_o[1] | lsu_fwd_o[1]))
+                | (dep_rs2 & ~(fpu_fwd_o[1] | lsu_fwd_o[1]))
+                | (dep_rs2_add & ~(fpu_fwd_o[2] | lsu_fwd_o[2]))
+                | (dep_rs3 & ~(fpu_fwd_o[2] | lsu_fwd_o[2]));
+  assign dep_rd_o = rd_scoreboard_q[rd_i] & rd_in_is_fp_i & ~(((fpu_out_valid_i & fpu_out_ready_o) | x_mem_result_valid_i) & fpr_we_o & (fpr_wb_addr_i == rd_i));
 
   assign dep_rs1 = rd_scoreboard_q[rs1_i] & in_buf_pop_valid_i & (op_select_i[0] == fpu_ss_pkg::RegA);
   assign dep_rs1_add = rd_scoreboard_q[rs2_i] & in_buf_pop_valid_i & (op_select_i[1] == fpu_ss_pkg::RegA);
@@ -181,9 +185,9 @@ module fpu_ss_controller
   // Note: out-of-order execution is enabled/disabled here
   always_comb begin
     fpu_in_valid_o = 1'b0;
-    if (use_fpu_i & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | ((x_commit_i.id == fpu_in_id_i) & ~x_commit_i.commit_kill)) & ~dep_rs & ~dep_rd & OUT_OF_ORDER) begin
+    if (use_fpu_i & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | ((x_commit_i.id == fpu_in_id_i) & ~x_commit_i.commit_kill)) & ~dep_rs_o & ~dep_rd_o & OUT_OF_ORDER) begin
       fpu_in_valid_o = 1'b1;
-    end else if (use_fpu_i  & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | ((x_commit_i.id == fpu_in_id_i) & ~x_commit_i.commit_kill)) & ~dep_rs & ~dep_rd & (fpu_out_valid_i | ~instr_inflight_q) & ~OUT_OF_ORDER) begin
+    end else if (use_fpu_i  & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | ((x_commit_i.id == fpu_in_id_i) & ~x_commit_i.commit_kill)) & ~dep_rs_o & ~dep_rd_o & (fpu_out_valid_i | ~instr_inflight_q) & ~OUT_OF_ORDER) begin
       fpu_in_valid_o = 1'b1;
     end
   end
@@ -223,7 +227,7 @@ module fpu_ss_controller
   // - when the instruction has NOT already been offloaded back to the core (instr_offloaded_q signal)
   always_comb begin
     x_mem_valid_o = 1'b0;
-    if ((is_load_i | is_store_i) & ~dep_rs & ~dep_rd & in_buf_pop_valid_i & mem_push_ready_i) begin
+    if ((is_load_i | is_store_i) & ~dep_rs_o & ~dep_rd_o & in_buf_pop_valid_i & mem_push_ready_i) begin
       x_mem_valid_o = 1'b1;
     end
   end

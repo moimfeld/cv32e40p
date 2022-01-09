@@ -120,6 +120,9 @@ module fpu_ss
   fpu_ss_pkg::acc_prd_rsp_t  prd_rsp;
   logic in_buf_push_ready;
 
+  // issue_interface
+  logic x_issue_ready;
+
 
   // stream_fifo input and output data
   fpu_ss_pkg::offloaded_data_t                    offloaded_data_push;
@@ -154,9 +157,11 @@ module fpu_ss
   logic                          [31:0]           fpr_wb_data;
   logic                                           fpr_we;
 
-  // forwarding
+  // forwarding and dependency
   logic                          [ 2:0]           fpu_fwd;
   logic                          [ 2:0]           lsu_fwd;
+  logic                                           dep_rs;
+  logic                                           dep_rd;
 
   // decoder signals
   fpnew_pkg::operation_e                          fpu_op;
@@ -216,12 +221,12 @@ module fpu_ss
   assign x_issue_resp_o.exc = '0;
 
   always_comb begin
-    x_issue_ready_o = 1'b0;
+    x_issue_ready = 1'b0;
     if (((prd_rsp.p_use_rs[0] & x_issue_req_i.rs_valid[0]) | !prd_rsp.p_use_rs[0])
       & ((prd_rsp.p_use_rs[1] & x_issue_req_i.rs_valid[1]) | !prd_rsp.p_use_rs[1])
       & ((prd_rsp.p_use_rs[2] & x_issue_req_i.rs_valid[2]) | !prd_rsp.p_use_rs[2])
       & in_buf_push_ready) begin
-      x_issue_ready_o = 1'b1;
+      x_issue_ready = 1'b1;
     end
   end
 
@@ -354,26 +359,36 @@ module fpu_ss
 
 
   // FIFO with built in Handshake protocol (FALL_THROUGH enabled)
-  stream_fifo #(
-      .FALL_THROUGH(1),
-      .DATA_WIDTH  (32),
-      .DEPTH       (INPUT_BUFFER_DEPTH),
-      .T           (fpu_ss_pkg::offloaded_data_t)
-  ) input_stream_fifo_i (
-      .clk_i     (clk_i),
-      .rst_ni    (rst_ni),
-      .flush_i   (1'b0),
-      .testmode_i(1'b0),
-      .usage_o   (  /* unused */),
+  generate
+    if (INPUT_BUFFER_DEPTH > 0) begin : gen_input_stream_fifo
+      stream_fifo #(
+          .FALL_THROUGH(1),
+          .DATA_WIDTH  (32),
+          .DEPTH       (INPUT_BUFFER_DEPTH),
+          .T           (fpu_ss_pkg::offloaded_data_t)
+      ) input_stream_fifo_i (
+          .clk_i     (clk_i),
+          .rst_ni    (rst_ni),
+          .flush_i   (1'b0),
+          .testmode_i(1'b0),
+          .usage_o   (  /* unused */),
 
-      .data_i (offloaded_data_push),
-      .valid_i(in_buf_push_valid),
-      .ready_o(in_buf_push_ready),
+          .data_i (offloaded_data_push),
+          .valid_i(in_buf_push_valid),
+          .ready_o(in_buf_push_ready),
 
-      .data_o (offloaded_data_pop),
-      .valid_o(in_buf_pop_valid),
-      .ready_i(in_buf_pop_ready)
-  );
+          .data_o (offloaded_data_pop),
+          .valid_o(in_buf_pop_valid),
+          .ready_i(in_buf_pop_ready)
+      );
+      assign x_issue_ready_o = x_issue_ready;
+    end else begin : gen_no_input_stream_fifo
+      assign offloaded_data_pop = offloaded_data_push;
+      assign x_issue_ready_o = x_issue_ready & (~use_fpu | fpu_in_ready) & ~dep_rs & ~dep_rd;
+      assign in_buf_push_ready = 1'b1;
+      assign in_buf_pop_valid = x_issue_valid_i;
+    end
+  endgenerate
 
   // "F"-Extension and "xfvec"-Extension Decoder
   fpu_ss_decoder #(
@@ -493,6 +508,8 @@ module fpu_ss
       .fpu_fwd_o(fpu_fwd),
       .lsu_fwd_o(lsu_fwd),
       .op_select_i(op_select),
+      .dep_rs_o(dep_rs),
+      .dep_rd_o(dep_rd),
 
       // memory instruction handling
       .is_load_i (is_load),
@@ -664,7 +681,7 @@ module fpu_ss
   );
 
   // with this generate block combinational paths of instructions that do not go through the fpnew are cut
-  // It had to be added, because timing arcs were formed at synthesis time
+  // It had to be added, because timing arcs formed at synthesis time
   // --> Re-Implementing the c_p_valid_o signal in the fpu_ss_controller could make this generate block obsolete
   generate
     if (INT_REG_WB_DELAY > 0) begin : gen_wb_delay

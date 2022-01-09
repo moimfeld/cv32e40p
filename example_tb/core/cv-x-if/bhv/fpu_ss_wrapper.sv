@@ -61,7 +61,7 @@ module fpu_ss_wrapper
     output x_result_t x_result_o
 );
 
-		`ifdef FPU_SS_TRACER
+	`ifdef FPU_SS_TRACER
 	  fpu_ss_tracer fpu_ss_tracer_i (
 	      .clk_i                (fpu_ss_i.clk_i),
 	      .rst_ni               (fpu_ss_i.rst_ni),
@@ -79,12 +79,12 @@ module fpu_ss_wrapper
 	      .fpr_we_i             (fpu_ss_i.fpr_we),
 	      .x_mem_result_i       (fpu_ss_i.fpr_wb_data)
 	  );
-		`endif
+	`endif
 
 	  // instantiate the fpu_ss
 	  fpu_ss #(
       .PULP_ZFINX(PULP_ZFINX),
-      .INPUT_BUFFER_DEPTH(4),
+      .INPUT_BUFFER_DEPTH(INPUT_BUFFER_DEPTH),
       .INT_REG_WB_DELAY(1),
       .OUT_OF_ORDER(1),
       .FORWARDING(1),
