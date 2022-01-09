@@ -223,6 +223,7 @@ module cv32e40p_core
   logic               x_mem_instr;
   logic        [ 3:0] x_mem_id_ex;
   logic               x_mem_instr_wb;
+  logic        [31:0] result_fw_to_x;
 
   // Register Write Control
   logic        [ 5:0] regfile_waddr_ex;
@@ -644,6 +645,7 @@ module cv32e40p_core
       .x_mem_instr_ex_o(x_mem_instr),
       .x_mem_id_ex_o   (x_mem_id_ex),
       .x_mem_instr_wb_i(x_mem_instr_wb),
+      .result_fw_to_x_i(result_fw_to_x),
 
       // CSR ID/EX
       .csr_access_ex_o      (csr_access_ex),
@@ -806,6 +808,7 @@ module cv32e40p_core
       .x_mem_result_rdata_o      (x_mem_result_o.rdata),
       .x_mem_instr_wb_o          (x_mem_instr_wb),
       .x_mem_result_id_o         (x_mem_result_o.id),
+      .result_fw_to_x_o          (result_fw_to_x),
 
       .lsu_en_i   (data_req_ex),
       .lsu_rdata_i(lsu_rdata),

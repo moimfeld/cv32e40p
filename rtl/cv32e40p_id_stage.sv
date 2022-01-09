@@ -156,9 +156,10 @@ module cv32e40p_id_stage
     output logic x_mem_result_err_o,
 
     // Core internal xif memory signals
-    output logic       x_mem_instr_ex_o,
-    output logic [3:0] x_mem_id_ex_o,
-    input  logic       x_mem_instr_wb_i,
+    output logic        x_mem_instr_ex_o,
+    output logic [3:0]  x_mem_id_ex_o,
+    input  logic        x_mem_instr_wb_i,
+    input  logic [31:0] result_fw_to_x_i,
 
     // Result Interface
     input logic x_result_valid_i,
@@ -1007,7 +1008,7 @@ module cv32e40p_id_stage
           .mem_instr_waddr_ex_i(regfile_waddr_ex_o[4:0]),
           .mem_instr_we_ex_i   (regfile_we_ex_o),
           .regs_used_i         (regs_used),
-          .branch_or_jump_i    (branch_taken_ex),
+          .branch_or_jump_i    (pc_set_o),
           .instr_valid_i       (instr_valid_i),
           .x_rs_addr_i         (x_rs_addr),
           .x_ex_fwd_o          (x_ex_fwd),
@@ -1057,7 +1058,7 @@ module cv32e40p_id_stage
             x_issue_req_o.rs[i] = regfile_data_rc_id;
           end
           if (x_ex_fwd[i]) begin
-            x_issue_req_o.rs[i] = regfile_alu_wdata_fw_i;
+            x_issue_req_o.rs[i] = result_fw_to_x_i;
           end else if (x_wb_fwd[i]) begin
             x_issue_req_o.rs[i] = regfile_wdata_wb_i;
           end

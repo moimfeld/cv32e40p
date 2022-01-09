@@ -82,6 +82,7 @@ module cv32e40p_ex_stage
     output logic [31:0] x_mem_result_rdata_o,
     output logic        x_mem_instr_wb_o,
     output logic [ 3:0] x_mem_result_id_o,
+    output logic [31:0] result_fw_to_x_o,
 
     input logic        lsu_en_i,
     input logic [31:0] lsu_rdata_i,
@@ -140,6 +141,7 @@ module cv32e40p_ex_stage
     wb_contention          = 1'b0;
     regfile_alu_we_fw_o    = '0;
     regfile_alu_waddr_fw_o = '0;
+    result_fw_to_x_o  = '0;
     if (x_result_valid_assigned_i & x_result_we_i & (x_result_rd_i != 5'b00000)) begin
       regfile_alu_we_fw_o    = 1'b1;
       regfile_alu_waddr_fw_o = {1'b0, x_result_rd_i};
@@ -150,9 +152,18 @@ module cv32e40p_ex_stage
     end else begin
       regfile_alu_we_fw_o    = regfile_alu_we_i & ~apu_en_i;
       regfile_alu_waddr_fw_o = regfile_alu_waddr_i;
-      if (alu_en_i) regfile_alu_wdata_fw_o = alu_result;
-      if (mult_en_i) regfile_alu_wdata_fw_o = mult_result;
-      if (csr_access_i) regfile_alu_wdata_fw_o = csr_rdata_i;
+      if (alu_en_i) begin
+        regfile_alu_wdata_fw_o = alu_result;
+        result_fw_to_x_o  = alu_result;
+      end
+      if (mult_en_i) begin
+        regfile_alu_wdata_fw_o = mult_result;
+        result_fw_to_x_o  = mult_result;
+      end
+      if (csr_access_i) begin
+        regfile_alu_wdata_fw_o = csr_rdata_i;
+        result_fw_to_x_o  = csr_rdata_i;
+      end
     end
   end
 
