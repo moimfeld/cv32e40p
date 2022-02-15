@@ -9,7 +9,7 @@
 package acc_xfvec_pkg;
 
 parameter int unsigned NumInstr = 252;
-parameter acc_pkg::offload_instr_t OffloadInstr[252] = '{
+parameter fpu_ss_pkg::offload_instr_t OffloadInstr[252] = '{
   '{
     instr_data: 32'b 1000001_0000000000_000_00000_0110011, // VFADD_S
     instr_mask: 32'b 1111111_0000000000_111_00000_1111111,
