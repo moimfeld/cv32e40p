@@ -135,7 +135,6 @@ fpnew_deps:
 	if [ ! -d ../../rtl/fpnew ];then git clone https://github.com/pulp-platform/fpnew $(RTLSRC_HOME)/rtl/fpnew --recurse;\
 		cd $(RTLSRC_HOME)/rtl/fpnew;\
 		git checkout 1d0ac3b;\
-		git apply $(RTLSRC_HOME)/example_tb/core/cv-x-if/FPnew.patch;\
 		cd -;\
 	fi
 
