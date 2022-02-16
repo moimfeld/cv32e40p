@@ -21,49 +21,49 @@
 #              - 'Interrupt example' (interrupt), command line 'make interrupt-vsim-run'
 #
 #			   Floating-Point:
-#	                RISCV variable must be set to the path of the compiler
+#					RISCV variable must be set to the path of the compiler
 #					EXTENSION variable must be set to either 'f' or 'zfinx'
-#                   PROGRAM_PATH variable must be set or the PROGRAM variable
+#					PROGRAM_PATH variable must be set or the PROGRAM variable
 #						must be set to valid option. Valid programs are:
 #						matmul, aha-mont64, crc32, cubic, edn, huffbench, matmult-int,
 #						minver, nbody, nettle-aes, nettle-sha256, nsichneu, picojpeg,
-#					    qrduino, sglib-combined, slre, st, statemate, ud, wikisort
+#						qrduino, sglib-combined, slre, st, statemate, ud, wikisort
 #
 #					Example: 'make custom-fp-vsim-run EXTENSION=f PROGRAM=minver'
 #
-#					Notes: - If the FPnew has not yet been cloned, 'make fpnew_deps'
-#							 must be run.
-#						   - If an Embench program is chosen, the repository is
-#							 cloned and the programs are built automatically.
+#					Notes:	- If the FPnew has not yet been cloned, 'make fpnew_deps'
+#							  must be run.
+#							- If an Embench program is chosen, the repository is
+#							  cloned and the programs are built automatically.
 
 
 MAKE			= make
 
 # vsim configuration
-VVERSION                = "10.7b"
+VVERSION		= "10.7b"
 
 VLIB			= vlib-$(VVERSION)
 VWORK			= work
 
 VLOG			= vlog-$(VVERSION)
 VLOG_FLAGS		= -pedanticerrors -suppress 2577 -suppress 2583 -define CV32E40P_TRACE_EXECUTION
-VLOG_LOG                = vloggy
+VLOG_LOG		= vloggy
 
 VOPT			= vopt-$(VVERSION)
 VOPT_FLAGS		= -debugdb -fsmdebug -pedanticerrors +acc #=mnprft
 
 VSIM			= vsim-$(VVERSION)
-VSIM_HOME               = /usr/pack/modelsim-$(VVERSION)-kgf/questasim
-VSIM_FLAGS              =  # user defined
-ALL_VSIM_FLAGS		= $(VSIM_FLAGS)
-VSIM_DEBUG_FLAGS	= -debugdb
-VSIM_GUI_FLAGS          = -gui -debugdb
-VSIM_SCRIPT             = vsim.tcl
+VSIM_HOME		= /usr/pack/modelsim-$(VVERSION)-kgf/questasim
+VSIM_FLAGS		=  # user defined
+ALL_VSIM_FLAGS	= $(VSIM_FLAGS)
+VSIM_DEBUG_FLAGS= -debugdb
+VSIM_GUI_FLAGS	= -gui -debugdb
+VSIM_SCRIPT		= vsim.tcl
 
 # RTL source files
-export RTLSRC_HOME             := $(shell pwd)/../..
-export DESIGN_RTL_DIR = $(RTLSRC_HOME)/rtl
-CV_CORE_MANIFEST    := $(RTLSRC_HOME)/cv32e40p_manifest.flist
+export RTLSRC_HOME	:= $(shell pwd)/../..
+export DESIGN_RTL_DIR= $(RTLSRC_HOME)/rtl
+CV_CORE_MANIFEST	:= $(RTLSRC_HOME)/cv32e40p_manifest.flist
 RTLSRC_TB_PKG		:= include/perturbation_pkg.sv
 RTLSRC_TB_TOP		:= tb_top.sv
 RTLSRC_TB			:= $(wildcard *.sv))
