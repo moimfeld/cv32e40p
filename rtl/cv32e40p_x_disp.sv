@@ -98,14 +98,15 @@ module cv32e40p_x_disp
   logic [31:0] scoreboard_q, scoreboard_d;
   logic [3:0] id_q, id_d;
   logic [3:0] instr_offloaded_q, instr_offloaded_d;
-  logic mem_counter_q, mem_counter_d;
+  logic [3:0] mem_counter_q, mem_counter_d;
   logic dep;
   logic outstanding_mem;
   logic x_if_not_ready;
   logic x_if_memory_instr;
+  logic illegal_forwarding_prevention;
 
   // issue interface
-  assign x_issue_valid_o = x_illegal_insn_dec_i & ~branch_or_jump_i & ~instr_offloaded_q & instr_valid_i;
+  assign x_issue_valid_o = x_illegal_insn_dec_i & ~branch_or_jump_i & ~instr_offloaded_q & instr_valid_i & ~illegal_forwarding_prevention;
   assign x_issue_req_id_o = id_q;
   assign x_issue_req_rs_valid_o[0] = (~scoreboard_q[x_rs_addr_i[0]] | x_ex_fwd_o[0] | x_wb_fwd_o[0])
                                      & ~(x_rs_addr_i[0] == mem_instr_waddr_ex_i & mem_instr_we_ex_i) & ~(x_rs_addr_i[0] == waddr_wb_i & ~ex_valid_i);
@@ -136,7 +137,7 @@ module cv32e40p_x_disp
   assign x_mem_data_req_o = x_mem_valid_i & x_mem_ready_o;
 
   // core stall signal
-  assign x_stall_o = dep | outstanding_mem | x_if_not_ready | x_if_memory_instr;
+  assign x_stall_o = dep | outstanding_mem | x_if_not_ready | x_if_memory_instr | illegal_forwarding_prevention;
   assign dep = ~x_illegal_insn_o & ((regs_used_i[0] & scoreboard_q[x_rs_addr_i[0]] & (x_result_rd_i != x_rs_addr_i[0]))
                                   | (regs_used_i[1] & scoreboard_q[x_rs_addr_i[1]] & (x_result_rd_i != x_rs_addr_i[1]))
                                   | (regs_used_i[2] & scoreboard_q[x_rs_addr_i[2]] & (x_result_rd_i != x_rs_addr_i[2])));
@@ -144,10 +145,12 @@ module cv32e40p_x_disp
   assign x_if_memory_instr = x_mem_data_req_o & ~(x_issue_valid_o & x_issue_ready_i);
   assign x_if_not_ready = x_issue_valid_o & ~x_issue_ready_i;
 
+  assign illegal_forwarding_prevention = x_result_valid_i & (x_ex_fwd_o[0] | x_ex_fwd_o[1] | x_ex_fwd_o[2]);
+
   // forwarding
-  assign x_ex_fwd_o[0] = x_rs_addr_i[0] == waddr_ex_i & we_ex_i & ex_valid_i & !x_result_valid_i;
-  assign x_ex_fwd_o[1] = x_rs_addr_i[1] == waddr_ex_i & we_ex_i & ex_valid_i & !x_result_valid_i;
-  assign x_ex_fwd_o[2] = x_rs_addr_i[2] == waddr_ex_i & we_ex_i & ex_valid_i & !x_result_valid_i;
+  assign x_ex_fwd_o[0] = x_rs_addr_i[0] == waddr_ex_i & we_ex_i & ex_valid_i;
+  assign x_ex_fwd_o[1] = x_rs_addr_i[1] == waddr_ex_i & we_ex_i & ex_valid_i;
+  assign x_ex_fwd_o[2] = x_rs_addr_i[2] == waddr_ex_i & we_ex_i & ex_valid_i;
   assign x_wb_fwd_o[0] = x_rs_addr_i[0] == waddr_wb_i & we_wb_i & ex_valid_i;
   assign x_wb_fwd_o[1] = x_rs_addr_i[1] == waddr_wb_i & we_wb_i & ex_valid_i;
   assign x_wb_fwd_o[2] = x_rs_addr_i[2] == waddr_wb_i & we_wb_i & ex_valid_i;
