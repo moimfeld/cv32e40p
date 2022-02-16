@@ -384,7 +384,7 @@ module fpu_ss
       assign x_issue_ready_o = x_issue_ready;
     end else begin : gen_no_input_stream_fifo
       assign offloaded_data_pop = offloaded_data_push;
-      assign x_issue_ready_o = x_issue_ready & (~use_fpu | fpu_in_ready) & ~dep_rs & ~dep_rd;
+      assign x_issue_ready_o = x_issue_ready & ~dep_rs & ~dep_rd; // readiness of FPnew is assumed here
       assign in_buf_push_ready = 1'b1;
       assign in_buf_pop_valid = x_issue_valid_i;
     end
@@ -454,7 +454,8 @@ module fpu_ss
   fpu_ss_controller #(
       .INT_REG_WB_DELAY(INT_REG_WB_DELAY),
       .OUT_OF_ORDER(OUT_OF_ORDER),
-      .FORWARDING(FORWARDING)
+      .FORWARDING(FORWARDING),
+      .INPUT_BUFFER_DEPTH(INPUT_BUFFER_DEPTH)
   ) fpu_ss_controller_i (
       // clock and reset
       .clk_i (clk_i),
@@ -510,6 +511,7 @@ module fpu_ss
       .op_select_i(op_select),
       .dep_rs_o(dep_rs),
       .dep_rd_o(dep_rd),
+      .x_issue_ready_i(x_issue_ready_o),
 
       // memory instruction handling
       .is_load_i (is_load),

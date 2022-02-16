@@ -16,7 +16,8 @@ module fpu_ss_controller
 #(
     parameter INT_REG_WB_DELAY = 1,
     parameter OUT_OF_ORDER = 1,
-    parameter FORWARDING = 1
+    parameter FORWARDING = 1,
+    parameter INPUT_BUFFER_DEPTH = 1
 ) (
     // clock and reset
     input logic clk_i,
@@ -70,6 +71,7 @@ module fpu_ss_controller
     input  fpu_ss_pkg::op_select_e [2:0] op_select_i,
     output logic                         dep_rs_o,
     output logic                         dep_rd_o,
+    input  logic                         x_issue_ready_i,
 
     // memory instruction handling
     input logic is_load_i,
@@ -110,7 +112,7 @@ module fpu_ss_controller
   // dependencies
   logic dep_rs1;
   logic dep_rs2;
-  logic dep_rs1_add; // seperate dependency calculation for the addition instruction, since it has different operand assignments (--> see FPnew documentation)
+  logic dep_rs1_add; // seperate dependency for the addition/subtraction instruction, since it has different operand assignments (--> see FPnew documentation)
   logic dep_rs2_add;
   logic dep_rs3;
 
@@ -227,7 +229,7 @@ module fpu_ss_controller
   // - when the instruction has NOT already been offloaded back to the core (instr_offloaded_q signal)
   always_comb begin
     x_mem_valid_o = 1'b0;
-    if ((is_load_i | is_store_i) & ~dep_rs_o & ~dep_rd_o & in_buf_pop_valid_i & mem_push_ready_i) begin
+    if ((is_load_i | is_store_i) & ~dep_rs_o & ~dep_rd_o & in_buf_pop_valid_i & mem_push_ready_i & (x_issue_ready_i | INPUT_BUFFER_DEPTH)) begin
       x_mem_valid_o = 1'b1;
     end
   end
