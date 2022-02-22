@@ -93,11 +93,11 @@ module fpu_ss
 );
 
 `ifdef PULP_ZFINX_DEF
-  localparam int unsigned NUM_INSTR                   = acc_zfinx_pkg::NumInstr;
-  localparam offload_instr_t OFFLOAD_INSTR[NUM_INSTR] = acc_zfinx_pkg::OffloadInstr;
+  localparam int unsigned NUM_INSTR                   = fpu_ss_prd_zfinx_pkg::NumInstr;
+  localparam offload_instr_t OFFLOAD_INSTR[NUM_INSTR] = fpu_ss_prd_zfinx_pkg::OffloadInstr;
 `else
-  localparam int unsigned NUM_INSTR                   = acc_fp_pkg::NumInstr;
-  localparam offload_instr_t OFFLOAD_INSTR[NUM_INSTR] = acc_fp_pkg::OffloadInstr;
+  localparam int unsigned NUM_INSTR                   = fpu_ss_prd_f_pkg::NumInstr;
+  localparam offload_instr_t OFFLOAD_INSTR[NUM_INSTR] = fpu_ss_prd_f_pkg::OffloadInstr;
 `endif
 
 

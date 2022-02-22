@@ -6,7 +6,7 @@
 //
 
 
-package acc_xfvec_pkg;
+package fpu_ss_prd_xfvec_pkg;
 
 parameter int unsigned NumInstr = 252;
 parameter fpu_ss_pkg::offload_instr_t OffloadInstr[252] = '{
