@@ -49,7 +49,7 @@ The coprocessors main module is named `fpu_ss` and can be found in [fpu_ss.sv](h
 	);
 
 ### Dependencies
-To compile the Floating-Point Unit Subsystem the [FPnew](https://github.com/pulp-platform/fpnew) needs to be cloned. It is recommended to use the following commit 1d0ac3bc3f282eec30dac2aed131a396af1288e8 to ensure correct functionality.
+To simulate/compile the Floating-Point Unit Subsystem the [FPnew](https://github.com/pulp-platform/fpnew) needs to be cloned. It is recommended to use the following commit 1d0ac3bc3f282eec30dac2aed131a396af1288e8 to ensure correct functionality.
 ### Parameters
 
 | Parameter Name       | Values                                                                                          | Description                                  | Default |
@@ -65,6 +65,8 @@ To compile the Floating-Point Unit Subsystem the [FPnew](https://github.com/pulp
 #### Extended parameter descriptions
 ##### `PULP_ZFINX`
 When `PULP_ZFINX` is set to `1`, the coprocessor supports the "Zfinx" extension and no longer supports the "F" extension. No floating-point specific register file will be instantiated, which will reduce the area of the coprocessor. Using the "Zfinx" extension is likely to have a negative impact on IPC.
+
+**Important Note**: If the coprocessor wants to be simulated/compiled for the "Zfinx" then `PULP_ZFINX_DEF` must be defined (besides setting `PULP_ZFINX` to `1`).
 ##### `INPUT_BUFFER_DEPTH`
 Setting `INPUT_BUFFER_DEPTH` to `0` will remove the FIFO that buffers incoming instructions from the core. This can have a negative impact on IPC, but will reduce the area of the coprocessor.
 ##### `FORWARDING`
