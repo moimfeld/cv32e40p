@@ -15,7 +15,7 @@
 `include "fpu_ss_tracer.sv"
 `endif
 module fpu_ss_wrapper
-    import cv32e40p_core_v_xif_pkg::*; // maybe change to a fpu_ss package but then one needs casting in the core_and_coprocessor wrapper
+    import fpu_ss_pkg::*;
 #(
     parameter                                 PULP_ZFINX         = 0,
     parameter                                 INPUT_BUFFER_DEPTH = 1,
@@ -67,9 +67,9 @@ module fpu_ss_wrapper
 	      .rst_ni               (fpu_ss_i.rst_ni),
 	      .x_mem_valid_i        (fpu_ss_i.x_mem_valid_o),
 	      .fpu_in_valid_i       (fpu_ss_i.fpu_in_valid),
-        .rs1_i                (fpu_ss_i.rs1),
-        .rs2_i                (fpu_ss_i.rs2),
-        .rs3_i                (fpu_ss_i.rs3),
+          .rs1_i                (fpu_ss_i.rs1),
+          .rs2_i                (fpu_ss_i.rs2),
+          .rs3_i                (fpu_ss_i.rs3),
 	      .instr_i              (fpu_ss_i.instr),
 	      .fpu_out_valid_i      (fpu_ss_i.fpu_out_valid),
 	      .fpu_out_ready_i      (fpu_ss_i.fpu_out_ready),
@@ -85,11 +85,11 @@ module fpu_ss_wrapper
 	  fpu_ss #(
       .PULP_ZFINX(PULP_ZFINX),
       .INPUT_BUFFER_DEPTH(INPUT_BUFFER_DEPTH),
-      .INT_REG_WB_DELAY(1),
-      .OUT_OF_ORDER(1),
-      .FORWARDING(1),
-      .FPU_FEATURES(cv32e40p_fpu_pkg::FPU_FEATURES),
-      .FPU_IMPLEMENTATION(cv32e40p_fpu_pkg::FPU_IMPLEMENTATION)
+      .INT_REG_WB_DELAY(INT_REG_WB_DELAY),
+      .OUT_OF_ORDER(OUT_OF_ORDER),
+      .FORWARDING(FORWARDING),
+      .FPU_FEATURES(FPU_FEATURES),
+      .FPU_IMPLEMENTATION(FPU_IMPLEMENTATION)
 	  ) fpu_ss_i (
 	      .*
 	  );

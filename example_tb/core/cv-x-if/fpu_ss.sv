@@ -43,18 +43,18 @@
 //                                  while with FORWARDING = 0 this sequence takes 3 clock cycles.
 //
 //             FPU_FEATURES:        Parameter to configure the FPnew, the subsystem was designed for the configuration found here:
-//                                  https://github.com/moimfeld/cv32e40p/blob/x-interface/example_tb/core/cv-x-if/cv32e40p_fpu_pkg.sv
+//                                  https://github.com/moimfeld/cv32e40p/blob/x-interface/example_tb/core/cv-x-if/fpu_ss_pkg.sv
 //                                  Other configurations might not work
 //
 //             FPU_IMPLEMENTATION:  Parameter to configure the FPnew, the subsystem was designed for the configuration found here:
-//                                  https://github.com/moimfeld/cv32e40p/blob/x-interface/example_tb/core/cv-x-if/cv32e40p_fpu_pkg.sv
+//                                  https://github.com/moimfeld/cv32e40p/blob/x-interface/example_tb/core/cv-x-if/fpu_ss_pkg.sv
 //                                  Other configurations might not work
 //
 // Contributor: Moritz Imfeld <moimfeld@student.ethz.ch>
 //              Davide Schiavone <davide@openhwgroup.org>
 
 module fpu_ss
-    import cv32e40p_core_v_xif_pkg::*; // maybe change to a fpu_ss package but then one needs casting in the core_and_coprocessor wrapper
+    import fpu_ss_pkg::*;
 #(
     parameter                                 PULP_ZFINX         = 0,
     parameter                                 INPUT_BUFFER_DEPTH = 1,
@@ -101,23 +101,23 @@ module fpu_ss
 );
 
 `ifdef PULP_ZFINX_DEF
-  localparam int unsigned NUM_INSTR = acc_zfinx_pkg::NumInstr;
-  localparam fpu_ss_pkg::offload_instr_t OFFLOAD_INSTR[NUM_INSTR] = acc_zfinx_pkg::OffloadInstr;
+  localparam int unsigned NUM_INSTR                   = acc_zfinx_pkg::NumInstr;
+  localparam offload_instr_t OFFLOAD_INSTR[NUM_INSTR] = acc_zfinx_pkg::OffloadInstr;
 `else
-  localparam int unsigned NUM_INSTR = acc_fp_pkg::NumInstr;
-  localparam fpu_ss_pkg::offload_instr_t OFFLOAD_INSTR[NUM_INSTR] = acc_fp_pkg::OffloadInstr;
+  localparam int unsigned NUM_INSTR                   = acc_fp_pkg::NumInstr;
+  localparam offload_instr_t OFFLOAD_INSTR[NUM_INSTR] = acc_fp_pkg::OffloadInstr;
 `endif
 
 
 
 
   // compressed predecoder signals
-  fpu_ss_pkg::comp_prd_req_t comp_prd_req;
-  fpu_ss_pkg::comp_prd_rsp_t comp_prd_rsp;
+  comp_prd_req_t comp_prd_req;
+  comp_prd_rsp_t comp_prd_rsp;
 
   // predecoder signals
-  fpu_ss_pkg::acc_prd_req_t  prd_req;
-  fpu_ss_pkg::acc_prd_rsp_t  prd_rsp;
+  acc_prd_req_t  prd_req;
+  acc_prd_rsp_t  prd_rsp;
   logic in_buf_push_ready;
 
   // issue_interface
@@ -125,15 +125,15 @@ module fpu_ss
 
 
   // stream_fifo input and output data
-  fpu_ss_pkg::offloaded_data_t                    offloaded_data_push;
-  fpu_ss_pkg::offloaded_data_t                    offloaded_data_pop;
+  offloaded_data_t                                offloaded_data_push;
+  offloaded_data_t                                offloaded_data_pop;
   logic                                           in_buf_push_valid;
   logic                                           in_buf_pop_valid;
   logic                                           in_buf_pop_ready;
 
   // FPnew signals
-  fpu_ss_pkg::fpu_tag_t                           fpu_tag_in;
-  fpu_ss_pkg::fpu_tag_t                           fpu_tag_out;
+  fpu_tag_t                                       fpu_tag_in;
+  fpu_tag_t                                       fpu_tag_out;
   logic                                           fpu_in_valid;
   logic                                           fpu_in_ready;
   logic                                           fpu_out_valid;
@@ -165,8 +165,8 @@ module fpu_ss
 
   // decoder signals
   fpnew_pkg::operation_e                          fpu_op;
-  fpu_ss_pkg::op_select_e      [       2:0      ] op_select_dec;
-  fpu_ss_pkg::op_select_e      [       2:0      ] op_select;
+  op_select_e                  [       2:0      ] op_select_dec;
+  op_select_e                  [       2:0      ] op_select;
   fpnew_pkg::roundmode_e                          fpu_rnd_mode;
   logic                                           set_dyn_rm;
   fpnew_pkg::fp_format_e                          src_fmt;
@@ -179,7 +179,7 @@ module fpu_ss
   logic                                           use_fpu;
   logic                                           is_store;
   logic                                           is_load;
-  fpu_ss_pkg::ls_size_e                           ls_size;
+  ls_size_e                                       ls_size;
   logic                                           error;
 
   // memory buffer
@@ -187,8 +187,8 @@ module fpu_ss
   logic mem_push_ready;
   logic mem_pop_valid;
   logic mem_pop_ready;
-  fpu_ss_pkg::mem_metadata_t mem_push;
-  fpu_ss_pkg::mem_metadata_t mem_pop;
+  mem_metadata_t mem_push;
+  mem_metadata_t mem_pop;
 
   // writeback to core
   logic                          [ 4:0]           wb_rd;
@@ -365,7 +365,7 @@ module fpu_ss
           .FALL_THROUGH(1),
           .DATA_WIDTH  (32),
           .DEPTH       (INPUT_BUFFER_DEPTH),
-          .T           (fpu_ss_pkg::offloaded_data_t)
+          .T           (offloaded_data_t)
       ) input_stream_fifo_i (
           .clk_i     (clk_i),
           .rst_ni    (rst_ni),
@@ -417,7 +417,7 @@ module fpu_ss
       .FALL_THROUGH(0),
       .DATA_WIDTH  (32),
       .DEPTH       (3),
-      .T           (fpu_ss_pkg::mem_metadata_t)
+      .T           (mem_metadata_t)
   ) mem_stream_fifo_i (
       .clk_i     (clk_i),
       .rst_ni    (rst_ni),
@@ -556,11 +556,11 @@ module fpu_ss
       op_select[i] = op_select_dec[i];
       if (PULP_ZFINX) begin
         unique case (op_select_dec[i])
-          fpu_ss_pkg::None, fpu_ss_pkg::AccBus: begin
+          None, AccBus: begin
             op_select[i] = op_select_dec[i];
           end
-          fpu_ss_pkg::RegA, fpu_ss_pkg::RegB, fpu_ss_pkg::RegBRep, fpu_ss_pkg::RegC, fpu_ss_pkg::RegDest: begin
-            op_select[i] = fpu_ss_pkg::AccBus;
+          RegA, RegB, RegBRep, RegC, RegDest: begin
+            op_select[i] = AccBus;
           end
         endcase
       end
@@ -574,17 +574,17 @@ module fpu_ss
     fpr_raddr[2] = rs3;
 
     unique case (op_select_dec[1])
-      fpu_ss_pkg::RegA: begin
+      RegA: begin
         fpr_raddr[1] = rs1;
       end
       default: ;
     endcase
 
     unique case (op_select_dec[2])
-      fpu_ss_pkg::RegB, fpu_ss_pkg::RegBRep: begin
+      RegB, RegBRep: begin
         fpr_raddr[2] = rs2;
       end
-      fpu_ss_pkg::RegDest: begin
+      RegDest: begin
         fpr_raddr[2] = rd;
       end
       default: ;
@@ -595,16 +595,16 @@ module fpu_ss
   for (genvar i = 0; i < 3; i++) begin : gen_operand_select
     always_comb begin
       unique case (op_select[i])
-        fpu_ss_pkg::None: begin
+        None: begin
           fpu_operands_dec[i] = '1;
         end
-        fpu_ss_pkg::AccBus: begin
+        AccBus: begin
           fpu_operands_dec[i] = int_operands[i];
           if (fpu_fwd[i]) begin
             fpu_operands_dec[i] = fpu_result;
           end
         end
-        fpu_ss_pkg::RegA, fpu_ss_pkg::RegB, fpu_ss_pkg::RegBRep, fpu_ss_pkg::RegC, fpu_ss_pkg::RegDest: begin
+        RegA, RegB, RegBRep, RegC, RegDest: begin
           fpu_operands_dec[i] = fpr_operands[i];
           if (fpu_fwd[i] & (fpu_op != fpnew_pkg::ADD)) begin
             fpu_operands_dec[i] = fpu_result;
@@ -612,7 +612,7 @@ module fpu_ss
             fpu_operands_dec[i] = x_mem_result_i.rdata;
           end
           // Replicate if needed
-          if (op_select[i] == fpu_ss_pkg::RegBRep) begin
+          if (op_select[i] == RegBRep) begin
             unique case (src_fmt)
               fpnew_pkg::FP32: fpu_operands_dec[i] = {(32 / 32) {fpu_operands_dec[i][31:0]}};
               fpnew_pkg::FP16, fpnew_pkg::FP16ALT:
@@ -632,10 +632,10 @@ module fpu_ss
   always_comb begin
     fpu_operands = fpu_operands_dec;
     if (PULP_ZFINX) begin
-      if (op_select_dec[1] == fpu_ss_pkg::RegA) begin
+      if (op_select_dec[1] == RegA) begin
         fpu_operands[1] = int_operands[0];
       end
-      if (op_select_dec[2] == fpu_ss_pkg::RegB) begin
+      if (op_select_dec[2] == RegB) begin
         fpu_operands[2] = int_operands[1];
       end
     end else begin
@@ -658,7 +658,7 @@ module fpu_ss
   fpnew_top #(
       .Features      (FPU_FEATURES),
       .Implementation(FPU_IMPLEMENTATION),
-      .TagType       (fpu_ss_pkg::fpu_tag_t)
+      .TagType       (fpu_tag_t)
   ) i_fpnew_bulk (
       .clk_i         (clk_i),
       .rst_ni        (rst_ni),

@@ -12,7 +12,7 @@
 // Contributor: Moritz Imfeld <moimfeld@student.ethz.ch>
 
 module fpu_ss_controller
-    import cv32e40p_core_v_xif_pkg::*;
+    import fpu_ss_pkg::*;
 #(
     parameter INT_REG_WB_DELAY = 1,
     parameter OUT_OF_ORDER = 1,

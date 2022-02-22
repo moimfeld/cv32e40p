@@ -1,5 +1,4 @@
 module cv32e40p_core_and_coprocessor_wrapper
-    import cv32e40p_core_v_xif_pkg::*;
   #(
     parameter INSTR_RDATA_WIDTH = 32,
     parameter BOOT_ADDR = 'h180,
@@ -48,33 +47,33 @@ module cv32e40p_core_and_coprocessor_wrapper
   // Compressed interface
   logic x_compressed_valid;
   logic x_compressed_ready;
-  x_compressed_req_t x_compressed_req;
-  x_compressed_resp_t x_compressed_resp;
+  cv32e40p_core_v_xif_pkg::x_compressed_req_t x_compressed_req;
+  fpu_ss_pkg::x_compressed_resp_t x_compressed_resp;
 
   // Issue Interface
   logic x_issue_valid;
   logic x_issue_ready;
-  x_issue_req_t x_issue_req;
-  x_issue_resp_t x_issue_resp;
+  cv32e40p_core_v_xif_pkg::x_issue_req_t x_issue_req;
+  fpu_ss_pkg::x_issue_resp_t x_issue_resp;
 
   // Commit Interface
   logic x_commit_valid;
-  x_commit_t x_commit;
+  cv32e40p_core_v_xif_pkg::x_commit_t x_commit;
 
   // Memory request/response Interface
   logic x_mem_valid;
   logic x_mem_ready;
-  x_mem_req_t x_mem_req;
-  x_mem_resp_t x_mem_resp;
+  fpu_ss_pkg::x_mem_req_t x_mem_req;
+  cv32e40p_core_v_xif_pkg::x_mem_resp_t x_mem_resp;
 
   // Memory Result Interface
   logic x_mem_result_valid;
-  x_mem_result_t x_mem_result;
+  cv32e40p_core_v_xif_pkg::x_mem_result_t x_mem_result;
 
   // Result Interface
   logic x_result_valid;
   logic x_result_ready;
-  x_result_t x_result;
+  fpu_ss_pkg::x_result_t x_result;
 
   cv32e40p_wrapper #(
     .PULP_XPULP      (PULP_XPULP),
@@ -116,13 +115,13 @@ module cv32e40p_core_and_coprocessor_wrapper
     .x_compressed_valid_o(x_compressed_valid),
     .x_compressed_ready_i(x_compressed_ready),
     .x_compressed_req_o(x_compressed_req),
-    .x_compressed_resp_i(x_compressed_resp),
+    .x_compressed_resp_i(cv32e40p_core_v_xif_pkg::x_compressed_resp_t'(x_compressed_resp)),
 
     // Issue Interface
     .x_issue_valid_o(x_issue_valid),
     .x_issue_ready_i(x_issue_ready),
     .x_issue_req_o(x_issue_req),
-    .x_issue_resp_i(x_issue_resp),
+    .x_issue_resp_i(cv32e40p_core_v_xif_pkg::x_issue_resp_t'(x_issue_resp)),
 
     // Commit Interface
     .x_commit_valid_o(x_commit_valid),
@@ -131,7 +130,7 @@ module cv32e40p_core_and_coprocessor_wrapper
     // Memory request/response Interface
     .x_mem_valid_i(x_mem_valid),
     .x_mem_ready_o(x_mem_ready),
-    .x_mem_req_i(x_mem_req),
+    .x_mem_req_i(cv32e40p_core_v_xif_pkg::x_mem_req_t'(x_mem_req)),
     .x_mem_resp_o(x_mem_resp),
 
     // Memory Result Interface
@@ -141,7 +140,7 @@ module cv32e40p_core_and_coprocessor_wrapper
     // Result Interface
     .x_result_valid_i(x_result_valid),
     .x_result_ready_o(x_result_ready),
-    .x_result_i(x_result),
+    .x_result_i(cv32e40p_core_v_xif_pkg::x_result_t'(x_result)),
 
     .irq_i    ({irq_fast_i, 4'b0, irq_external_i, 3'b0, irq_timer_i, 3'b0, irq_software_i, 3'b0}),
     .irq_ack_o(irq_ack_o),
@@ -160,12 +159,12 @@ module cv32e40p_core_and_coprocessor_wrapper
     if (FPU) begin : gen_fpu_ss
     fpu_ss_wrapper #(
       .PULP_ZFINX(PULP_ZFINX),
-      .INPUT_BUFFER_DEPTH(1),
+      .INPUT_BUFFER_DEPTH(0),
       .INT_REG_WB_DELAY(1),
       .OUT_OF_ORDER(1),
       .FORWARDING(1),
-      .FPU_FEATURES(cv32e40p_fpu_pkg::FPU_FEATURES),
-      .FPU_IMPLEMENTATION(cv32e40p_fpu_pkg::FPU_IMPLEMENTATION)
+      .FPU_FEATURES(fpu_ss_pkg::FPU_FEATURES),
+      .FPU_IMPLEMENTATION(fpu_ss_pkg::FPU_IMPLEMENTATION)
   ) fpu_ss_wrapper_i (
     // clock and reset
     .clk_i(clk_i),
@@ -174,28 +173,28 @@ module cv32e40p_core_and_coprocessor_wrapper
     // Compressed Interface
     .x_compressed_valid_i(x_compressed_valid),
     .x_compressed_ready_o(x_compressed_ready),
-    .x_compressed_req_i  (x_compressed_req),
+    .x_compressed_req_i  (fpu_ss_pkg::x_compressed_req_t'(x_compressed_req)),
     .x_compressed_resp_o (x_compressed_resp),
 
     // Issue Interface
     .x_issue_valid_i(x_issue_valid),
     .x_issue_ready_o(x_issue_ready),
-    .x_issue_req_i(x_issue_req),
+    .x_issue_req_i(fpu_ss_pkg::x_issue_req_t'(x_issue_req)),
     .x_issue_resp_o(x_issue_resp),
 
     // Commit Interface
     .x_commit_valid_i(x_commit_valid),
-    .x_commit_i(x_commit),
+    .x_commit_i(fpu_ss_pkg::x_commit_t'(x_commit)),
 
     // Memory request/response Interface
     .x_mem_valid_o(x_mem_valid),
     .x_mem_ready_i(x_mem_ready),
     .x_mem_req_o(x_mem_req),
-    .x_mem_resp_i(x_mem_resp),
+    .x_mem_resp_i(fpu_ss_pkg::x_mem_resp_t'(x_mem_resp)),
 
     // Memory Result Interface
     .x_mem_result_valid_i(x_mem_result_valid),
-    .x_mem_result_i(x_mem_result),
+    .x_mem_result_i(fpu_ss_pkg::x_mem_result_t'(x_mem_result)),
 
     // Result Interface
     .x_result_valid_o(x_result_valid),
