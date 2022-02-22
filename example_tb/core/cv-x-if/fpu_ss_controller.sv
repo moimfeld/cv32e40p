@@ -14,7 +14,6 @@
 module fpu_ss_controller
     import fpu_ss_pkg::*;
 #(
-    parameter INT_REG_WB_DELAY = 1,
     parameter OUT_OF_ORDER = 1,
     parameter FORWARDING = 1,
     parameter INPUT_BUFFER_DEPTH = 1
@@ -86,10 +85,7 @@ module fpu_ss_controller
 
     // response handshake
     input  logic x_mem_result_valid_i,
-    input  logic x_mem_result_err_i, // unused
-
-    // additional signals
-    output logic int_wb_o
+    input  logic x_mem_result_err_i // unused
 );
 
   // status signals
@@ -116,10 +112,6 @@ module fpu_ss_controller
   logic dep_rs2_add;
   logic dep_rs3;
 
-  // INT_REG_WB_DELAY signals
-  logic [INT_REG_WB_DELAY:0] delay_reg_d;
-  logic [INT_REG_WB_DELAY:0] delay_reg_q;
-
   // handshakes
   logic x_result_hs;
   logic x_mem_req_hs;
@@ -129,9 +121,6 @@ module fpu_ss_controller
 
   assign fpu_out_ready_o = ~x_mem_result_valid_i;  // only don't accept writebacks from the FPnew when a memory instruction writes back to the fp register file
   assign x_mem_req_hs = x_mem_valid_o & x_mem_ready_i;
-
-  // integer writeback delay assignement
-  assign int_wb_o = delay_reg_q[INT_REG_WB_DELAY];
 
   // memory buffer controll logic
   assign mem_push_valid_o = x_mem_req_hs;
@@ -175,7 +164,7 @@ module fpu_ss_controller
   // pop instruction
   always_comb begin
     in_buf_pop_ready_o = 1'b0;
-    if ((fpu_in_valid_o & fpu_in_ready_i) | (x_result_hs & int_wb_o) | x_mem_req_hs) begin
+    if ((fpu_in_valid_o & fpu_in_ready_i) | (x_result_hs & csr_instr_i) | x_mem_req_hs) begin
       in_buf_pop_ready_o = 1'b1;
     end
   end
@@ -218,7 +207,7 @@ module fpu_ss_controller
   // - when int_wb is high (int_wb controlls integer register writebacks of instructions that do not go though the fpu (e.g. csr))
   always_comb begin
     x_result_valid_o = 1'b0;
-    if (fpu_out_valid_i | int_wb_o) begin
+    if (fpu_out_valid_i | csr_instr_i) begin
       x_result_valid_o = 1'b1;
     end
   end
@@ -298,36 +287,6 @@ module fpu_ss_controller
       instr_offloaded_q <= instr_offloaded_d;
       rd_scoreboard_q   <= rd_scoreboard_d;
       id_scoreboard_q   <= id_scoreboard_d;
-    end
-  end
-
-  // start integer delay when:
-  // - when there is a csr instruction
-  // - when there is an instruction that does not use the fpu, does write back to an integer register and is not a load or store
-  always_comb begin
-    delay_reg_q[0] = 1'b0;
-    if (in_buf_pop_valid_i & (csr_instr_i | (~use_fpu_i & ~is_load_i & ~is_store_i))) begin
-      delay_reg_q[0] = 1'b1;
-    end
-  end
-
-  // register array that delays integer writebacks which do not go through the fpu
-  // - this can be used to break the critical path of instructions that would otherwise write back to the core
-  //   in the same cycle as they were offloaded
-  for (genvar i = 0; i < INT_REG_WB_DELAY; i++) begin
-    always_comb begin
-      delay_reg_d[i+1] = delay_reg_q[i];
-      if (~delay_reg_q[0] | in_buf_pop_ready_o | fpu_busy_i | fpu_out_valid_i | is_load_i | is_store_i | ~in_buf_pop_valid_i) begin
-        delay_reg_d[i+1] = 1'b0;
-      end
-    end
-
-    always_ff @(posedge clk_i, negedge rst_ni) begin
-      if (~rst_ni) begin
-        delay_reg_q[i+1] <= '0;
-      end else begin
-        delay_reg_q[i+1] <= delay_reg_d[i+1];
-      end
     end
   end
 

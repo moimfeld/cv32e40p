@@ -160,7 +160,6 @@ module cv32e40p_core_and_coprocessor_wrapper
     fpu_ss_wrapper #(
       .PULP_ZFINX(PULP_ZFINX),
       .INPUT_BUFFER_DEPTH(0),
-      .INT_REG_WB_DELAY(1),
       .OUT_OF_ORDER(1),
       .FORWARDING(1),
       .FPU_FEATURES(fpu_ss_pkg::FPU_FEATURES),

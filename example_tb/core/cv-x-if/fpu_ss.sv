@@ -15,13 +15,6 @@
 //              INPUT_BUFFER_DEPTH: This parameter can be used to set the depth of the stream_fifo buffer.
 //                                  Minimum value is 0
 //
-//              INT_REG_WB_DELAY:   INTeger REGister WriteBack DELAY can be used to cut combinational
-//                                  paths of instructions that do not go through the FPnew.
-//                                  Instructions that cause such paths are for example the CSR instructions.
-//                                  Setting this parameter to 0 can lead to writebacks to the core
-//                                  in the same cycle as an instruction was offloaded.
-//                                  Minimum value is 0
-//
 //              OUT_OF_ORDER:       Enable or diable out-of-order execution for instructions that go through
 //                                  the FPnew.
 //                                  For example with OUT_OF_ORDER = 1
@@ -58,7 +51,6 @@ module fpu_ss
 #(
     parameter                                 PULP_ZFINX         = 0,
     parameter                                 INPUT_BUFFER_DEPTH = 1,
-    parameter                                 INT_REG_WB_DELAY   = 1,
     parameter                                 OUT_OF_ORDER       = 1,
     parameter                                 FORWARDING         = 1,
     parameter fpnew_pkg::fpu_features_t       FPU_FEATURES       = fpnew_pkg::RV64D_Xsflt,
@@ -191,8 +183,8 @@ module fpu_ss
   mem_metadata_t mem_pop;
 
   // writeback to core
-  logic                          [ 4:0]           wb_rd;
-  logic                          [ 3:0]           wb_id;
+  logic                          [ 4:0]           csr_wb_addr;
+  logic                          [ 3:0]           csr_wb_id;
   logic                          [31:0]           wb_csr_rdata;
 
   // CSR
@@ -200,9 +192,6 @@ module fpu_ss
   logic                                           csr_wb;
   logic                          [ 2:0]           frm;
   fpnew_pkg::status_t                             fpu_status;
-
-  // additional signals
-  logic                                           int_wb;
 
   // compressed predecoder signal assignments
   assign x_compressed_ready_o = x_compressed_valid_i;
@@ -267,8 +256,8 @@ module fpu_ss
   // int register writeback data mux
   always_comb begin
     x_result_o.data = fpu_result;
-    if (csr_wb & ~fpu_out_valid & int_wb & ~fpu_out_valid) begin
-      x_result_o.data = wb_csr_rdata;
+    if (csr_wb & ~fpu_out_valid & csr_wb & ~fpu_out_valid) begin
+      x_result_o.data = csr_wb_addr;
     end
   end
 
@@ -280,15 +269,15 @@ module fpu_ss
       x_result_o.rd = fpu_tag_out.addr;
       x_result_o.id = fpu_tag_out.id;
     end else if (x_result_valid_o & x_result_ready_i & ~fpu_out_valid) begin
-      x_result_o.rd = wb_rd;
-      x_result_o.id = wb_id;
+      x_result_o.rd = csr_wb_addr;
+      x_result_o.id = csr_wb_id;
     end
   end
 
   // write enable assignment for core writeback
   always_comb begin
     x_result_o.we = 1'b0;
-    if ((fpu_out_valid & ~fpu_tag_out.rd_is_fp) | (int_wb)) begin
+    if ((fpu_out_valid & ~fpu_tag_out.rd_is_fp) | (csr_wb)) begin
       x_result_o.we = 1'b1;
     end
   end
@@ -439,20 +428,22 @@ module fpu_ss
       .clk_i (clk_i),
       .rst_ni(rst_ni),
 
-      .instr_i         (instr),
-      .csr_data_i      (int_operands[0]),
-      .fpu_status_i    (fpu_status),
-      .fpu_busy_i      (fpu_busy),
-      .fpu_out_valid_i (fpu_out_valid),
-      .csr_rdata_o     (csr_rdata),
-      .frm_o           (frm),
-      .csr_wb_o        (csr_wb),
-      .csr_instr_o     (csr_instr)
+      .instr_i            (instr),
+      .csr_data_i         (int_operands[0]),
+      .fpu_status_i       (fpu_status),
+      .in_buf_pop_valid_i (in_buf_pop_valid),
+      .fpu_out_valid_i    (fpu_out_valid),
+      .csr_id_i           (offloaded_data_pop.id),
+      .csr_rdata_o        (csr_rdata),
+      .frm_o              (frm),
+      .csr_wb_o           (csr_wb),
+      .csr_wb_addr_o      (csr_wb_addr),
+      .csr_wb_id_o        (csr_wb_id),
+      .csr_instr_o        (csr_instr)
   );
 
   // FPU subsystem controller
   fpu_ss_controller #(
-      .INT_REG_WB_DELAY(INT_REG_WB_DELAY),
       .OUT_OF_ORDER(OUT_OF_ORDER),
       .FORWARDING(FORWARDING),
       .INPUT_BUFFER_DEPTH(INPUT_BUFFER_DEPTH)
@@ -526,10 +517,7 @@ module fpu_ss
 
       // response handshake
       .x_mem_result_valid_i(x_mem_result_valid_i),
-      .x_mem_result_err_i (x_mem_result_i.err),
-
-      // additional signals
-      .int_wb_o(int_wb)
+      .x_mem_result_err_i (x_mem_result_i.err)
   );
 
   // FPU subsystem dedicated floating-point register file
@@ -681,30 +669,6 @@ module fpu_ss
       .out_ready_i   (fpu_out_ready),
       .busy_o        (fpu_busy)
   );
-
-  // with this generate block combinational paths of instructions that do not go through the fpnew are cut
-  // It had to be added, because timing arcs formed at synthesis time
-  // --> Re-Implementing the c_p_valid_o signal in the fpu_ss_controller could make this generate block obsolete
-  generate
-    if (INT_REG_WB_DELAY > 0) begin : gen_wb_delay
-      always_ff @(posedge clk_i, negedge rst_ni) begin
-        if (~rst_ni) begin
-          wb_csr_rdata <= '0;
-          wb_rd        <= '0;
-          wb_id        <= '0;
-        end else begin
-          wb_csr_rdata <= csr_rdata;
-          wb_rd        <= rd;
-          wb_id        <= offloaded_data_pop.id;
-        end
-      end
-    end else begin : gen_no_wb_delay
-      assign wb_csr_rdata = csr_rdata;
-      assign wb_rd        = rd;
-      assign wb_rd        = offloaded_data_pop.id;
-    end : gen_no_wb_delay
-  endgenerate
-
 
   // some measurements
   int offloaded, writebacks, memory, csr;

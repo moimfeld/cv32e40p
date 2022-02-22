@@ -19,7 +19,6 @@ module fpu_ss_wrapper
 #(
     parameter                                 PULP_ZFINX         = 0,
     parameter                                 INPUT_BUFFER_DEPTH = 1,
-    parameter                                 INT_REG_WB_DELAY   = 1,
     parameter                                 OUT_OF_ORDER       = 1,
     parameter                                 FORWARDING         = 1,
     parameter fpnew_pkg::fpu_features_t       FPU_FEATURES       = fpnew_pkg::RV64D_Xsflt,
@@ -85,7 +84,6 @@ module fpu_ss_wrapper
 	  fpu_ss #(
       .PULP_ZFINX(PULP_ZFINX),
       .INPUT_BUFFER_DEPTH(INPUT_BUFFER_DEPTH),
-      .INT_REG_WB_DELAY(INT_REG_WB_DELAY),
       .OUT_OF_ORDER(OUT_OF_ORDER),
       .FORWARDING(FORWARDING),
       .FPU_FEATURES(FPU_FEATURES),

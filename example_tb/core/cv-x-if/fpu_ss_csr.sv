@@ -18,11 +18,14 @@ module fpu_ss_csr (
     input  logic               [31:0] instr_i,
     input  logic               [31:0] csr_data_i,
     input  fpnew_pkg::status_t        fpu_status_i,
-    input  logic                      fpu_busy_i,
+    input  logic                      in_buf_pop_valid_i,
     input  logic                      fpu_out_valid_i,
+    input  logic               [ 3:0] csr_id_i,
     output logic               [31:0] csr_rdata_o,
     output logic               [ 2:0] frm_o,
     output logic                      csr_wb_o,
+    output logic               [ 4:0] csr_wb_addr_o,
+    output logic               [ 3:0] csr_wb_id_o,
     output logic                      csr_instr_o
 
 );
@@ -30,12 +33,15 @@ module fpu_ss_csr (
   logic [31:0] fcsr_d, fcsr_q, instr_q;
 
   assign frm_o = fcsr_q[7:5];
+  assign csr_wb_addr_o = instr_q[11:7];
 
   always_ff @(posedge clk_i, negedge rst_ni) begin : proc_instr_q
     if(~rst_ni) begin
       instr_q <= '0;
+      csr_wb_id_o <= '0;
     end else begin
-      if (~fpu_busy_i) begin
+      if (in_buf_pop_valid_i) begin
+        csr_wb_id_o <= csr_id_i;
         instr_q <= instr_i;
       end else begin
         instr_q <= '0;
