@@ -36,11 +36,11 @@
 //                                  while with FORWARDING = 0 this sequence takes 3 clock cycles.
 //
 //             FPU_FEATURES:        Parameter to configure the FPnew, the subsystem was designed for the configuration found here:
-//                                  https://github.com/moimfeld/cv32e40p/blob/x-interface/example_tb/core/cv-x-if/fpu_ss_pkg.sv
+//                                  https://github.com/moimfeld/cv32e40p/blob/x-interface/example_tb/core/fpu_ss/fpu_ss_pkg.sv
 //                                  Other configurations might not work
 //
 //             FPU_IMPLEMENTATION:  Parameter to configure the FPnew, the subsystem was designed for the configuration found here:
-//                                  https://github.com/moimfeld/cv32e40p/blob/x-interface/example_tb/core/cv-x-if/fpu_ss_pkg.sv
+//                                  https://github.com/moimfeld/cv32e40p/blob/x-interface/example_tb/core/fpu_ss/fpu_ss_pkg.sv
 //                                  Other configurations might not work
 //
 // Contributor: Moritz Imfeld <moimfeld@student.ethz.ch>
