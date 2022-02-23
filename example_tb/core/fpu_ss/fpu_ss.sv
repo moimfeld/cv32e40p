@@ -1,4 +1,4 @@
-// Copyright 2018 ETH Zurich and University of Bologna.
+// Copyright 2022 ETH Zurich and University of Bologna.
 // Copyright and related rights are licensed under the Solderpad Hardware
 // License, Version 0.51 (the "License"); you may not use this file except in
 // compliance with the License.  You may obtain a copy of the License at
@@ -10,12 +10,13 @@
 //
 // Description: Top level Module of the FPU subsystem
 //
-// Parameters:  PULP_ZFINX:         Unused at the moment
+// Parameters:  PULP_ZFINX:         Enable support for "Zfinx" standard extension (and thereby removing support for
+//                                  "F" standard extension)
 //
-//              INPUT_BUFFER_DEPTH: This parameter can be used to set the depth of the stream_fifo buffer.
-//                                  Minimum value is 0
+//              INPUT_BUFFER_DEPTH: Set depth of the FIFO input buffer. If parameter is set to 0, no buffer will be
+//                                  instantiated
 //
-//              OUT_OF_ORDER:       Enable or diable out-of-order execution for instructions that go through
+//              OUT_OF_ORDER:       Enable out-of-order execution for instructions that go through
 //                                  the FPnew.
 //                                  For example with OUT_OF_ORDER = 1
 //                                      fdiv.s fa1, fa2, fa3 // suppose takes 3 cycles
@@ -26,20 +27,19 @@
 //                                  With OUT_OF_ORDER this instruction sequence would take 5 clock cycles
 //                                  Possible values for this parameter are 0 and 1
 //
-//             FORWARDING:          With this parameter forwarding of floating-point results in the subsystem
-//                                  can be enabled/disabled.
+//             FORWARDING:          Enable forwarding of floating-point results in the subsystem.
 //                                  For examle take this sequence:
 //                                      fmul.s fa4, fa5, fa6 // suppose takes 1 cycles
 //                                      fmul.s fa1, fa4, fa6 // suppose takes 1 cycles
 //                                  There is a source register dependency for the second instruction on the
-//                                  first instruction. With FORWARDING = 1 this sequence takes 2 clock cycles
+//                                  first instructions result. With FORWARDING = 1 this sequence takes 2 clock cycles
 //                                  while with FORWARDING = 0 this sequence takes 3 clock cycles.
 //
-//             FPU_FEATURES:        Parameter to configure the FPnew, the subsystem was designed for the configuration found here:
+//             FPU_FEATURES:        Parameter to configure the FPnew. The subsystem was designed for the configuration found here:
 //                                  https://github.com/moimfeld/cv32e40p/blob/x-interface/example_tb/core/fpu_ss/fpu_ss_pkg.sv
 //                                  Other configurations might not work
 //
-//             FPU_IMPLEMENTATION:  Parameter to configure the FPnew, the subsystem was designed for the configuration found here:
+//             FPU_IMPLEMENTATION:  Parameter to configure the FPnew. The subsystem was designed for the configuration found here:
 //                                  https://github.com/moimfeld/cv32e40p/blob/x-interface/example_tb/core/fpu_ss/fpu_ss_pkg.sv
 //                                  Other configurations might not work
 //
@@ -50,7 +50,7 @@ module fpu_ss
     import fpu_ss_pkg::*;
 #(
     parameter                                 PULP_ZFINX         = 0,
-    parameter                                 INPUT_BUFFER_DEPTH = 1,
+    parameter                                 INPUT_BUFFER_DEPTH = 0,
     parameter                                 OUT_OF_ORDER       = 1,
     parameter                                 FORWARDING         = 1,
     parameter fpnew_pkg::fpu_features_t       FPU_FEATURES       = fpu_ss_pkg::FPU_FEATURES,
@@ -92,6 +92,7 @@ module fpu_ss
     output x_result_t x_result_o
 );
 
+// predecoder parameter
 `ifdef PULP_ZFINX_DEF
   localparam int unsigned NUM_INSTR                   = fpu_ss_prd_zfinx_pkg::NumInstr;
   localparam offload_instr_t OFFLOAD_INSTR[NUM_INSTR] = fpu_ss_prd_zfinx_pkg::OffloadInstr;
@@ -100,60 +101,24 @@ module fpu_ss
   localparam offload_instr_t OFFLOAD_INSTR[NUM_INSTR] = fpu_ss_prd_f_pkg::OffloadInstr;
 `endif
 
-
-
-
   // compressed predecoder signals
-  comp_prd_req_t comp_prd_req;
-  comp_prd_rsp_t comp_prd_rsp;
+  comp_prd_req_t                                  comp_prd_req;
+  comp_prd_rsp_t                                  comp_prd_rsp;
 
   // predecoder signals
-  acc_prd_req_t  prd_req;
-  acc_prd_rsp_t  prd_rsp;
-  logic in_buf_push_ready;
+  acc_prd_req_t                                   prd_req;
+  acc_prd_rsp_t                                   prd_rsp;
+  logic                                           in_buf_push_ready;
 
   // issue_interface
-  logic x_issue_ready;
+  logic                                           x_issue_ready;
 
-
-  // stream_fifo input and output data
-  offloaded_data_t                                offloaded_data_push;
-  offloaded_data_t                                offloaded_data_pop;
+  // input stream fifo signals
+  offloaded_data_t                                in_buf_push_data;
+  offloaded_data_t                                in_buf_pop_data;
   logic                                           in_buf_push_valid;
   logic                                           in_buf_pop_valid;
   logic                                           in_buf_pop_ready;
-
-  // FPnew signals
-  fpu_tag_t                                       fpu_tag_in;
-  fpu_tag_t                                       fpu_tag_out;
-  logic                                           fpu_in_valid;
-  logic                                           fpu_in_ready;
-  logic                                           fpu_out_valid;
-  logic                                           fpu_out_ready;
-  logic                          [31:0]           fpu_result;
-  logic                                           fpu_busy;
-
-  // instruction data, operands and adresses
-  logic                          [31:0]           instr;
-  logic                          [ 2:0]   [31:0]  fpu_operands_dec;
-  logic                          [ 2:0]   [31:0]  fpu_operands;
-  logic                          [ 2:0]   [31:0]  int_operands;
-  logic                          [ 2:0]   [31:0]  fpr_operands;
-  logic                          [ 4:0]           rs1;
-  logic                          [ 4:0]           rs2;
-  logic                          [ 4:0]           rs3;
-  logic                          [ 4:0]           rd;
-  logic                          [31:0]           offset;
-  logic                          [ 2:0]   [ 4:0]  fpr_raddr;
-  logic                          [ 4:0]           fpr_wb_addr;
-  logic                          [31:0]           fpr_wb_data;
-  logic                                           fpr_we;
-
-  // forwarding and dependency
-  logic                          [ 2:0]           fpu_fwd;
-  logic                          [ 2:0]           lsu_fwd;
-  logic                                           dep_rs;
-  logic                                           dep_rd;
 
   // decoder signals
   fpnew_pkg::operation_e                          fpu_op;
@@ -174,32 +139,61 @@ module fpu_ss
   ls_size_e                                       ls_size;
   logic                                           error;
 
-  // memory buffer
-  logic mem_push_valid;
-  logic mem_push_ready;
-  logic mem_pop_valid;
-  logic mem_pop_ready;
-  mem_metadata_t mem_push;
-  mem_metadata_t mem_pop;
+  // forwarding and dependency
+  logic                          [ 2:0]           fpu_fwd;
+  logic                          [ 2:0]           lsu_fwd;
+  logic                                           dep_rs;
+  logic                                           dep_rd;
 
-  // writeback to core
-  logic                          [ 4:0]           csr_wb_addr;
-  logic                          [ 3:0]           csr_wb_id;
-  logic                          [31:0]           wb_csr_rdata;
+  // instruction data, operands and adresses
+  logic                          [31:0]           instr;
+  logic                          [ 2:0]   [31:0]  fpu_operands_dec;
+  logic                          [ 2:0]   [31:0]  fpu_operands;
+  logic                          [ 2:0]   [31:0]  int_operands;
+  logic                          [ 2:0]   [31:0]  fpr_operands;
+  logic                          [ 4:0]           rs1;
+  logic                          [ 4:0]           rs2;
+  logic                          [ 4:0]           rs3;
+  logic                          [ 4:0]           rd;
+  logic                          [31:0]           offset;
+  logic                          [ 2:0]   [ 4:0]  fpr_raddr;
+  logic                          [ 4:0]           fpr_wb_addr;
+  logic                          [31:0]           fpr_wb_data;
+  logic                                           fpr_we;
+
+  // memory buffer signals
+  logic                                           mem_push_valid;
+  logic                                           mem_push_ready;
+  logic                                           mem_pop_valid;
+  logic                                           mem_pop_ready;
+  mem_metadata_t                                  mem_push_data;
+  mem_metadata_t                                  mem_pop_data;
 
   // CSR
-  logic                          [31:0]           csr_rdata;
   logic                                           csr_wb;
+  logic                          [31:0]           csr_rdata;
+  logic                          [ 4:0]           csr_wb_addr;
+  logic                          [ 3:0]           csr_wb_id;
   logic                          [ 2:0]           frm;
+
+  // FPnew signals
+  fpu_tag_t                                       fpu_tag_in;
+  fpu_tag_t                                       fpu_tag_out;
+  logic                                           fpu_in_valid;
+  logic                                           fpu_in_ready;
+  logic                                           fpu_out_valid;
+  logic                                           fpu_out_ready;
+  logic                          [31:0]           fpu_result;
+  logic                                           fpu_busy;
   fpnew_pkg::status_t                             fpu_status;
 
-  // compressed predecoder signal assignments
+  // compressed interface signal assignments
   assign x_compressed_ready_o = x_compressed_valid_i;
   assign comp_prd_req.comp_instr = x_compressed_req_i.instr;
   assign x_compressed_resp_o.instr = comp_prd_rsp.decomp_instr;
   assign x_compressed_resp_o.accept = comp_prd_rsp.accept;
 
-  // predecoder signal assignments
+  // issue interface signal assignment
   assign prd_req.q_instr_data = x_issue_req_i.instr;
   assign x_issue_resp_o.accept = prd_rsp.p_accept;
   assign x_issue_resp_o.writeback = prd_rsp.p_writeback;
@@ -209,35 +203,18 @@ module fpu_ss
   assign x_issue_resp_o.dualread  = '0;
   assign x_issue_resp_o.exc = '0;
 
-  always_comb begin
-    x_issue_ready = 1'b0;
-    if (((prd_rsp.p_use_rs[0] & x_issue_req_i.rs_valid[0]) | !prd_rsp.p_use_rs[0])
-      & ((prd_rsp.p_use_rs[1] & x_issue_req_i.rs_valid[1]) | !prd_rsp.p_use_rs[1])
-      & ((prd_rsp.p_use_rs[2] & x_issue_req_i.rs_valid[2]) | !prd_rsp.p_use_rs[2])
-      & in_buf_push_ready) begin
-      x_issue_ready = 1'b1;
-    end
-  end
-
-
-  // default assignment for unused x-interface signals
-  assign x_result_o.exc     = 1'b0;  // no errors can occur for now
-  assign x_result_o.exccode = '0; // no errors can occur for now
-  assign x_result_o.float   = 1'b0; // no float writebacks since the register is in the coprocessor
-
-
-  // stream_fifo input and output
+  // input buffer signal assignment
   assign in_buf_push_valid = x_issue_valid_i & x_issue_ready_o;
-  assign offloaded_data_push.rs = x_issue_req_i.rs;
-  assign offloaded_data_push.instr_data = x_issue_req_i.instr;
-  assign offloaded_data_push.id = x_issue_req_i.id;
-  assign offloaded_data_push.mode = x_issue_req_i.mode;
-  assign instr = offloaded_data_pop.instr_data;
-  assign int_operands[0] = offloaded_data_pop.rs[0];
-  assign int_operands[1] = offloaded_data_pop.rs[1];
-  assign int_operands[2] = offloaded_data_pop.rs[2];
+  assign in_buf_push_data.rs = x_issue_req_i.rs;
+  assign in_buf_push_data.instr_data = x_issue_req_i.instr;
+  assign in_buf_push_data.id = x_issue_req_i.id;
+  assign in_buf_push_data.mode = x_issue_req_i.mode;
 
-  // addresses
+  // instr, operand and address signal assignment
+  assign instr = in_buf_pop_data.instr_data;
+  assign int_operands[0] = in_buf_pop_data.rs[0];
+  assign int_operands[1] = in_buf_pop_data.rs[1];
+  assign int_operands[2] = in_buf_pop_data.rs[2];
   assign rs1 = instr[19:15];
   assign rs2 = instr[24:20];
   assign rs3 = instr[31:27];
@@ -246,46 +223,17 @@ module fpu_ss
   // FPnew tag
   assign fpu_tag_in.addr = rd;
   assign fpu_tag_in.rd_is_fp = rd_is_fp;
-  assign fpu_tag_in.id = offloaded_data_pop.id;
+  assign fpu_tag_in.id = in_buf_pop_data.id;
 
   // memory instruction buffer assignment
-  assign mem_push.id   = offloaded_data_pop.id;
-  assign mem_push.rd   = rd;
-  assign mem_push.we   = is_load;
+  assign mem_push_data.id   = in_buf_pop_data.id;
+  assign mem_push_data.rd   = rd;
+  assign mem_push_data.we   = is_load;
 
-  // int register writeback data mux
-  always_comb begin
-    x_result_o.data = fpu_result;
-    if (csr_wb & ~fpu_out_valid & csr_wb & ~fpu_out_valid) begin
-      x_result_o.data = csr_wb_addr;
-    end
-  end
-
-  // destination register assignment for core writeback
-  always_comb begin
-    x_result_o.rd = '0;
-    x_result_o.id = '0;
-    if (fpu_out_valid & x_result_valid_o & x_result_ready_i) begin
-      x_result_o.rd = fpu_tag_out.addr;
-      x_result_o.id = fpu_tag_out.id;
-    end else if (x_result_valid_o & x_result_ready_i & ~fpu_out_valid) begin
-      x_result_o.rd = csr_wb_addr;
-      x_result_o.id = csr_wb_id;
-    end
-  end
-
-  // write enable assignment for core writeback
-  always_comb begin
-    x_result_o.we = 1'b0;
-    if ((fpu_out_valid & ~fpu_tag_out.rd_is_fp) | (csr_wb)) begin
-      x_result_o.we = 1'b1;
-    end
-  end
-
-  // x_mem_req signal assignments
-  assign x_mem_req_o.mode   = offloaded_data_pop.mode;
+  // memory request signal assignments
+  assign x_mem_req_o.mode   = in_buf_pop_data.mode;
   assign x_mem_req_o.size   = instr[14:12];
-  assign x_mem_req_o.id     = offloaded_data_pop.id;
+  assign x_mem_req_o.id     = in_buf_pop_data.id;
 
   always_comb begin
     x_mem_req_o.wdata = fpr_operands[1];
@@ -296,7 +244,7 @@ module fpu_ss
     end
   end
 
-  // load and store address calculation
+  // load and store address calculation for memory instructions
   always_comb begin
     if (~x_mem_req_o.we) begin
       offset = instr[31:20];
@@ -312,32 +260,18 @@ module fpu_ss
     x_mem_req_o.addr = int_operands[0] + offset;
   end
 
-  // fp register writeback data mux
-  always_comb begin
-    fpr_wb_data = fpu_result;
-    if (x_mem_result_valid_i) begin
-      fpr_wb_data = x_mem_result_i.rdata;
-    end
-  end
-
-  // fp register addr writeback mux
-  always_comb begin
-    fpr_wb_addr = fpu_tag_out.addr;
-    if (x_mem_result_valid_i) begin
-      fpr_wb_addr = mem_pop.rd;
-    end else if (~use_fpu & ~fpu_out_valid) begin
-      fpr_wb_addr = rd;
-    end
-  end
-
-  // Compressed instruction predecoder
+  // ---------------------
+  // Compressed Predecoder
+  // ---------------------
   fpu_ss_compressed_predecoder fpu_ss_compressed_predecoder_i
     (
       .prd_req_i(comp_prd_req),
       .prd_rsp_o(comp_prd_rsp)
   );
 
-  // Predecoder, that checks validity of source registers and cleanness of source register before accepting an instruction
+  // ----------
+  // Predecoder
+  // ----------
   fpu_ss_predecoder #(
       .NumInstr(NUM_INSTR),
       .OffloadInstr(OFFLOAD_INSTR)
@@ -346,8 +280,9 @@ module fpu_ss
       .prd_rsp_o(prd_rsp)
   );
 
-
-  // FIFO with built in Handshake protocol (FALL_THROUGH enabled)
+  // -----------------
+  // Input Stream FIFO
+  // -----------------
   generate
     if (INPUT_BUFFER_DEPTH > 0) begin : gen_input_stream_fifo
       stream_fifo #(
@@ -362,27 +297,29 @@ module fpu_ss
           .testmode_i(1'b0),
           .usage_o   (  /* unused */),
 
-          .data_i (offloaded_data_push),
+          .data_i (in_buf_push_data),
           .valid_i(in_buf_push_valid),
           .ready_o(in_buf_push_ready),
 
-          .data_o (offloaded_data_pop),
+          .data_o (in_buf_pop_data),
           .valid_o(in_buf_pop_valid),
           .ready_i(in_buf_pop_ready)
       );
       assign x_issue_ready_o = x_issue_ready;
     end else begin : gen_no_input_stream_fifo
-      assign offloaded_data_pop = offloaded_data_push;
+      assign in_buf_pop_data = in_buf_push_data;
       assign x_issue_ready_o = x_issue_ready & ~dep_rs & ~dep_rd; // readiness of FPnew is assumed here
       assign in_buf_push_ready = 1'b1;
       assign in_buf_pop_valid = x_issue_valid_i;
     end
   endgenerate
 
-  // "F"-Extension and "xfvec"-Extension Decoder
+  // -------
+  // Decoder
+  // -------
   fpu_ss_decoder #(
       .PULP_ZFINX(PULP_ZFINX)
-  ) fpu_ss_decoder_i (  // Note: Remove Double Precision Instr form the decoder (not required at the moment --> only contributes to area)
+  ) fpu_ss_decoder_i (
       .instr_i       (instr),
       .fpu_rnd_mode_i(fpnew_pkg::roundmode_e'(frm)),
       .fpu_op_o      (fpu_op),
@@ -401,7 +338,9 @@ module fpu_ss
       .ls_size_o     (ls_size)
   );
 
-  // Memory instruction buffer
+  // ------------------------------
+  // Memory Instruction Stream FIFO
+  // ------------------------------
   stream_fifo #(
       .FALL_THROUGH(0),
       .DATA_WIDTH  (32),
@@ -414,16 +353,18 @@ module fpu_ss
       .testmode_i(1'b0),
       .usage_o   (  /* unused */),
 
-      .data_i (mem_push),
+      .data_i (mem_push_data),
       .valid_i(mem_push_valid),
       .ready_o(mem_push_ready),
 
-      .data_o (mem_pop),
+      .data_o (mem_pop_data),
       .valid_o(mem_pop_valid),
       .ready_i(mem_pop_ready)
   );
 
-  // FPU subsystem CSR
+  // ------------------
+  // Floating-Point CSR
+  // ------------------
   fpu_ss_csr fpu_ss_csr_i (
       .clk_i (clk_i),
       .rst_ni(rst_ni),
@@ -433,7 +374,7 @@ module fpu_ss
       .fpu_status_i       (fpu_status),
       .in_buf_pop_valid_i (in_buf_pop_valid),
       .fpu_out_valid_i    (fpu_out_valid),
-      .csr_id_i           (offloaded_data_pop.id),
+      .csr_id_i           (in_buf_pop_data.id),
       .csr_rdata_o        (csr_rdata),
       .frm_o              (frm),
       .csr_wb_o           (csr_wb),
@@ -442,11 +383,14 @@ module fpu_ss
       .csr_instr_o        (csr_instr)
   );
 
-  // FPU subsystem controller
+  // ------------------------
+  // FPU Subsystem Controller
+  // ------------------------
   fpu_ss_controller #(
+      .PULP_ZFINX(PULP_ZFINX),
+      .INPUT_BUFFER_DEPTH(INPUT_BUFFER_DEPTH),
       .OUT_OF_ORDER(OUT_OF_ORDER),
-      .FORWARDING(FORWARDING),
-      .INPUT_BUFFER_DEPTH(INPUT_BUFFER_DEPTH)
+      .FORWARDING(FORWARDING)
   ) fpu_ss_controller_i (
       // clock and reset
       .clk_i (clk_i),
@@ -455,6 +399,14 @@ module fpu_ss
       // commit interface
       .x_commit_valid_i (x_commit_valid_i),
       .x_commit_i       (x_commit_i),
+
+      // issue interface
+      .x_issue_req_rs_valid_i (x_issue_req_i.rs_valid),
+      .x_issue_ready_o  (x_issue_ready),
+
+      // predecoder signals
+      .in_buf_push_ready_i (in_buf_push_ready),
+      .prd_rsp_use_rs_i (prd_rsp.p_use_rs),
 
       // buffer pop handshake
       .in_buf_pop_valid_i (in_buf_pop_valid),
@@ -467,13 +419,12 @@ module fpu_ss
       .mem_push_ready_i (mem_push_ready),
       .mem_pop_valid_i  (mem_pop_valid),
       .mem_pop_ready_o  (mem_pop_ready),
-      .mem_pop_i        (mem_pop),
-
+      .mem_pop_data_i   (mem_pop_data),
 
       // FPnew input handshake
       .fpu_in_valid_o(fpu_in_valid),
       .fpu_in_ready_i(fpu_in_ready),
-      .fpu_in_id_i   (offloaded_data_pop.id),
+      .fpu_in_id_i   (in_buf_pop_data.id),
 
       // FPnew output handshake
       .fpu_out_valid_i(fpu_out_valid),
@@ -520,9 +471,53 @@ module fpu_ss
       .x_mem_result_err_i (x_mem_result_i.err)
   );
 
-  // FPU subsystem dedicated floating-point register file
+  // -------------------------------------
+  // Floating-Point specific Register File
+  // -------------------------------------
   generate
     if (!PULP_ZFINX) begin : gen_fp_register_file
+      // fp register address selection
+      always_comb begin
+        fpr_raddr[0] = rs1;
+        fpr_raddr[1] = rs2;
+        fpr_raddr[2] = rs3;
+
+        unique case (op_select_dec[1])
+          RegA: begin
+            fpr_raddr[1] = rs1;
+          end
+          default: ;
+        endcase
+
+        unique case (op_select_dec[2])
+          RegB, RegBRep: begin
+            fpr_raddr[2] = rs2;
+          end
+          RegDest: begin
+            fpr_raddr[2] = rd;
+          end
+          default: ;
+        endcase
+      end
+
+      // fp register writeback data mux
+      always_comb begin
+        fpr_wb_data = fpu_result;
+        if (x_mem_result_valid_i) begin
+          fpr_wb_data = x_mem_result_i.rdata;
+        end
+      end
+
+      // fp register addr writeback mux
+      always_comb begin
+        fpr_wb_addr = fpu_tag_out.addr;
+        if (x_mem_result_valid_i) begin
+          fpr_wb_addr = mem_pop_data.rd;
+        end else if (~use_fpu & ~fpu_out_valid) begin
+          fpr_wb_addr = rd;
+        end
+      end
+
       fpu_ss_regfile fpu_ss_regfile_i (
           .clk_i(clk_i),
           .rst_ni(rst_ni),
@@ -539,6 +534,9 @@ module fpu_ss
     end
   endgenerate
 
+  // ------------------
+  //  Operand Selection
+  // ------------------
   for (genvar i = 0; i < 3; i++) begin
     always_comb begin
       op_select[i] = op_select_dec[i];
@@ -555,31 +553,6 @@ module fpu_ss
     end
   end
 
-  // FP rgister address selection
-  always_comb begin
-    fpr_raddr[0] = rs1;
-    fpr_raddr[1] = rs2;
-    fpr_raddr[2] = rs3;
-
-    unique case (op_select_dec[1])
-      RegA: begin
-        fpr_raddr[1] = rs1;
-      end
-      default: ;
-    endcase
-
-    unique case (op_select_dec[2])
-      RegB, RegBRep: begin
-        fpr_raddr[2] = rs2;
-      end
-      RegDest: begin
-        fpr_raddr[2] = rd;
-      end
-      default: ;
-    endcase
-  end
-
-  // operand selection
   for (genvar i = 0; i < 3; i++) begin : gen_operand_select
     always_comb begin
       unique case (op_select[i])
@@ -642,7 +615,9 @@ module fpu_ss
     end
   end
 
-  // FPnew
+  // ------
+  //  FPnew
+  // ------
   fpnew_top #(
       .Features      (FPU_FEATURES),
       .Implementation(FPU_IMPLEMENTATION),
@@ -670,35 +645,37 @@ module fpu_ss
       .busy_o        (fpu_busy)
   );
 
-  // some measurements
-  int offloaded, writebacks, memory, csr;
-  initial begin
-    offloaded = 0;
-    writebacks = 0;
-    memory = 0;
-    csr = 0;
+  // -------------------------
+  //  Result Interface Signals
+  // -------------------------
+  assign x_result_o.exc     = 1'b0;  // no errors can occur for now
+  assign x_result_o.exccode = '0; // no errors can occur for now
+  assign x_result_o.float   = 1'b0; // no float writebacks since the register is in the coprocessor
+
+  always_comb begin
+    x_result_o.data = fpu_result;
+    if (csr_wb & ~fpu_out_valid & csr_wb & ~fpu_out_valid) begin
+      x_result_o.data = csr_wb_addr;
+    end
   end
 
-`ifdef COREVXIF_COVER_ON
-  cover property (@(posedge clk_i) x_issue_valid_i & x_issue_ready_o) begin
-    offloaded = offloaded + 1;
-    $display("Number of offloaded instructions %d \n", offloaded);
+  always_comb begin
+    x_result_o.rd = '0;
+    x_result_o.id = '0;
+    if (fpu_out_valid & x_result_valid_o & x_result_ready_i) begin
+      x_result_o.rd = fpu_tag_out.addr;
+      x_result_o.id = fpu_tag_out.id;
+    end else if (x_result_valid_o & x_result_ready_i & ~fpu_out_valid) begin
+      x_result_o.rd = csr_wb_addr;
+      x_result_o.id = csr_wb_id;
+    end
   end
-  ;
-  cover property (@(posedge clk_i) x_result_valid_o & x_result_ready_i) begin
-    writebacks = writebacks + 1;
-    $display("Number of writebacks %d \n", writebacks);
+
+  always_comb begin
+    x_result_o.we = 1'b0;
+    if ((fpu_out_valid & ~fpu_tag_out.rd_is_fp) | (csr_wb)) begin
+      x_result_o.we = 1'b1;
+    end
   end
-  ;
-  cover property (@(posedge clk_i) x_result_valid_o & x_result_ready_i & csr_instr) begin
-    csr = csr + 1;
-    $display("Number of csr instructions %d \n", csr);
-  end
-  ;
-  cover property (@(posedge clk_i) x_mem_valid_o & x_mem_ready_i) begin
-    memory = memory + 1;
-    $display("Number of memory instructions %d \n", memory);
-  end
-  ;
-`endif
+
 endmodule  // fpu_ss

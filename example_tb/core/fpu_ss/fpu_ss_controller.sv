@@ -14,9 +14,10 @@
 module fpu_ss_controller
     import fpu_ss_pkg::*;
 #(
+    parameter PULP_ZFINX = 0,
+    parameter INPUT_BUFFER_DEPTH = 0,
     parameter OUT_OF_ORDER = 1,
-    parameter FORWARDING = 1,
-    parameter INPUT_BUFFER_DEPTH = 1
+    parameter FORWARDING = 1
 ) (
     // clock and reset
     input logic clk_i,
@@ -25,6 +26,14 @@ module fpu_ss_controller
     // commit interface
     input  logic       x_commit_valid_i,
     input  x_commit_t  x_commit_i,
+
+    // issue interface
+    input  logic [2:0] x_issue_req_rs_valid_i,
+    output logic       x_issue_ready_o,
+
+    // predecoder signals
+    input  logic       in_buf_push_ready_i,
+    input  logic [2:0] prd_rsp_use_rs_i,
 
     // buffer pop handshake
     input  logic in_buf_pop_valid_i,
@@ -36,7 +45,7 @@ module fpu_ss_controller
     input  logic                      mem_push_ready_i,
     input  logic                      mem_pop_valid_i,
     output logic                      mem_pop_ready_o,
-    input  fpu_ss_pkg::mem_metadata_t mem_pop_i,
+    input  fpu_ss_pkg::mem_metadata_t mem_pop_data_i,
 
     // FPnew input handshake
     output logic       fpu_in_valid_o,
@@ -122,6 +131,16 @@ module fpu_ss_controller
   assign fpu_out_ready_o = ~x_mem_result_valid_i;  // only don't accept writebacks from the FPnew when a memory instruction writes back to the fp register file
   assign x_mem_req_hs = x_mem_valid_o & x_mem_ready_i;
 
+  always_comb begin
+    x_issue_ready_o = 1'b0;
+    if (((prd_rsp_use_rs_i[0] & x_issue_req_rs_valid_i[0]) | !prd_rsp_use_rs_i[0])
+      & ((prd_rsp_use_rs_i[1] & x_issue_req_rs_valid_i[1]) | !prd_rsp_use_rs_i[1])
+      & ((prd_rsp_use_rs_i[2] & x_issue_req_rs_valid_i[2]) | !prd_rsp_use_rs_i[2])
+      & in_buf_push_ready_i) begin
+      x_issue_ready_o = 1'b1;
+    end
+  end
+
   // memory buffer controll logic
   assign mem_push_valid_o = x_mem_req_hs;
   assign mem_pop_ready_o = x_mem_result_valid_i;
@@ -155,9 +174,9 @@ module fpu_ss_controller
       fpu_fwd_o[0] = valid_operands[0] & fpu_out_valid_i & fpu_out_ready_o & rd_is_fp_i & rs1_i == fpr_wb_addr_i;
       fpu_fwd_o[1] = valid_operands[1] & fpu_out_valid_i & fpu_out_ready_o & rd_is_fp_i & rs2_i == fpr_wb_addr_i;
       fpu_fwd_o[2] = valid_operands[2] & fpu_out_valid_i & fpu_out_ready_o & rd_is_fp_i & rs3_i == fpr_wb_addr_i;
-      lsu_fwd_o[0] = valid_operands[0] & x_mem_result_valid_i & mem_pop_i.we & rs1_i == mem_pop_i.rd;
-      lsu_fwd_o[1] = valid_operands[1] & x_mem_result_valid_i & mem_pop_i.we & rs2_i == mem_pop_i.rd;
-      lsu_fwd_o[2] = valid_operands[2] & x_mem_result_valid_i & mem_pop_i.we & rs3_i == mem_pop_i.rd;
+      lsu_fwd_o[0] = valid_operands[0] & x_mem_result_valid_i & mem_pop_data_i.we & rs1_i == mem_pop_data_i.rd;
+      lsu_fwd_o[1] = valid_operands[1] & x_mem_result_valid_i & mem_pop_data_i.we & rs2_i == mem_pop_data_i.rd;
+      lsu_fwd_o[2] = valid_operands[2] & x_mem_result_valid_i & mem_pop_data_i.we & rs3_i == mem_pop_data_i.rd;
     end
   end
 
@@ -188,7 +207,7 @@ module fpu_ss_controller
   // - when instruction is load and there is a valid memory result
   always_comb begin
     fpr_we_o = 1'b0;
-    if ((fpu_out_valid_i & fpu_out_ready_o & rd_is_fp_i) | (mem_pop_i.we & x_mem_result_valid_i)) begin
+    if ((fpu_out_valid_i & fpu_out_ready_o & rd_is_fp_i) | (mem_pop_data_i.we & x_mem_result_valid_i) & ~PULP_ZFINX) begin
       fpr_we_o = 1'b1;
     end
   end
@@ -259,8 +278,8 @@ module fpu_ss_controller
     end
     if ((fpu_out_ready_o & fpu_out_valid_i) & ~(fpu_in_valid_o & fpu_in_ready_i & fpr_wb_addr_i == rd_i)) begin
       rd_scoreboard_d[fpr_wb_addr_i] = 1'b0;
-    end else if (x_mem_result_valid_i & mem_pop_i.we & ~(fpu_in_valid_o & fpu_in_ready_i & rd_in_is_fp_i & (mem_pop_i.rd == rd_i))) begin
-      rd_scoreboard_d[mem_pop_i.rd] = 1'b0;
+    end else if (x_mem_result_valid_i & mem_pop_data_i.we & ~(fpu_in_valid_o & fpu_in_ready_i & rd_in_is_fp_i & (mem_pop_data_i.rd == rd_i))) begin
+      rd_scoreboard_d[mem_pop_data_i.rd] = 1'b0;
     end
   end
 
