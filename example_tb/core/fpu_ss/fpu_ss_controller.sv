@@ -1,4 +1,4 @@
-// Copyright 2021 ETH Zurich and University of Bologna.
+// Copyright 2022 ETH Zurich and University of Bologna.
 // Copyright and related rights are licensed under the Solderpad Hardware
 // License, Version 0.51 (the "License"); you may not use this file except in
 // compliance with the License.  You may obtain a copy of the License at
@@ -19,57 +19,34 @@ module fpu_ss_controller
     parameter OUT_OF_ORDER = 1,
     parameter FORWARDING = 1
 ) (
-    // clock and reset
+    // Clock and Reset
     input logic clk_i,
     input logic rst_ni,
 
-    // commit interface
-    input  logic       x_commit_valid_i,
-    input  x_commit_t  x_commit_i,
-
-    // issue interface
-    input  logic [2:0] x_issue_req_rs_valid_i,
-    output logic       x_issue_ready_o,
-
-    // predecoder signals
+    // Predecoder
     input  logic       in_buf_push_ready_i,
     input  logic [2:0] prd_rsp_use_rs_i,
 
-    // buffer pop handshake
+    // Issue Interface
+    input  logic [2:0] x_issue_req_rs_valid_i,
+    output logic       x_issue_ready_o,
+
+    // Commit Interface
+    input  logic       x_commit_valid_i,
+    input  x_commit_t  x_commit_i,
+
+    // Input Buffer
     input  logic in_buf_pop_valid_i,
     output logic in_buf_pop_ready_o,
-    input  logic fpu_busy_i,
-    input  logic use_fpu_i,
 
-    output logic                      mem_push_valid_o,
-    input  logic                      mem_push_ready_i,
-    input  logic                      mem_pop_valid_i,
-    output logic                      mem_pop_ready_o,
-    input  fpu_ss_pkg::mem_metadata_t mem_pop_data_i,
-
-    // FPnew input handshake
-    output logic       fpu_in_valid_o,
-    input  logic       fpu_in_ready_i,
-    input  logic [3:0] fpu_in_id_i,
-
-    // FPnew output handshake
-    input  logic fpu_out_valid_i,
-    output logic fpu_out_ready_o,
-
-    // register Write enable and id
+    // Register
     input  logic       rd_is_fp_i,
     input  logic [4:0] fpr_wb_addr_i,
     input  logic [4:0] rd_i,
     output logic       fpr_we_o,
     input  logic [3:0] fpu_out_id_i,
 
-    // c-response handshake
-    input  logic x_result_ready_i,
-    output logic x_result_valid_o,
-    input  logic csr_wb_i,
-    input  logic csr_instr_i,
-
-    // dependency check
+    // Dependency Check and Forwarding
     input  logic                         rd_in_is_fp_i,
     input  logic                   [4:0] rs1_i,
     input  logic                   [4:0] rs2_i,
@@ -81,56 +58,65 @@ module fpu_ss_controller
     output logic                         dep_rd_o,
     input  logic                         x_issue_ready_i,
 
-    // memory instruction handling
+    // Memory Instruction
     input logic is_load_i,
     input logic is_store_i,
 
-    // request Handshake
+    // Memory Request/Repsonse Interface
     output logic x_mem_valid_o,
     input  logic x_mem_ready_i,
     output logic x_mem_req_we_o,
     output logic x_mem_req_spec_o,
     output logic x_mem_req_last_o,
 
-    // response handshake
+    // Memory Buffer
+    output logic                      mem_push_valid_o,
+    input  logic                      mem_push_ready_i,
+    output logic                      mem_pop_ready_o,
+    input  fpu_ss_pkg::mem_metadata_t mem_pop_data_i,
+
+    // Memory Result Interface
     input  logic x_mem_result_valid_i,
-    input  logic x_mem_result_err_i // unused
+
+    // FPnew
+    input  logic       use_fpu_i,
+    output logic       fpu_in_valid_o,
+    input  logic       fpu_in_ready_i,
+    input  logic [3:0] fpu_in_id_i,
+    input  logic       fpu_out_valid_i,
+    output logic       fpu_out_ready_o,
+
+    // Result Interface
+    input  logic x_result_ready_i,
+    output logic x_result_valid_o,
+    input  logic csr_instr_i
 );
 
-  // status signals
-  logic instr_inflight_d;
-  logic instr_inflight_q;
-  logic instr_offloaded_d;
-  logic instr_offloaded_q;
-
-  // rd scoreboard
-  logic [31:0] rd_scoreboard_d;
-  logic [31:0] rd_scoreboard_q;
-
-  // id scoreboard
-  logic [15:0] id_scoreboard_d;
-  logic [15:0] id_scoreboard_q;
-
-  // forwarding
+  // dependencies and forwarding
   logic [2:0] valid_operands;
-
-  // dependencies
-  logic dep_rs1;
-  logic dep_rs2;
-  logic dep_rs1_add; // seperate dependency for the addition/subtraction instruction, since it has different operand assignments (--> see FPnew documentation)
-  logic dep_rs2_add;
-  logic dep_rs3;
+  logic       dep_rs1;
+  logic       dep_rs2;
+  logic       dep_rs1_add; // seperate dependency for the addition and subtraction instruction, since they have different operand assignments (--> see FPnew documentation)
+  logic       dep_rs2_add; // seperate dependency for the addition and subtraction instruction, since they have different operand assignments (--> see FPnew documentation)
+  logic       dep_rs3;
 
   // handshakes
   logic x_result_hs;
   logic x_mem_req_hs;
 
-  assign x_result_hs = x_result_ready_i & x_result_valid_o;
-  assign x_mem_req_spec_o = 1'b0;  // no speculative memory operations -> hardwire to 0
+  // status signals and scoreboards
+  logic        instr_inflight_d;
+  logic        instr_inflight_q;
+  logic        instr_offloaded_d;
+  logic        instr_offloaded_q;
+  logic [31:0] rd_scoreboard_d;
+  logic [31:0] rd_scoreboard_q;
+  logic [15:0] id_scoreboard_d;
+  logic [15:0] id_scoreboard_q;
 
-  assign fpu_out_ready_o = ~x_mem_result_valid_i;  // only don't accept writebacks from the FPnew when a memory instruction writes back to the fp register file
-  assign x_mem_req_hs = x_mem_valid_o & x_mem_ready_i;
-
+  // ---------------
+  // Issue Interface
+  // ---------------
   always_comb begin
     x_issue_ready_o = 1'b0;
     if (((prd_rsp_use_rs_i[0] & x_issue_req_rs_valid_i[0]) | !prd_rsp_use_rs_i[0])
@@ -141,25 +127,42 @@ module fpu_ss_controller
     end
   end
 
-  // memory buffer controll logic
-  assign mem_push_valid_o = x_mem_req_hs;
-  assign mem_pop_ready_o = x_mem_result_valid_i;
+  // ------------
+  // Input Buffer
+  // ------------
+  always_comb begin
+    in_buf_pop_ready_o = 1'b0;
+    if ((fpu_in_valid_o & fpu_in_ready_i) | (x_result_hs & csr_instr_i) | x_mem_req_hs) begin
+      in_buf_pop_ready_o = 1'b1;
+    end
+  end
 
-  // dependency check (used to avoid data hazards)
-  assign dep_rs_o = (dep_rs1 & ~(fpu_fwd_o[0] | lsu_fwd_o[0]))
-                | (dep_rs1_add & ~(fpu_fwd_o[1] | lsu_fwd_o[1]))
-                | (dep_rs2 & ~(fpu_fwd_o[1] | lsu_fwd_o[1]))
-                | (dep_rs2_add & ~(fpu_fwd_o[2] | lsu_fwd_o[2]))
-                | (dep_rs3 & ~(fpu_fwd_o[2] | lsu_fwd_o[2]));
-  assign dep_rd_o = rd_scoreboard_q[rd_i] & rd_in_is_fp_i & ~(((fpu_out_valid_i & fpu_out_ready_o) | x_mem_result_valid_i) & fpr_we_o & (fpr_wb_addr_i == rd_i));
+  // ----------------
+  // FP Register File
+  // ----------------
+  always_comb begin
+    fpr_we_o = 1'b0;
+    if ((fpu_out_valid_i & fpu_out_ready_o & rd_is_fp_i) | (mem_pop_data_i.we & x_mem_result_valid_i) & ~PULP_ZFINX) begin
+      fpr_we_o = 1'b1;
+    end
+  end
 
-  assign dep_rs1 = rd_scoreboard_q[rs1_i] & in_buf_pop_valid_i & (op_select_i[0] == fpu_ss_pkg::RegA);
+  // -------------------------------
+  // Dependency Check and Forwarding
+  // -------------------------------
+  assign dep_rs1     = rd_scoreboard_q[rs1_i] & in_buf_pop_valid_i & (op_select_i[0] == fpu_ss_pkg::RegA);
   assign dep_rs1_add = rd_scoreboard_q[rs2_i] & in_buf_pop_valid_i & (op_select_i[1] == fpu_ss_pkg::RegA);
-  assign dep_rs2 = rd_scoreboard_q[rs2_i] & in_buf_pop_valid_i & (op_select_i[1] == fpu_ss_pkg::RegB);
+  assign dep_rs2     = rd_scoreboard_q[rs2_i] & in_buf_pop_valid_i & (op_select_i[1] == fpu_ss_pkg::RegB);
   assign dep_rs2_add = rd_scoreboard_q[rs3_i] & in_buf_pop_valid_i & (op_select_i[2] == fpu_ss_pkg::RegB);
-  assign dep_rs3 = rd_scoreboard_q[rs3_i] & in_buf_pop_valid_i & (op_select_i[2] == fpu_ss_pkg::RegC);
+  assign dep_rs3     = rd_scoreboard_q[rs3_i] & in_buf_pop_valid_i & (op_select_i[2] == fpu_ss_pkg::RegC);
+  assign dep_rs_o    = (dep_rs1     & ~(fpu_fwd_o[0] | lsu_fwd_o[0]))
+                     | (dep_rs1_add & ~(fpu_fwd_o[1] | lsu_fwd_o[1]))
+                     | (dep_rs2     & ~(fpu_fwd_o[1] | lsu_fwd_o[1]))
+                     | (dep_rs2_add & ~(fpu_fwd_o[2] | lsu_fwd_o[2]))
+                     | (dep_rs3     & ~(fpu_fwd_o[2] | lsu_fwd_o[2]));
+  assign dep_rd_o    = rd_scoreboard_q[rd_i] & rd_in_is_fp_i & ~(((fpu_out_valid_i & fpu_out_ready_o) | x_mem_result_valid_i)
+                     & fpr_we_o & (fpr_wb_addr_i == rd_i));
 
-  // forwarding
   always_comb begin
     fpu_fwd_o[0] = 1'b0;
     fpu_fwd_o[1] = 1'b0;
@@ -180,69 +183,23 @@ module fpu_ss_controller
     end
   end
 
-  // pop instruction
-  always_comb begin
-    in_buf_pop_ready_o = 1'b0;
-    if ((fpu_in_valid_o & fpu_in_ready_i) | (x_result_hs & csr_instr_i) | x_mem_req_hs) begin
-      in_buf_pop_ready_o = 1'b1;
-    end
-  end
+  // ----------------------------------
+  // Memory Interface and Memory Buffer
+  // ----------------------------------
+  assign x_mem_req_hs = x_mem_valid_o & x_mem_ready_i;
+  assign x_mem_req_spec_o = 1'b0;  // no speculative memory operations -> hardwire to 0
 
-  // assert fpu_in_valid_o
-  // - when instr uses fpu
-  // - when there are no dependencies
-  // - when fifo is NOT empty
-  // Note: out-of-order execution is enabled/disabled here
-  always_comb begin
-    fpu_in_valid_o = 1'b0;
-    if (use_fpu_i & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | ((x_commit_i.id == fpu_in_id_i) & ~x_commit_i.commit_kill)) & ~dep_rs_o & ~dep_rd_o & OUT_OF_ORDER) begin
-      fpu_in_valid_o = 1'b1;
-    end else if (use_fpu_i  & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | ((x_commit_i.id == fpu_in_id_i) & ~x_commit_i.commit_kill)) & ~dep_rs_o & ~dep_rd_o & (fpu_out_valid_i | ~instr_inflight_q) & ~OUT_OF_ORDER) begin
-      fpu_in_valid_o = 1'b1;
-    end
-  end
+  assign mem_push_valid_o = x_mem_req_hs;
+  assign mem_pop_ready_o = x_mem_result_valid_i;
 
-  // assert fpr_we_o
-  // - when fpu has a valid output and When rd is a fp register
-  // - when instruction is load and there is a valid memory result
-  always_comb begin
-    fpr_we_o = 1'b0;
-    if ((fpu_out_valid_i & fpu_out_ready_o & rd_is_fp_i) | (mem_pop_data_i.we & x_mem_result_valid_i) & ~PULP_ZFINX) begin
-      fpr_we_o = 1'b1;
-    end
-  end
-
-  // assert x_mem_req_last_o
-  // - every memory only does a single memory access
-  always_comb begin
-    x_mem_req_last_o = 1'b0;
-    if (x_mem_valid_o) begin
-      x_mem_req_last_o = 1'b1;
-    end
-  end
-
-  // assert x_result_valid_o
-  // - when fpu_out_valid_i is high
-  // - when int_wb is high (int_wb controlls integer register writebacks of instructions that do not go though the fpu (e.g. csr))
-  always_comb begin
-    x_result_valid_o = 1'b0;
-    if (fpu_out_valid_i | csr_instr_i) begin
-      x_result_valid_o = 1'b1;
-    end
-  end
-
-  // assert x_mem_valid_o (load/store offload to the core)
-  // - when the current instruction is a load/store instruction
-  // - when the fifo is NOT empty
-  // - when the instruction has NOT already been offloaded back to the core (instr_offloaded_q signal)
   always_comb begin
     x_mem_valid_o = 1'b0;
-    if ((is_load_i | is_store_i) & ~dep_rs_o & ~dep_rd_o & in_buf_pop_valid_i & mem_push_ready_i & (x_issue_ready_i | INPUT_BUFFER_DEPTH)) begin
+    if ((is_load_i | is_store_i) & ~dep_rs_o & ~dep_rd_o & in_buf_pop_valid_i & mem_push_ready_i
+       & (x_issue_ready_i | INPUT_BUFFER_DEPTH)) begin
       x_mem_valid_o = 1'b1;
     end
   end
 
-  // assert write enable signal
   always_comb begin
     x_mem_req_we_o = 1'b0;
     if (is_store_i) begin
@@ -250,7 +207,43 @@ module fpu_ss_controller
     end
   end
 
-  // update for the instr_inflight status signal
+  always_comb begin
+    x_mem_req_last_o = 1'b0;
+    if (x_mem_valid_o) begin
+      x_mem_req_last_o = 1'b1;
+    end
+  end
+
+  // -----
+  // FPnew
+  // -----
+  assign fpu_out_ready_o = ~x_mem_result_valid_i;
+  always_comb begin
+    fpu_in_valid_o = 1'b0;
+    if (use_fpu_i & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | ((x_commit_i.id == fpu_in_id_i)
+       & ~x_commit_i.commit_kill)) & ~dep_rs_o & ~dep_rd_o & OUT_OF_ORDER) begin
+      fpu_in_valid_o = 1'b1;
+    end else if (use_fpu_i  & in_buf_pop_valid_i & (id_scoreboard_q[fpu_in_id_i] | ((x_commit_i.id == fpu_in_id_i)
+                & ~x_commit_i.commit_kill)) & ~dep_rs_o & ~dep_rd_o & (fpu_out_valid_i | ~instr_inflight_q) & ~OUT_OF_ORDER) begin
+      fpu_in_valid_o = 1'b1;
+    end
+  end
+
+  // ----------------
+  // Result Interface
+  // ----------------
+  assign x_result_hs = x_result_ready_i & x_result_valid_o;
+  always_comb begin
+    x_result_valid_o = 1'b0;
+    if (fpu_out_valid_i | csr_instr_i) begin
+      x_result_valid_o = 1'b1;
+    end
+  end
+
+
+  // -----------------------------
+  // Status Signals and Scoreboard
+  // -----------------------------
   always_comb begin
     instr_inflight_d = instr_inflight_q;
     if ((fpu_out_valid_i & fpu_out_ready_o) & ~fpu_in_valid_o) begin
@@ -260,7 +253,6 @@ module fpu_ss_controller
     end
   end
 
-  // update for the instr_offloaded status signal
   always_comb begin
     instr_offloaded_d = instr_offloaded_q;
     if (in_buf_pop_valid_i & x_mem_req_hs) begin
@@ -270,7 +262,6 @@ module fpu_ss_controller
     end
   end
 
-  // update for the rd scoreboard
   always_comb begin
     rd_scoreboard_d = rd_scoreboard_q;
     if ((fpu_in_valid_o & fpu_in_ready_i & rd_in_is_fp_i) | (x_mem_req_hs & is_load_i & in_buf_pop_valid_i)) begin
@@ -278,12 +269,12 @@ module fpu_ss_controller
     end
     if ((fpu_out_ready_o & fpu_out_valid_i) & ~(fpu_in_valid_o & fpu_in_ready_i & fpr_wb_addr_i == rd_i)) begin
       rd_scoreboard_d[fpr_wb_addr_i] = 1'b0;
-    end else if (x_mem_result_valid_i & mem_pop_data_i.we & ~(fpu_in_valid_o & fpu_in_ready_i & rd_in_is_fp_i & (mem_pop_data_i.rd == rd_i))) begin
+    end else if (x_mem_result_valid_i & mem_pop_data_i.we & ~(fpu_in_valid_o & fpu_in_ready_i & rd_in_is_fp_i
+                & (mem_pop_data_i.rd == rd_i))) begin
       rd_scoreboard_d[mem_pop_data_i.rd] = 1'b0;
     end
   end
 
-  // update for the id scoreboard
   always_comb begin
     id_scoreboard_d = id_scoreboard_q;
     if (x_commit_valid_i & ~x_commit_i.commit_kill) begin
@@ -294,7 +285,6 @@ module fpu_ss_controller
     end
   end
 
-  // status signal register
   always_ff @(posedge clk_i, negedge rst_ni) begin
     if (~rst_ni) begin
       instr_inflight_q  <= 1'b0;

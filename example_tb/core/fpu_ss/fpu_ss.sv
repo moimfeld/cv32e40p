@@ -56,7 +56,7 @@ module fpu_ss
     parameter fpnew_pkg::fpu_features_t       FPU_FEATURES       = fpu_ss_pkg::FPU_FEATURES,
     parameter fpnew_pkg::fpu_implementation_t FPU_IMPLEMENTATION = fpu_ss_pkg::FPU_IMPLEMENTATION
 ) (
-    // clock and reset
+    // Clock and Reset
     input logic clk_i,
     input logic rst_ni,
 
@@ -76,7 +76,7 @@ module fpu_ss
     input  logic x_commit_valid_i,
     input  x_commit_t x_commit_i,
 
-    // Memory request/response Interface
+    // Memory Eequest/Response Interface
     output logic x_mem_valid_o,
     input  logic x_mem_ready_i,
     output x_mem_req_t x_mem_req_o,
@@ -392,58 +392,34 @@ module fpu_ss
       .OUT_OF_ORDER(OUT_OF_ORDER),
       .FORWARDING(FORWARDING)
   ) fpu_ss_controller_i (
-      // clock and reset
+      // Clock and Reset
       .clk_i (clk_i),
       .rst_ni(rst_ni),
 
-      // commit interface
-      .x_commit_valid_i (x_commit_valid_i),
-      .x_commit_i       (x_commit_i),
-
-      // issue interface
-      .x_issue_req_rs_valid_i (x_issue_req_i.rs_valid),
-      .x_issue_ready_o  (x_issue_ready),
-
-      // predecoder signals
+      // Predecoder
       .in_buf_push_ready_i (in_buf_push_ready),
       .prd_rsp_use_rs_i (prd_rsp.p_use_rs),
 
-      // buffer pop handshake
+      // Issue Interface
+      .x_issue_req_rs_valid_i (x_issue_req_i.rs_valid),
+      .x_issue_ready_o  (x_issue_ready),
+
+      // Commit Interface
+      .x_commit_valid_i (x_commit_valid_i),
+      .x_commit_i       (x_commit_i),
+
+      // Input Buffer
       .in_buf_pop_valid_i (in_buf_pop_valid),
       .in_buf_pop_ready_o (in_buf_pop_ready),
-      .fpu_busy_i         (fpu_busy),
-      .use_fpu_i          (use_fpu),
 
-      // memory buffer handshake
-      .mem_push_valid_o (mem_push_valid),
-      .mem_push_ready_i (mem_push_ready),
-      .mem_pop_valid_i  (mem_pop_valid),
-      .mem_pop_ready_o  (mem_pop_ready),
-      .mem_pop_data_i   (mem_pop_data),
-
-      // FPnew input handshake
-      .fpu_in_valid_o(fpu_in_valid),
-      .fpu_in_ready_i(fpu_in_ready),
-      .fpu_in_id_i   (in_buf_pop_data.id),
-
-      // FPnew output handshake
-      .fpu_out_valid_i(fpu_out_valid),
-      .fpu_out_ready_o(fpu_out_ready),
-
-      // register Write enable
+      // Register
       .rd_is_fp_i(fpu_tag_out.rd_is_fp),
       .fpr_wb_addr_i(fpr_wb_addr),
       .rd_i(rd),
       .fpr_we_o(fpr_we),
       .fpu_out_id_i (fpu_tag_out.id),
 
-      // x_result_handshake
-      .x_result_ready_i(x_result_ready_i),
-      .x_result_valid_o(x_result_valid_o),
-      .csr_wb_i(csr_wb),
-      .csr_instr_i(csr_instr),
-
-      // dependency check
+      // Dependency Check and Forwarding
       .rd_in_is_fp_i(rd_is_fp),
       .rs1_i(fpr_raddr[0]),
       .rs2_i(fpr_raddr[1]),
@@ -455,20 +431,38 @@ module fpu_ss
       .dep_rd_o(dep_rd),
       .x_issue_ready_i(x_issue_ready_o),
 
-      // memory instruction handling
+      // Memory Instruction
       .is_load_i (is_load),
       .is_store_i(is_store),
 
-      // request Handshake
+      // Memory Request/Repsonse Interface
       .x_mem_valid_o    (x_mem_valid_o),
       .x_mem_ready_i    (x_mem_ready_i),
       .x_mem_req_we_o   (x_mem_req_o.we),
       .x_mem_req_spec_o (x_mem_req_o.spec),
       .x_mem_req_last_o (x_mem_req_o.last),
 
-      // response handshake
+      // Memory Buffer
+      .mem_push_valid_o (mem_push_valid),
+      .mem_push_ready_i (mem_push_ready),
+      .mem_pop_ready_o  (mem_pop_ready),
+      .mem_pop_data_i   (mem_pop_data),
+
+      // Memory Result Interface
       .x_mem_result_valid_i(x_mem_result_valid_i),
-      .x_mem_result_err_i (x_mem_result_i.err)
+
+      // FPnew
+      .fpu_in_valid_o  (fpu_in_valid),
+      .fpu_in_ready_i  (fpu_in_ready),
+      .use_fpu_i       (use_fpu),
+      .fpu_in_id_i     (in_buf_pop_data.id),
+      .fpu_out_valid_i (fpu_out_valid),
+      .fpu_out_ready_o (fpu_out_ready),
+
+      // Result Interface
+      .x_result_ready_i(x_result_ready_i),
+      .x_result_valid_o(x_result_valid_o),
+      .csr_instr_i(csr_instr)
   );
 
   // -------------------------------------
