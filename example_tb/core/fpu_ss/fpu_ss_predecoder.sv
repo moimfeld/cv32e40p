@@ -51,4 +51,4 @@ module fpu_ss_predecoder #(
     end
   end
 
-endmodule
+endmodule // fpu_ss_predecoder

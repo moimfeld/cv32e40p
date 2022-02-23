@@ -299,4 +299,4 @@ module fpu_ss_controller
     end
   end
 
-endmodule : fpu_ss_controller
+endmodule // fpu_ss_controller

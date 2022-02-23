@@ -116,4 +116,4 @@ module fpu_ss_csr (
     end
   end
 
-endmodule : fpu_ss_csr
+endmodule // fpu_ss_csr

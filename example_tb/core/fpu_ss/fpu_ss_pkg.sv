@@ -230,4 +230,4 @@ package fpu_ss_pkg;
   },  // CONV
   PipeConfig: fpnew_pkg::BEFORE};
 
-endpackage : fpu_ss_pkg
+endpackage // fpu_ss_pkg

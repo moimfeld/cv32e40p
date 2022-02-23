@@ -2029,4 +2029,4 @@ module fpu_ss_decoder #(
     // fix round mode for vectors and fp16alt
     if (set_dyn_rm_o) fpu_rnd_mode_o = fpu_rnd_mode_i;
   end
-endmodule : fpu_ss_decoder
+endmodule // fpu_ss_decoder

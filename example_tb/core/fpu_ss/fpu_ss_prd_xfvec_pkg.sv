@@ -2532,4 +2532,4 @@ parameter fpu_ss_pkg::offload_instr_t OffloadInstr[252] = '{
   }
 };
 
-endpackage
+endpackage // fpu_ss_prd_xfvec_pkg

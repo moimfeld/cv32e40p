@@ -53,4 +53,4 @@ module fpu_ss_regfile (
     assign rdata_o[i] = mem[raddr_i[i]];
   end
 
-endmodule
+endmodule // fpu_ss_regfile

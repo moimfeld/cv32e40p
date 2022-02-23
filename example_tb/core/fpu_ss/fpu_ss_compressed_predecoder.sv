@@ -45,4 +45,4 @@ module fpu_ss_compressed_predecoder
       end
     endcase
   end
-endmodule
+endmodule // fpu_ss_compressed_predecoder

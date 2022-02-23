@@ -318,4 +318,4 @@ parameter fpu_ss_pkg::offload_instr_t OffloadInstr[NumInstr] = '{
   }
 };
 
-endpackage
+endpackage // fpu_ss_prd_zfinx_pkg
