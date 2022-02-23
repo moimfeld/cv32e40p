@@ -109,4 +109,4 @@ The `input_stream_fifo` is used to buffer offloaded instruction. If the paramete
 
 #### Extended Package Descriptions
 ##### `fpu_ss_prd_f_pkg` and `fpu_ss_prd_zfinx_pkg`
-These packages contain the parameters for the predecoder and define which instructions will be accepted by the fpu_ss. Each instruction has its predefined issue interface response. If `PULP_ZFINX` is set to `1` the predecoder is instantiated with the parameters in the `fpu_ss_prd_zfinx_pkg`. If `PULP_ZFINX` is set to `0` the predecoder is instantated with the parameters in the `fpu_ss_prd_f_pkg`.
+These packages contain the parameters for the predecoder and define which instructions will be accepted by the fpu_ss. Each instruction has its predefined issue interface response. If `PULP_ZFINX_DEF` is defined the predecoder is instantiated with the parameters in the `fpu_ss_prd_zfinx_pkg`. If `PULP_ZFINX_DEF` is not defined the predecoder is instantated with the parameters in the `fpu_ss_prd_f_pkg`.
