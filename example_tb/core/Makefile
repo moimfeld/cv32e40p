@@ -55,40 +55,41 @@ VOPT_FLAGS		= -debugdb -fsmdebug -pedanticerrors +acc #=mnprft
 VSIM			= vsim-$(VVERSION)
 VSIM_HOME		= /usr/pack/modelsim-$(VVERSION)-kgf/questasim
 VSIM_FLAGS		=  # user defined
-ALL_VSIM_FLAGS	= $(VSIM_FLAGS)
-VSIM_DEBUG_FLAGS= -debugdb
-VSIM_GUI_FLAGS	= -gui -debugdb
+ALL_VSIM_FLAGS		= $(VSIM_FLAGS)
+VSIM_DEBUG_FLAGS	= -debugdb
+VSIM_GUI_FLAGS		= -gui -debugdb
 VSIM_SCRIPT		= vsim.tcl
 
 # RTL source files
 export RTLSRC_HOME	:= $(shell pwd)/../..
-export DESIGN_RTL_DIR= $(RTLSRC_HOME)/rtl
+export DESIGN_RTL_DIR	 = $(RTLSRC_HOME)/rtl
 CV_CORE_MANIFEST	:= $(RTLSRC_HOME)/cv32e40p_manifest.flist
 RTLSRC_TB_PKG		:= include/perturbation_pkg.sv
 RTLSRC_TB_TOP		:= tb_top.sv
-RTLSRC_TB			:= $(wildcard *.sv))
+RTLSRC_TB		:= $(wildcard *.sv))
 
-RTLSRC_CV_X_IF_TB			:= $(wildcard *.sv) $(wildcard $(RTLSRC_HOME)/example_tb/core/fpu_ss/*.sv) $(wildcard fpu_ss/bhv/*.sv)
+RTLSRC_CV_X_IF_TB		:=  $(wildcard *.sv) $(wildcard $(RTLSRC_HOME)/example_tb/core/fpu_ss/*.sv) $(wildcard fpu_ss/bhv/*.sv)
 RTLSRC_CV_X_IF_INCDIR		:=
 RTLSRC_COMMON_CELLS_INCDIR	:= $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/include
-RTLSRC_CV_X_IF_PKG			:= $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/cf_math_pkg.sv \
-							   $(RTLSRC_HOME)/rtl/fpnew/src/fpnew_pkg.sv $(wildcard $(RTLSRC_HOME)/example_tb/core/fpu_ss/*pkg.sv) $(RTLSRC_HOME)/rtl/fpnew/src/fpu_div_sqrt_mvp/hdl/defs_div_sqrt_mvp.sv\
-							   $(RTLSRC_HOME)/rtl/include/cv32e40p_core_v_xif_pkg.sv
-RTLSRC_CV_X_IF 				:= $(filter-out $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/cf_math_pkg.sv\
-							   $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/cb_filter.sv $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/ecc_encode.sv $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/ecc_decode.sv $(RTLSRC_HOME)/example_tb/core/fp_subsystem_pkg.sv,\
-						       $(wildcard $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/*.sv) $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/deprecated/fifo_v2.sv \
-						       $(wildcard $(RTLSRC_HOME)/rtl/fpnew/src/*.sv) $(wildcard $(RTLSRC_HOME)/rtl/fpnew/src/fpu_div_sqrt_mvp/hdl/*.sv))
+RTLSRC_CV_X_IF_PKG		:= $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/cf_math_pkg.sv \
+				   $(RTLSRC_HOME)/rtl/fpnew/src/fpnew_pkg.sv $(wildcard $(RTLSRC_HOME)/example_tb/core/fpu_ss/*pkg.sv)\
+				   $(RTLSRC_HOME)/rtl/fpnew/src/fpu_div_sqrt_mvp/hdl/defs_div_sqrt_mvp.sv
+RTLSRC_CV_X_IF			:= $(filter-out $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/cf_math_pkg.sv\
+				   $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/cb_filter.sv $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/ecc_encode.sv \
+				   $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/ecc_decode.sv $(RTLSRC_HOME)/example_tb/core/fp_subsystem_pkg.sv,\
+				   $(wildcard $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/*.sv) $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/deprecated/fifo_v2.sv \
+				   $(wildcard $(RTLSRC_HOME)/rtl/fpnew/src/*.sv) $(wildcard $(RTLSRC_HOME)/rtl/fpnew/src/fpu_div_sqrt_mvp/hdl/*.sv))
 
 RTLSRC_VLOG_TB_TOP	:= $(basename $(notdir $(RTLSRC_TB_TOP)))
 RTLSRC_VOPT_TB_TOP	:= $(addsuffix _vopt, $(RTLSRC_VLOG_TB_TOP))
 
 # riscv toolchain install path and flags
-RISCV							?= ~/.riscv
-export RISCV_EXE_PREFIX			 = $(RISCV)/bin/riscv32-unknown-elf-
+RISCV				?= ~/.riscv
+export RISCV_EXE_PREFIX	 = $(RISCV)/bin/riscv32-unknown-elf-
 
 EXTENSION 	?= not_set
 PROGRAM 	?= matmul
-PROGRAM_PATH =
+PROGRAM_PATH 	 =
 
 
 # assume vsim if no target chosen
@@ -145,24 +146,24 @@ ifndef RISCV
 	$(error RISCV variable not set. (set it to the path of your compiler))
 endif
 ifeq ($(EXTENSION),f)
-BUILD_DEFINE := FPU_SS_TRACER
-PULP_ZFINX := 0
- export MARCH := rv32imfc
-export MABI := ilp32f
+  BUILD_DEFINE := FPU_SS_TRACER
+  PULP_ZFINX   := 0
+  export MARCH := rv32imfc
+  export MABI  := ilp32f
 else ifeq ($(EXTENSION),zfinx)
-BUILD_DEFINE := PULP_ZFINX_DEF+FPU_SS_TRACER
-PULP_ZFINX := 1
-export MARCH := rv32imczfinx
-export MABI := ilp32
+  BUILD_DEFINE := PULP_ZFINX_DEF+FPU_SS_TRACER
+  PULP_ZFINX   := 1
+  export MARCH := rv32imczfinx
+  export MABI  := ilp32
 else
 	$(error EXTENSION variable not valid. (set it to 'f' or 'zfinx'))
 endif
 ifeq ($(PROGRAM),matmul)
-PROGRAM_PATH := custom_fp/matmulNxN.c custom_fp/main.c
+  PROGRAM_PATH := custom_fp/matmulNxN.c custom_fp/main.c
 else ifneq (,$(filter $(PROGRAM),aha-mont64 crc32 cubic edn huffbench matmult-int minver nbody nettle-aes nettle-sha256 nsichneu picojpeg qrduino sglib-combined slre st statemate ud wikisort))
-PROGRAM_PATH := embench-iot/bd/src/$(PROGRAM)/$(PROGRAM)
+  PROGRAM_PATH := embench-iot/bd/src/$(PROGRAM)/$(PROGRAM)
 else ifndef PROGRAM_PATH
-$(error PROGRAM_PATH variable not set. Either set the variable directly or choose a valid program. Valid programs are: matmul, aha-mont64, crc32, cubic, edn, huffbench, matmult-int, minver, nbody, nettle-aes, nettle-sha256, nsichneu, picojpeg, qrduino, sglib-combined, slre, st, statemate, ud, wikisort)
+	$(error PROGRAM_PATH variable not set. Either set the variable directly or choose a valid program. Valid programs are: matmul, aha-mont64, crc32, cubic, edn, huffbench, matmult-int, minver, nbody, nettle-aes, nettle-sha256, nsichneu, picojpeg, qrduino, sglib-combined, slre, st, statemate, ud, wikisort)
 endif
 
 # clone embench and build programs
