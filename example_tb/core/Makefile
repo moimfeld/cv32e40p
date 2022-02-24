@@ -84,7 +84,7 @@ RTLSRC_VLOG_TB_TOP	:= $(basename $(notdir $(RTLSRC_TB_TOP)))
 RTLSRC_VOPT_TB_TOP	:= $(addsuffix _vopt, $(RTLSRC_VLOG_TB_TOP))
 
 # riscv toolchain install path and flags
-RISCV				?= ~/.riscv
+RISCV			?= ~/.riscv
 export RISCV_EXE_PREFIX	 = $(RISCV)/bin/riscv32-unknown-elf-
 
 EXTENSION 	?= not_set
