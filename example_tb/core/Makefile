@@ -68,11 +68,11 @@ RTLSRC_TB_PKG		:= include/perturbation_pkg.sv
 RTLSRC_TB_TOP		:= tb_top.sv
 RTLSRC_TB			:= $(wildcard *.sv))
 
-RTLSRC_CV_X_IF_TB			:= $(wildcard *.sv) $(wildcard $(RTLSRC_HOME)/example_tb/core/cv-x-if/*.sv) $(wildcard cv-x-if/bhv/*.sv)
+RTLSRC_CV_X_IF_TB			:= $(wildcard *.sv) $(wildcard $(RTLSRC_HOME)/example_tb/core/fpu_ss/*.sv) $(wildcard fpu_ss/bhv/*.sv)
 RTLSRC_CV_X_IF_INCDIR		:=
 RTLSRC_COMMON_CELLS_INCDIR	:= $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/include
 RTLSRC_CV_X_IF_PKG			:= $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/cf_math_pkg.sv \
-							   $(RTLSRC_HOME)/rtl/fpnew/src/fpnew_pkg.sv $(wildcard $(RTLSRC_HOME)/example_tb/core/cv-x-if/*pkg.sv) $(RTLSRC_HOME)/rtl/fpnew/src/fpu_div_sqrt_mvp/hdl/defs_div_sqrt_mvp.sv\
+							   $(RTLSRC_HOME)/rtl/fpnew/src/fpnew_pkg.sv $(wildcard $(RTLSRC_HOME)/example_tb/core/fpu_ss/*pkg.sv) $(RTLSRC_HOME)/rtl/fpnew/src/fpu_div_sqrt_mvp/hdl/defs_div_sqrt_mvp.sv\
 							   $(RTLSRC_HOME)/rtl/include/cv32e40p_core_v_xif_pkg.sv
 RTLSRC_CV_X_IF 				:= $(filter-out $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/cf_math_pkg.sv\
 							   $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/cb_filter.sv $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/ecc_encode.sv $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/ecc_decode.sv $(RTLSRC_HOME)/example_tb/core/fp_subsystem_pkg.sv,\
