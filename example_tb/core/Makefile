@@ -31,7 +31,7 @@
 #
 #					Example: 'make custom-fp-vsim-run EXTENSION=f PROGRAM=minver'
 #
-#					Notes:	- If the FPnew has not yet been cloned, 'make fpnew_deps'
+#					Notes:	- If the fpu_ss has not yet been cloned, 'make fpu_ss_deps'
 #							  must be run.
 #							- If an Embench program is chosen, the repository is
 #							  cloned and the programs are built automatically.
@@ -68,17 +68,17 @@ RTLSRC_TB_PKG		:= include/perturbation_pkg.sv
 RTLSRC_TB_TOP		:= tb_top.sv
 RTLSRC_TB		:= $(wildcard *.sv))
 
-RTLSRC_CV_X_IF_TB		:=  $(wildcard *.sv) $(wildcard $(RTLSRC_HOME)/example_tb/core/fpu_ss/*.sv) $(wildcard fpu_ss/bhv/*.sv)
+RTLSRC_CV_X_IF_TB		:=  $(wildcard *.sv) $(wildcard $(RTLSRC_HOME)/rtl/fpu_ss/src/*.sv) $(wildcard $(RTLSRC_HOME)/rtl/fpu_ss/bhv/*.sv)
 RTLSRC_CV_X_IF_INCDIR		:=
-RTLSRC_COMMON_CELLS_INCDIR	:= $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/include
-RTLSRC_CV_X_IF_PKG		:= $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/cf_math_pkg.sv \
-				   $(RTLSRC_HOME)/rtl/fpnew/src/fpnew_pkg.sv $(wildcard $(RTLSRC_HOME)/example_tb/core/fpu_ss/*pkg.sv)\
-				   $(RTLSRC_HOME)/rtl/fpnew/src/fpu_div_sqrt_mvp/hdl/defs_div_sqrt_mvp.sv
-RTLSRC_CV_X_IF			:= $(filter-out $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/cf_math_pkg.sv\
-				   $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/cb_filter.sv $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/ecc_encode.sv \
-				   $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/ecc_decode.sv $(RTLSRC_HOME)/example_tb/core/fp_subsystem_pkg.sv,\
-				   $(wildcard $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/*.sv) $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/src/deprecated/fifo_v2.sv \
-				   $(wildcard $(RTLSRC_HOME)/rtl/fpnew/src/*.sv) $(wildcard $(RTLSRC_HOME)/rtl/fpnew/src/fpu_div_sqrt_mvp/hdl/*.sv))
+RTLSRC_COMMON_CELLS_INCDIR	:= $(RTLSRC_HOME)/rtl/fpu_ss/fpnew/src/common_cells/include
+RTLSRC_CV_X_IF_PKG		:= $(RTLSRC_HOME)/rtl/fpu_ss/fpnew/src/common_cells/src/cf_math_pkg.sv \
+				   $(RTLSRC_HOME)/rtl/fpu_ss/fpnew/src/fpnew_pkg.sv $(wildcard $(RTLSRC_HOME)/rtl/fpu_ss/src/*pkg.sv)\
+				   $(RTLSRC_HOME)/rtl/fpu_ss/fpnew/src/fpu_div_sqrt_mvp/hdl/defs_div_sqrt_mvp.sv
+RTLSRC_CV_X_IF			:= $(filter-out $(RTLSRC_HOME)/rtl/fpu_ss/fpnew/src/common_cells/src/cf_math_pkg.sv\
+				   $(RTLSRC_HOME)/rtl/fpu_ss/fpnew/src/common_cells/src/cb_filter.sv $(RTLSRC_HOME)/rtl/fpu_ss/fpnew/src/common_cells/src/ecc_encode.sv \
+				   $(RTLSRC_HOME)/rtl/fpu_ss/fpnew/src/common_cells/src/ecc_decode.sv,\
+				   $(wildcard $(RTLSRC_HOME)/rtl/fpu_ss/fpnew/src/common_cells/src/*.sv) $(RTLSRC_HOME)/rtl/fpu_ss/fpnew/src/common_cells/src/deprecated/fifo_v2.sv \
+				   $(wildcard $(RTLSRC_HOME)/rtl/fpu_ss/fpnew/src/*.sv) $(wildcard $(RTLSRC_HOME)/rtl/fpu_ss/fpnew/src/fpu_div_sqrt_mvp/hdl/*.sv))
 
 RTLSRC_VLOG_TB_TOP	:= $(basename $(notdir $(RTLSRC_TB_TOP)))
 RTLSRC_VOPT_TB_TOP	:= $(addsuffix _vopt, $(RTLSRC_VLOG_TB_TOP))
@@ -127,16 +127,13 @@ vsim-all-pulp: .opt-rtl-pulp
 	$(RTLSRC_VOPT_TB_TOP)
 	touch .opt-rtl-pulp
 
-# check if FPnew is built
-check_fpnew_deps:
-	@if [ ! -d ../../rtl/fpnew ]; then echo Please run \'make fpnew_deps\' first to clone the required fpnew repos; exit 1; fi
+# check if fpu_ss is already clones
+check_fpu_ss_deps:
+	@if [ ! -d ../../rtl/fpu_ss ]; then echo Please run \'make fpu_ss_deps\' first to clone the required fpu_ss repos; exit 1; fi
 
-# clone FPnew, checkout correct commit and apply a patch
-fpnew_deps:
-	if [ ! -d ../../rtl/fpnew ];then git clone https://github.com/pulp-platform/fpnew $(RTLSRC_HOME)/rtl/fpnew --recurse;\
-		cd $(RTLSRC_HOME)/rtl/fpnew;\
-		git checkout 1d0ac3b;\
-		cd -;\
+# clone fpu_ss, checkout correct commit and apply a patch
+fpu_ss_deps:
+	if [ ! -d ../../rtl/fpu_ss ];then git clone https://github.com/moimfeld/fpu_ss $(RTLSRC_HOME)/rtl/fpu_ss --recurse-submodules;\
 	fi
 
 # check and set environment variables
@@ -194,7 +191,7 @@ embench_clean:
 	rm embench-iot/bd -r
 
 
-vsim-all-fp: check_fpnew_deps .opt-fp-rtl
+vsim-all-fp: check_fpu_ss_deps .opt-fp-rtl
 
 # rebuild if we change some sourcefile
 .build-fp-rtl: .lib-rtl $(RTLSRC_CV_X_IF_PKG) $(RTLSRC_CV_X_IF) $(CV_CORE_MANIFEST) $(RTLSRC_TB_PKG) $(RTLSRC_CV_X_IF_TB)
