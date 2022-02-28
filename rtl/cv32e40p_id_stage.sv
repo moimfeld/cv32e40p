@@ -973,7 +973,7 @@ module cv32e40p_id_stage
           .x_issue_req_rs_valid_o  (x_issue_req_o.rs_valid),
           .x_issue_req_id_o        (x_issue_req_o.id),
           .x_issue_req_mode_o      (x_issue_req_o.mode),
-          .x_issue_req_ecs_valid   (x_issue_req_o.ecs_valid)
+          .x_issue_req_ecs_valid   (x_issue_req_o.ecs_valid),
 
           // commit interface
           .x_commit_valid_o    (x_commit_valid_o),
