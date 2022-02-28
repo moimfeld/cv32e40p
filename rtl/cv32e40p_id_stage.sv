@@ -972,8 +972,8 @@ module cv32e40p_id_stage
           .x_issue_resp_loadstore_i(x_issue_resp_i.loadstore),
           .x_issue_req_rs_valid_o  (x_issue_req_o.rs_valid),
           .x_issue_req_id_o        (x_issue_req_o.id),
-          .x_issue_req_frs_valid_o (x_issue_req_o.frs_valid),
           .x_issue_req_mode_o      (x_issue_req_o.mode),
+          .x_issue_req_ecs_valid   (x_issue_req_o.ecs_valid)
 
           // commit interface
           .x_commit_valid_o    (x_commit_valid_o),
@@ -988,6 +988,7 @@ module cv32e40p_id_stage
           .x_mem_req_last_i    (x_mem_req_i.last),
           .x_mem_resp_exc_o    (x_mem_resp_o.exc),
           .x_mem_resp_exccode_o(x_mem_resp_o.exccode),
+          .x_mem_resp_dbg_o    (x_mem_resp_o.dbg),
 
           // memory result interface
           .x_mem_result_valid_o(x_mem_result_valid_o),
@@ -1035,6 +1036,7 @@ module cv32e40p_id_stage
 
       // x-dispatcher signal assignments
       assign x_issue_req_o.instr = instr;
+      assign x_issue_req_o.ecs = '0;
       assign x_rs_addr[0] = regfile_addr_ra_id[4:0];
       assign x_rs_addr[1] = regfile_addr_rb_id[4:0];
       assign x_rs_addr[2] = regfile_addr_rc_id[4:0];
@@ -1044,8 +1046,6 @@ module cv32e40p_id_stage
       assign regs_used = {regc_used, regb_used, rega_used};
       assign x_result_valid_assigned_o = x_result_valid_i;
       assign x_mem_valid = x_mem_valid_i;
-      assign x_issue_req_o.frs[0] = '0;  // hardwired to 0 according to specs
-      assign x_issue_req_o.frs[1] = '0;  // hardwired to 0 according to specs
 
       // xif integer souce operand selection
       for (genvar i = 0; i < 3; i++) begin : xif_operand_assignment
