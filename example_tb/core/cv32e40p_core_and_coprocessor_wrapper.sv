@@ -204,7 +204,6 @@ module cv32e40p_core_and_coprocessor_wrapper
       assign x_issue_ready          = '0;
       assign x_issue_resp.accept    = '0;
       assign x_issue_resp.writeback = '0;
-      assign x_issue_resp.float     = '0;
       assign x_issue_resp.dualwrite = '0;
       assign x_issue_resp.dualread  = '0;
       assign x_issue_resp.loadstore = '0;
@@ -224,9 +223,10 @@ module cv32e40p_core_and_coprocessor_wrapper
       assign x_result.data          = '0;
       assign x_result.rd            = '0;
       assign x_result.we            = '0;
-      assign x_result.float         = '0;
       assign x_result.exc           = '0;
       assign x_result.exccode       = '0;
+      assign x_result.ecswe         = '0;
+      assign x_result.ecsdata       = '0;
     end
   endgenerate
 
