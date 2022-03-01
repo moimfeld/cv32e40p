@@ -66,7 +66,7 @@ export DESIGN_RTL_DIR	 = $(RTLSRC_HOME)/rtl
 CV_CORE_MANIFEST	:= $(RTLSRC_HOME)/cv32e40p_manifest.flist
 RTLSRC_TB_PKG		:= include/perturbation_pkg.sv
 RTLSRC_TB_TOP		:= tb_top.sv
-RTLSRC_TB		:= $(wildcard *.sv))
+RTLSRC_TB		:= $(wildcard *.sv)
 
 RTLSRC_CV_X_IF_TB		:=  $(wildcard *.sv) $(wildcard $(RTLSRC_HOME)/rtl/fpu_ss/src/*.sv) $(wildcard $(RTLSRC_HOME)/rtl/fpu_ss/bhv/*.sv)
 RTLSRC_CV_X_IF_INCDIR		:=
