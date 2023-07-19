@@ -37,7 +37,8 @@ module cv32e40p_core
     parameter FPU_ADDMUL_LAT = 0,  // Floating-Point ADDition/MULtiplication lane pipeline registers number
     parameter FPU_OTHERS_LAT = 0,  // Floating-Point COMParison/CONVersion lanes pipeline registers number
     parameter ZFINX = 0,  // Float-in-General Purpose registers
-    parameter NUM_MHPMCOUNTERS = 1
+    parameter NUM_MHPMCOUNTERS = 1,
+    parameter COREV_X_IF = 0
 ) (
     // Clock and Reset
     input logic clk_i,
@@ -82,6 +83,30 @@ module cv32e40p_core
     input  logic                              apu_rvalid_i,
     input  logic [                31:0]       apu_result_i,
     input  logic [APU_NUSFLAGS_CPU-1:0]       apu_flags_i,
+
+
+    // X-Interface
+    // X-Request Channel
+    output logic              x_valid_o,
+    input  logic              x_ready_i,
+    output logic [ 2:0][31:0] x_rs_o,
+    output logic [ 2:0]       x_rs_valid_o,
+    output logic              x_rd_clean_o,
+    input  logic              x_accept_i,
+    input  logic              x_is_mem_op_i,
+    input  logic              x_writeback_i,
+    // X-Response Channel
+    input  logic              x_rvalid_i,
+    output logic              x_rready_o,
+    input  logic              x_rd_i,
+    input  logic [31:0]       x_data_i,
+    input  logic              x_dualwb_i,  // Moritz: not handled yet
+    input  logic              x_type_i,  // Moritz: not handled yet
+    input  logic              x_error_i,  // Moritz: not handled yet
+    // XMem-Request Channel
+
+    // XMem-Response Channel
+
 
     // Interrupt inputs
     input  logic [31:0] irq_i,  // CLINT interrupts + CLINT extension interrupts
@@ -630,6 +655,19 @@ module cv32e40p_core
       .apu_perf_dep_o        (perf_apu_dep),
       .apu_busy_i            (apu_busy),
 
+      // X-Interface
+      .x_valid_o             (x_valid_o),
+      .x_ready_i             (x_ready_i),
+      .x_rs_o                (x_rs_o),
+      .x_rs_valid_o          (x_rs_valid_o),
+      .x_rd_clean_o          (x_rd_clean_o),
+      .x_accept_i            (x_accept_i),
+      .x_is_mem_op_i         (x_is_mem_op_i),
+      .x_writeback_i         (x_writeback_i),
+      .x_rvalid_i            (x_rvalid_i),
+      .x_rd_i                (x_rd_i),
+
+
       // CSR ID/EX
       .csr_access_ex_o      (csr_access_ex),
       .csr_op_ex_o          (csr_op_ex),
@@ -813,6 +851,13 @@ module cv32e40p_core
       // response channel
       .apu_rvalid_i  (apu_rvalid_i),
       .apu_result_i  (apu_result_i),
+
+      // X-Interface
+      .x_rvalid_i(1'b0),
+      // .x_rvalid_i                 ( x_rvalid_i                   ),
+      .x_rd_i    (x_rd_i),
+      .x_data_i  (x_data_i),
+
 
       .lsu_en_i   (data_req_ex),
       .lsu_rdata_i(lsu_rdata),

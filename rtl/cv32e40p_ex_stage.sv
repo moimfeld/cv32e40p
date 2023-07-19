@@ -94,6 +94,11 @@ module cv32e40p_ex_stage
     input  logic [1:0]      apu_write_regs_valid_i,
     output logic            apu_write_dep_o,
 
+    // X-Interface
+    input logic        x_rvalid_i,
+    input logic        x_rd_i,
+    input logic [31:0] x_data_i,
+
     output logic apu_perf_type_o,
     output logic apu_perf_cont_o,
     output logic apu_perf_wb_o,
@@ -183,21 +188,27 @@ module cv32e40p_ex_stage
     regfile_alu_we_fw_o    = '0;
     wb_contention          = 1'b0;
 
-    // APU single cycle operations, and multicycle operations (>2cycles) are written back on ALU port
-    if (apu_valid & (apu_singlecycle | apu_multicycle)) begin
+    if (x_rvalid_i) begin
       regfile_alu_we_fw_o    = 1'b1;
-      regfile_alu_waddr_fw_o = apu_waddr;
-      regfile_alu_wdata_fw_o = apu_result;
-
-      if (regfile_alu_we_i & ~apu_en_i) begin
-        wb_contention = 1'b1;
-      end
+      regfile_alu_waddr_fw_o = x_rd_i;
+      regfile_alu_wdata_fw_o = x_data_i;
     end else begin
-      regfile_alu_we_fw_o    = regfile_alu_we_i & ~apu_en_i;  // private fpu incomplete?
-      regfile_alu_waddr_fw_o = regfile_alu_waddr_i;
-      if (alu_en_i) regfile_alu_wdata_fw_o = alu_result;
-      if (mult_en_i) regfile_alu_wdata_fw_o = mult_result;
-      if (csr_access_i) regfile_alu_wdata_fw_o = csr_rdata_i;
+      // APU single cycle operations, and multicycle operations (>2cycles) are written back on ALU port
+      if (apu_valid & (apu_singlecycle | apu_multicycle)) begin
+        regfile_alu_we_fw_o    = 1'b1;
+        regfile_alu_waddr_fw_o = apu_waddr;
+        regfile_alu_wdata_fw_o = apu_result;
+
+        if (regfile_alu_we_i & ~apu_en_i) begin
+          wb_contention = 1'b1;
+        end
+      end else begin
+        regfile_alu_we_fw_o    = regfile_alu_we_i & ~apu_en_i;  // private fpu incomplete?
+        regfile_alu_waddr_fw_o = regfile_alu_waddr_i;
+        if (alu_en_i) regfile_alu_wdata_fw_o = alu_result;
+        if (mult_en_i) regfile_alu_wdata_fw_o = mult_result;
+        if (csr_access_i) regfile_alu_wdata_fw_o = csr_rdata_i;
+      end
     end
   end
 
